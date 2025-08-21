@@ -19,11 +19,13 @@ const router = Router()
  */
 router.get('/auth/login', (req: ExtendedRequest, res: Response) => {
   try {
-    const authUrl = generateSolapiAuthUrl()
+    const state = SolapiService.generateState()
+    const authUrl = generateSolapiAuthUrl(state)
     
     return res.json({
       success: true,
       authUrl,
+      state, // 클라이언트에서 콜백 검증을 위해 반환
       message: 'SOLAPI 인증 URL이 생성되었습니다.'
     })
   } catch (error: any) {
@@ -40,7 +42,7 @@ router.get('/auth/login', (req: ExtendedRequest, res: Response) => {
  */
 router.get('/auth/callback', async (req: ExtendedRequest, res: Response) => {
   try {
-    const { code } = req.query
+    const { code, state } = req.query
 
     if (!code) {
       return res.status(400).json({
@@ -49,8 +51,8 @@ router.get('/auth/callback', async (req: ExtendedRequest, res: Response) => {
       })
     }
 
-    // 코드를 토큰으로 교환
-    const tokens = await SolapiService.exchangeCodeForTokens(code as string)
+    // 코드를 토큰으로 교환 (state 검증 포함)
+    const tokens = await SolapiService.exchangeCodeForTokens(code as string, state as string)
 
     // 세션에 토큰 저장
     req.session.solapiTokens = tokens
@@ -287,6 +289,48 @@ router.post('/send-delivery-complete', async (req: ExtendedRequest, res: Respons
 })
 
 /**
+ * Hello World 메시지 발송 (OAuth2 방식)
+ */
+router.post('/send-hello-world', async (req: ExtendedRequest, res: Response) => {
+  try {
+    const tokens = req.session.solapiTokens
+    const { to, from } = req.body
+
+    if (!tokens) {
+      return res.status(401).json({
+        success: false,
+        message: 'SOLAPI 인증이 필요합니다.',
+        requireAuth: true
+      })
+    }
+
+    if (!to || !from) {
+      return res.status(400).json({
+        success: false,
+        message: '수신번호(to), 발신번호(from)가 필요합니다.'
+      })
+    }
+
+    // Hello World SMS 발송
+    const result = await SolapiService.sendSMS(tokens, to, 'Hello world', from)
+
+    return res.json({
+      success: result.success,
+      data: result,
+      message: result.success ? 
+        `${to} 번호로 Hello world 메시지가 발송되었습니다!` : 
+        result.errorMessage || 'Hello world 메시지 발송에 실패했습니다.'
+    })
+  } catch (error: any) {
+    console.error('Hello world 발송 실패:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Hello world 메시지 발송에 실패했습니다.'
+    })
+  }
+})
+
+/**
  * SOLAPI 인증 해제
  */
 router.post('/auth/logout', (req: ExtendedRequest, res: Response) => {
@@ -295,6 +339,24 @@ router.post('/auth/logout', (req: ExtendedRequest, res: Response) => {
   return res.json({
     success: true,
     message: 'SOLAPI 계정 연결이 해제되었습니다.'
+  })
+})
+
+/**
+ * SOLAPI 환경변수 확인 (개발용)
+ */
+router.get('/debug/config', (req: ExtendedRequest, res: Response) => {
+  const hasClientId = !!process.env.SOLAPI_CLIENT_ID && process.env.SOLAPI_CLIENT_ID !== 'your-solapi-client-id'
+  const hasClientSecret = !!process.env.SOLAPI_CLIENT_SECRET && process.env.SOLAPI_CLIENT_SECRET !== 'your-solapi-client-secret'
+  
+  return res.json({
+    success: true,
+    config: {
+      hasClientId,
+      hasClientSecret,
+      clientIdLength: process.env.SOLAPI_CLIENT_ID?.length || 0,
+      redirectUri: process.env.SOLAPI_REDIRECT_URI
+    }
   })
 })
 

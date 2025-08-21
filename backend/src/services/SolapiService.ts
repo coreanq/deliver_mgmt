@@ -34,28 +34,76 @@ export interface MessageSendResult {
 
 export class SolapiService {
   private tokens: SolapiTokens | null = null
+  private stateStore: Map<string, number> = new Map() // CSRF 방지용 state 저장소
+
+  /**
+   * OAuth2 인증용 state 생성 및 저장
+   */
+  generateState(): string {
+    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    this.stateStore.set(state, Date.now())
+    return state
+  }
+
+  /**
+   * State 유효성 검증 (CSRF 방지)
+   */
+  validateState(state: string): boolean {
+    if (!this.stateStore.has(state)) {
+      return false
+    }
+    
+    const timestamp = this.stateStore.get(state)!
+    const isValid = Date.now() - timestamp < 10 * 60 * 1000 // 10분 유효
+    
+    // 사용된 state는 제거
+    this.stateStore.delete(state)
+    
+    return isValid
+  }
 
   /**
    * OAuth2 콜백에서 받은 코드로 토큰 교환
    */
-  async exchangeCodeForTokens(code: string): Promise<SolapiTokens> {
+  async exchangeCodeForTokens(code: string, state?: string): Promise<SolapiTokens> {
     try {
-      const response = await axios.post(solapiConfig.tokenUrl, {
+      // State 파라미터 검증 (제공된 경우)
+      if (state && !this.validateState(state)) {
+        throw new Error('Invalid or expired state parameter')
+      }
+
+      // OAuth2 표준에 따른 form-urlencoded 형식
+      const params = new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         client_id: solapiConfig.clientId,
         client_secret: solapiConfig.clientSecret,
         redirect_uri: solapiConfig.redirectUri
-      }, {
+      })
+
+      const response = await axios.post(solapiConfig.tokenUrl, params, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         }
       })
 
       this.tokens = response.data
       return response.data
     } catch (error: any) {
-      console.error('SOLAPI 토큰 교환 실패:', error.response?.data || error.message)
+      console.error('SOLAPI 토큰 교환 실패:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      })
+      
+      // 더 구체적인 에러 메시지 제공
+      if (error.response?.status === 400) {
+        throw new Error('잘못된 인증 코드이거나 만료된 코드입니다.')
+      } else if (error.response?.status === 401) {
+        throw new Error('클라이언트 인증 정보가 올바르지 않습니다.')
+      }
+      
       throw new Error('SOLAPI 인증에 실패했습니다.')
     }
   }
@@ -65,14 +113,16 @@ export class SolapiService {
    */
   async refreshTokens(refreshToken: string): Promise<SolapiTokens> {
     try {
-      const response = await axios.post(solapiConfig.tokenUrl, {
+      const params = new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
         client_id: solapiConfig.clientId,
         client_secret: solapiConfig.clientSecret
-      }, {
+      })
+
+      const response = await axios.post(solapiConfig.tokenUrl, params, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         }
       })
 
@@ -85,18 +135,44 @@ export class SolapiService {
   }
 
   /**
+   * 토큰 자동 갱신을 포함한 API 호출
+   */
+  private async makeAuthenticatedRequest(
+    tokens: SolapiTokens, 
+    requestFn: (accessToken: string) => Promise<any>
+  ): Promise<any> {
+    try {
+      return await requestFn(tokens.access_token)
+    } catch (error: any) {
+      // 401 에러 시 토큰 갱신 시도
+      if (error.response?.status === 401 && tokens.refresh_token) {
+        console.log('Access token expired, attempting refresh...')
+        try {
+          const newTokens = await this.refreshTokens(tokens.refresh_token)
+          return await requestFn(newTokens.access_token)
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError)
+          throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.')
+        }
+      }
+      throw error
+    }
+  }
+
+  /**
    * 계정 정보 조회
    */
   async getAccountInfo(tokens: SolapiTokens): Promise<any> {
     try {
-      const response = await axios.get(`${solapiConfig.apiBaseUrl}/cash/v1/balance`, {
-        headers: {
-          'Authorization': `Bearer ${tokens.access_token}`,
-          'Content-Type': 'application/json'
-        }
+      return await this.makeAuthenticatedRequest(tokens, async (accessToken) => {
+        const response = await axios.get(`${solapiConfig.apiBaseUrl}/cash/v1/balance`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        return response.data
       })
-
-      return response.data
     } catch (error: any) {
       console.error('계정 정보 조회 실패:', error.response?.data || error.message)
       throw new Error('계정 정보를 가져올 수 없습니다.')
@@ -108,14 +184,17 @@ export class SolapiService {
    */
   async getSenderIds(tokens: SolapiTokens): Promise<SenderInfo[]> {
     try {
-      const response = await axios.get(`${solapiConfig.apiBaseUrl}/senderid/v1/list`, {
-        headers: {
-          'Authorization': `Bearer ${tokens.access_token}`,
-          'Content-Type': 'application/json'
-        }
+      const result = await this.makeAuthenticatedRequest(tokens, async (accessToken) => {
+        const response = await axios.get(`${solapiConfig.apiBaseUrl}/senderid/v1/list`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        return response.data
       })
 
-      return response.data.senderIdList || []
+      return result.senderIdList || []
     } catch (error: any) {
       console.error('발신번호 조회 실패:', error.response?.data || error.message)
       throw new Error('발신번호 목록을 가져올 수 없습니다.')

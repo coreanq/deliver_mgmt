@@ -7,9 +7,9 @@ export const solapiConfig = {
   clientSecret: process.env.SOLAPI_CLIENT_SECRET!,
   redirectUri: process.env.SOLAPI_REDIRECT_URI!,
   
-  // SOLAPI OAuth2 엔드포인트
-  authUrl: 'https://api.solapi.com/oauth2/authorize',
-  tokenUrl: 'https://api.solapi.com/oauth2/token',
+  // SOLAPI OAuth2 엔드포인트 (공식 문서 기준)
+  authUrl: 'https://api.solapi.com/oauth2/v1/authorize', 
+  tokenUrl: 'https://api.solapi.com/oauth2/v1/access_token',
   
   // API 기본 URL
   apiBaseUrl: 'https://api.solapi.com',
@@ -24,12 +24,13 @@ export const solapiConfig = {
   ]
 }
 
-export const generateSolapiAuthUrl = (): string => {
+export const generateSolapiAuthUrl = (state: string): string => {
   const params = new URLSearchParams({
     client_id: solapiConfig.clientId,
     redirect_uri: solapiConfig.redirectUri,
     scope: solapiConfig.scopes.join(' '),
-    response_type: 'code'
+    response_type: 'code',
+    state: state
   })
 
   return `${solapiConfig.authUrl}?${params.toString()}`

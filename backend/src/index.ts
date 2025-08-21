@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import session from 'express-session'
+import path from 'path'
 import dotenv from 'dotenv'
 import authRoutes from './routes/auth'
 import sheetsRoutes from './routes/sheets'
@@ -34,6 +35,9 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000 // 24시간
   }
 }))
+
+// 정적 파일 서빙 (테스트 페이지용)
+app.use('/test', express.static(path.join(__dirname, '../public')))
 
 // 라우트 설정
 app.use('/api/auth', authRoutes)

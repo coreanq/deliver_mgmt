@@ -11,7 +11,15 @@
       "Bash(mkdir:*)",
       "Bash(npm run dev:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:solapi.com)",
+      "Bash(rm:*)",
+      "WebFetch(domain:developers.solapi.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(lsof:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
