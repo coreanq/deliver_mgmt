@@ -25,6 +25,7 @@ node_modules/
 .DS_Store
 
 .env
+.mcp.json
 
 # Task files
 # tasks.json

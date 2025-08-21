@@ -1,0 +1,210 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Project Setup and Configuration",
+        "description": "Initialize the project repository with Node.js backend and Vue.js frontend structure",
+        "details": "Create a new project with the following structure:\n1. Backend: Express.js server with TypeScript\n2. Frontend: Vue 3 with Vite and Composition API\n\nSetup package.json with required dependencies:\n```json\n// Backend dependencies\n{\n  \"express\": \"^4.18.0\",\n  \"cors\": \"^2.8.5\",\n  \"dotenv\": \"^16.0.0\",\n  \"jsonwebtoken\": \"^9.0.0\",\n  \"express-session\": \"^1.17.0\",\n  \"winston\": \"^3.8.0\"\n}\n\n// Frontend dependencies\n{\n  \"vue\": \"^3.3.0\",\n  \"vue-router\": \"^4.2.0\",\n  \"pinia\": \"^2.1.0\",\n  \"axios\": \"^1.4.0\",\n  \"vuetify\": \"^3.3.0\"\n}\n```\n\nConfigure ESLint and Prettier for code formatting. Set up environment variables with .env files for both backend and frontend. Initialize Git repository with appropriate .gitignore file.",
+        "testStrategy": "Verify project structure is correctly set up. Ensure all dependencies can be installed without errors. Test that the development server can be started for both backend and frontend. Validate ESLint and Prettier configurations work correctly.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Google OAuth2 Authentication Implementation",
+        "description": "Implement Google OAuth2 authentication for connecting to Google Sheets",
+        "details": "Use the googleapis library to implement OAuth2 authentication flow:\n\n```javascript\nconst { google } = require('googleapis');\n\n// Create OAuth2 client\nconst oauth2Client = new google.auth.OAuth2(\n  process.env.GOOGLE_CLIENT_ID,\n  process.env.GOOGLE_CLIENT_SECRET,\n  process.env.GOOGLE_REDIRECT_URI\n);\n\n// Generate authentication URL\nconst authUrl = oauth2Client.generateAuthUrl({\n  access_type: 'offline',\n  scope: ['https://www.googleapis.com/auth/spreadsheets']\n});\n\n// Handle callback and token exchange\nasync function handleCallback(code) {\n  const { tokens } = await oauth2Client.getToken(code);\n  oauth2Client.setCredentials(tokens);\n  // Store tokens securely\n  return tokens;\n}\n```\n\nCreate API endpoints for initiating OAuth flow and handling callbacks. Implement secure token storage using express-session or similar mechanism. Add refresh token handling for maintaining long-term access.",
+        "testStrategy": "Test OAuth2 flow by initiating authentication and verifying token retrieval. Validate token refresh mechanism works correctly. Ensure error handling for failed authentication attempts. Test with mock Google responses for various scenarios.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Google Sheets API Integration",
+        "description": "Implement Google Sheets API integration for reading and writing delivery data",
+        "details": "Use the Google Sheets API v4 to interact with spreadsheets:\n\n```javascript\nasync function getSheetData(spreadsheetId, sheetName) {\n  const sheets = google.sheets({ version: 'v4', auth: oauth2Client });\n  const range = `${sheetName}!A:D`;\n  \n  const response = await sheets.spreadsheets.values.get({\n    spreadsheetId,\n    range,\n  });\n  \n  return response.data.values;\n}\n\nasync function updateSheetData(spreadsheetId, sheetName, row, column, value) {\n  const sheets = google.sheets({ version: 'v4', auth: oauth2Client });\n  const range = `${sheetName}!${column}${row}`;\n  \n  await sheets.spreadsheets.values.update({\n    spreadsheetId,\n    range,\n    valueInputOption: 'USER_ENTERED',\n    resource: {\n      values: [[value]]\n    }\n  });\n}\n```\n\nImplement functions for:\n1. Listing available spreadsheets\n2. Creating new sheets for delivery staff\n3. Reading delivery data from specific sheets\n4. Updating delivery status in the D column\n5. Setting up real-time synchronization using polling",
+        "testStrategy": "Test sheet reading and writing with a test spreadsheet. Verify correct handling of sheet creation and modification. Test error handling for API limits and permission issues. Validate real-time synchronization works within performance requirements (30 orders synced within 10 seconds).",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Admin Settings Page UI",
+        "description": "Create the admin settings page for Google Sheets and SOLAPI integration",
+        "details": "Develop a Vue.js component for the admin settings page with the following features:\n\n1. Google Sheets connection section:\n```vue\n<template>\n  <v-card>\n    <v-card-title>Google Sheets Connection</v-card-title>\n    <v-card-text>\n      <div v-if=\"!isConnected\">\n        <v-btn color=\"primary\" @click=\"connectGoogleSheets\">\n          Connect Google Sheets\n        </v-btn>\n      </div>\n      <div v-else>\n        <div class=\"connection-status\">\n          <v-icon color=\"green\">mdi-check-circle</v-icon>\n          Connected to: {{ spreadsheetName }}\n        </div>\n        <v-btn text @click=\"disconnectGoogleSheets\">Disconnect</v-btn>\n        <v-btn text @click=\"connectDifferentSheet\">Connect Different Sheet</v-btn>\n      </div>\n    </v-card-text>\n  </v-card>\n</template>\n```\n\n2. SOLAPI connection section\n3. Delivery staff management section for creating staff sheets\n4. QR code generation and download functionality\n\nImplement the necessary Pinia store for managing connection states and API interactions.",
+        "testStrategy": "Test UI rendering and responsive design on different screen sizes. Verify all buttons trigger the correct actions. Test connection status updates correctly based on API responses. Validate form validation for required fields. Test with mock API responses for various scenarios.",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "SOLAPI OAuth2 Integration",
+        "description": "Implement SOLAPI OAuth2 authentication for message sending capabilities",
+        "details": "Implement SOLAPI OAuth2 authentication flow:\n\n```javascript\n// Generate SOLAPI OAuth URL\nfunction generateSolapiAuthUrl() {\n  const clientId = process.env.SOLAPI_CLIENT_ID;\n  const redirectUri = process.env.SOLAPI_REDIRECT_URI;\n  const scope = 'message:write cash:read senderid:read kakao:write kakao:read';\n  \n  return `https://api.solapi.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code`;\n}\n\n// Handle callback and token exchange\nasync function handleSolapiCallback(code) {\n  const clientId = process.env.SOLAPI_CLIENT_ID;\n  const clientSecret = process.env.SOLAPI_CLIENT_SECRET;\n  const redirectUri = process.env.SOLAPI_REDIRECT_URI;\n  \n  const response = await axios.post('https://api.solapi.com/oauth2/token', {\n    grant_type: 'authorization_code',\n    code,\n    client_id: clientId,\n    client_secret: clientSecret,\n    redirect_uri: redirectUri\n  });\n  \n  return response.data;\n}\n```\n\nImplement API endpoints for:\n1. Initiating SOLAPI OAuth flow\n2. Handling callbacks and token exchange\n3. Refreshing tokens when expired\n4. Retrieving account information and sender IDs\n5. Fetching and managing message templates",
+        "testStrategy": "Test OAuth2 flow with SOLAPI by initiating authentication and verifying token retrieval. Validate token refresh mechanism works correctly. Test error handling for failed authentication attempts. Verify sender ID retrieval and template management functions work as expected.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "QR Code Generation System",
+        "description": "Implement QR code generation for delivery staff authentication",
+        "details": "Use the qrcode library to generate QR codes for delivery staff:\n\n```javascript\nconst qrcode = require('qrcode');\nconst jwt = require('jsonwebtoken');\n\n// Generate token for staff\nfunction generateStaffToken(staffName) {\n  const secretKey = process.env.JWT_SECRET;\n  const token = jwt.sign(\n    { staff: staffName, date: new Date().toISOString().split('T')[0] },\n    secretKey,\n    { expiresIn: '7d' }\n  );\n  return token;\n}\n\n// Generate QR code URL\nfunction generateStaffQrUrl(staffName) {\n  const token = generateStaffToken(staffName);\n  const baseUrl = process.env.APP_URL;\n  return `${baseUrl}/delivery?staff=${encodeURIComponent(staffName)}&token=${token}`;\n}\n\n// Generate QR code as data URL\nasync function generateStaffQrCode(staffName) {\n  const url = generateStaffQrUrl(staffName);\n  return await qrcode.toDataURL(url);\n}\n```\n\nImplement API endpoints for:\n1. Generating QR codes for specific staff members\n2. Verifying QR code tokens\n3. Validating staff name matches with token\n\nCreate a Vue component for displaying and downloading QR codes in the admin interface.",
+        "testStrategy": "Test QR code generation with various staff names. Verify QR codes contain the correct URL format. Test token validation with valid and invalid tokens. Ensure QR codes can be properly scanned by mobile devices. Test the name verification process works correctly.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Delivery Staff Authentication System",
+        "description": "Implement the two-step authentication system for delivery staff",
+        "details": "Create a two-step authentication system:\n\n1. QR code scanning (first step)\n2. Name verification (second step)\n\n```javascript\n// Verify staff token from QR code\nfunction verifyStaffToken(token, staffName) {\n  try {\n    const secretKey = process.env.JWT_SECRET;\n    const decoded = jwt.verify(token, secretKey);\n    return decoded.staff === staffName;\n  } catch (error) {\n    return false;\n  }\n}\n\n// API endpoint for staff authentication\napp.post('/api/delivery/auth', (req, res) => {\n  const { token, staffName, inputName } = req.body;\n  \n  // Verify token is valid\n  if (!verifyStaffToken(token, staffName)) {\n    return res.status(401).json({ error: 'Invalid token' });\n  }\n  \n  // Verify input name matches staff name exactly\n  if (inputName !== staffName) {\n    return res.status(401).json({ error: 'Name does not match' });\n  }\n  \n  // Create session for authenticated staff\n  req.session.staff = staffName;\n  req.session.authenticated = true;\n  \n  return res.json({ success: true });\n});\n```\n\nCreate Vue components for:\n1. QR code scanning page (using device camera)\n2. Name verification form\n3. Error messages for failed authentication",
+        "testStrategy": "Test authentication flow with valid and invalid QR codes. Verify name matching is case-sensitive and exact. Test error handling for incorrect names. Ensure session is properly created after successful authentication. Test on multiple mobile devices and browsers.",
+        "priority": "high",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Delivery Staff Order Management UI",
+        "description": "Create the mobile-optimized UI for delivery staff to view and update order status",
+        "details": "Develop a Vue.js component for the delivery staff interface:\n\n```vue\n<template>\n  <div class=\"delivery-staff-app\">\n    <div class=\"header\">\n      <h1>{{ staffName }}님의 배달 목록</h1>\n      <div class=\"progress\">\n        <span>완료: {{ completedOrders }} / {{ totalOrders }}</span>\n        <v-progress-linear\n          :value=\"(completedOrders / totalOrders) * 100\"\n          color=\"success\"\n        ></v-progress-linear>\n      </div>\n    </div>\n    \n    <div class=\"orders-list\">\n      <v-card v-for=\"order in orders\" :key=\"order.id\" class=\"order-card mb-4\">\n        <v-card-title>{{ order.customerName }}</v-card-title>\n        <v-card-subtitle>{{ order.address }}</v-card-subtitle>\n        <v-card-text>\n          <p>연락처: {{ order.phone }}</p>\n          <p>상태: {{ getStatusText(order.status) }}</p>\n        </v-card-text>\n        <v-card-actions>\n          <v-btn\n            v-if=\"order.status === 'waiting'\"\n            color=\"primary\"\n            @click=\"updateStatus(order.id, 'preparing')\"\n          >\n            배달 준비중\n          </v-btn>\n          <v-btn\n            v-if=\"order.status === 'preparing'\"\n            color=\"info\"\n            @click=\"updateStatus(order.id, 'departed')\"\n          >\n            배달 출발\n          </v-btn>\n          <v-btn\n            v-if=\"order.status === 'departed'\"\n            color=\"success\"\n            @click=\"updateStatus(order.id, 'completed')\"\n          >\n            배달 완료\n          </v-btn>\n        </v-card-actions>\n      </v-card>\n    </div>\n  </div>\n</template>\n```\n\nImplement the necessary Pinia store for managing orders and status updates. Create API service for fetching orders and updating status. Ensure the UI is optimized for mobile devices with touch-friendly buttons and responsive layout.",
+        "testStrategy": "Test UI rendering on various mobile device sizes. Verify order status updates correctly reflect in the UI. Test progress tracking accuracy. Ensure buttons are appropriately disabled/enabled based on current status. Test with mock data for various order scenarios.",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "SOLAPI Message Sending Implementation",
+        "description": "Implement KakaoTalk message sending via SOLAPI when delivery is completed",
+        "details": "Use the SOLAPI SDK to send KakaoTalk messages:\n\n```javascript\nconst { SolapiMessageService } = require('solapi');\n\n// Initialize SOLAPI with OAuth token\nfunction initSolapi(accessToken) {\n  return new SolapiMessageService({\n    auth: { accessToken }\n  });\n}\n\n// Send KakaoTalk message on delivery completion\nasync function sendDeliveryCompletionMessage(customerName, phoneNumber) {\n  const messageService = initSolapi(getStoredAccessToken());\n  \n  try {\n    const result = await messageService.sendOne({\n      to: phoneNumber,\n      from: process.env.SOLAPI_SENDER_ID,\n      kakaoOptions: {\n        pfId: process.env.SOLAPI_PFID,\n        templateId: process.env.SOLAPI_TEMPLATE_ID,\n        variables: {\n          \"#{고객명}\": customerName\n        }\n      }\n    });\n    \n    return { success: true, messageId: result.messageId };\n  } catch (error) {\n    console.error('Failed to send message:', error);\n    return { success: false, error: error.message };\n  }\n}\n```\n\nImplement API endpoint for sending messages when delivery status is updated to 'completed'. Add error handling and retry mechanism for failed message sending. Create a notification system to inform delivery staff about message sending status.",
+        "testStrategy": "Test message sending with test phone numbers. Verify variable replacement works correctly in templates. Test error handling for various SOLAPI error responses. Validate message is only sent when status changes to 'completed'. Test retry mechanism for failed message sending.",
+        "priority": "high",
+        "dependencies": [
+          5,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Real-time Spreadsheet Synchronization",
+        "description": "Implement real-time synchronization between the application and Google Sheets",
+        "details": "Create a polling mechanism to synchronize spreadsheet data:\n\n```javascript\nclass SheetSyncService {\n  constructor(spreadsheetId, interval = 5000) {\n    this.spreadsheetId = spreadsheetId;\n    this.interval = interval;\n    this.lastSyncTime = {};\n    this.syncIntervals = {};\n  }\n  \n  // Start syncing a specific sheet\n  startSync(sheetName) {\n    if (this.syncIntervals[sheetName]) return;\n    \n    this.lastSyncTime[sheetName] = Date.now();\n    this.syncIntervals[sheetName] = setInterval(async () => {\n      await this.syncSheet(sheetName);\n    }, this.interval);\n  }\n  \n  // Stop syncing a specific sheet\n  stopSync(sheetName) {\n    if (this.syncIntervals[sheetName]) {\n      clearInterval(this.syncIntervals[sheetName]);\n      delete this.syncIntervals[sheetName];\n    }\n  }\n  \n  // Sync sheet data\n  async syncSheet(sheetName) {\n    try {\n      const data = await getSheetData(this.spreadsheetId, sheetName);\n      // Process and store the data\n      // Emit events for changes\n      this.lastSyncTime[sheetName] = Date.now();\n    } catch (error) {\n      console.error(`Failed to sync sheet ${sheetName}:`, error);\n    }\n  }\n}\n```\n\nImplement a caching layer to reduce API calls to Google Sheets. Create event emitters for notifying the frontend about data changes. Ensure synchronization meets the performance requirement (30 orders synced within 10 seconds).",
+        "testStrategy": "Test synchronization with various update frequencies. Measure sync performance with different numbers of orders. Test error recovery when Google API fails. Verify changes made in the spreadsheet are reflected in the application within the required time frame. Test concurrent updates from multiple users.",
+        "priority": "medium",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Delivery Status Management System",
+        "description": "Implement the delivery status management system for tracking order progress",
+        "details": "Create a status management system for delivery orders:\n\n```javascript\n// Status transition validation\nconst validTransitions = {\n  'waiting': ['preparing'],\n  'preparing': ['departed'],\n  'departed': ['completed'],\n  'completed': []\n};\n\n// Update order status\nasync function updateOrderStatus(spreadsheetId, sheetName, rowIndex, newStatus) {\n  // Get current status\n  const data = await getSheetData(spreadsheetId, sheetName);\n  const currentStatus = data[rowIndex][3] || 'waiting';\n  \n  // Validate status transition\n  if (!validTransitions[currentStatus].includes(newStatus)) {\n    throw new Error(`Invalid status transition from ${currentStatus} to ${newStatus}`);\n  }\n  \n  // Update status in spreadsheet\n  await updateSheetData(spreadsheetId, sheetName, rowIndex + 1, 'D', newStatus);\n  \n  // If status is 'completed', send notification\n  if (newStatus === 'completed') {\n    const customerName = data[rowIndex][0];\n    const phoneNumber = data[rowIndex][1];\n    await sendDeliveryCompletionMessage(customerName, phoneNumber);\n  }\n  \n  return { success: true, newStatus };\n}\n```\n\nImplement API endpoint for updating order status. Create a status tracking system in the frontend. Ensure status changes are immediately reflected in the Google Sheet.",
+        "testStrategy": "Test all valid status transitions. Verify invalid transitions are properly rejected. Test status updates are correctly written to the spreadsheet. Verify completion status triggers message sending. Test concurrent status updates from multiple delivery staff.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Logging and Error Handling System",
+        "description": "Implement comprehensive logging and error handling throughout the application",
+        "details": "Set up Winston for logging:\n\n```javascript\nconst winston = require('winston');\n\n// Create logger instance\nconst logger = winston.createLogger({\n  level: 'info',\n  format: winston.format.combine(\n    winston.format.timestamp(),\n    winston.format.json()\n  ),\n  defaultMeta: { service: 'delivery-app' },\n  transports: [\n    new winston.transports.File({ filename: 'error.log', level: 'error' }),\n    new winston.transports.File({ filename: 'combined.log' }),\n    new winston.transports.Console({\n      format: winston.format.combine(\n        winston.format.colorize(),\n        winston.format.simple()\n      )\n    })\n  ]\n});\n\n// Global error handler for Express\nfunction errorHandler(err, req, res, next) {\n  logger.error({\n    message: err.message,\n    stack: err.stack,\n    path: req.path,\n    method: req.method,\n    body: req.body\n  });\n  \n  res.status(500).json({\n    error: 'An unexpected error occurred',\n    requestId: req.id // Assuming request ID middleware\n  });\n}\n```\n\nImplement structured logging throughout the application. Create error handling middleware for the Express backend. Implement frontend error tracking and reporting. Set up monitoring for critical operations like message sending and spreadsheet synchronization.",
+        "testStrategy": "Test logging with various error scenarios. Verify logs contain all necessary information for debugging. Test error handling middleware correctly captures and formats errors. Validate frontend error reporting works as expected. Test log rotation and management.",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Security Implementation",
+        "description": "Implement security measures for authentication, data protection, and access control",
+        "details": "Implement security measures:\n\n1. JWT token security:\n```javascript\n// Generate secure JWT token\nfunction generateSecureToken(data) {\n  const secretKey = process.env.JWT_SECRET;\n  return jwt.sign(data, secretKey, {\n    expiresIn: '1d',\n    algorithm: 'HS256'\n  });\n}\n\n// Verify JWT token\nfunction verifyToken(token) {\n  try {\n    const secretKey = process.env.JWT_SECRET;\n    return jwt.verify(token, secretKey);\n  } catch (error) {\n    return null;\n  }\n}\n```\n\n2. Session security for admin and delivery staff\n3. OAuth2 token secure storage\n4. Input validation and sanitization\n5. CORS configuration\n6. Rate limiting for API endpoints\n7. Secure handling of customer phone numbers\n\nImplement middleware for authentication and authorization checks. Create access control for delivery staff to only access their assigned sheets.",
+        "testStrategy": "Test token generation and verification with various payloads. Verify access control prevents unauthorized access to sheets. Test CORS configuration with different origins. Validate rate limiting works as expected. Test input validation with malicious inputs. Verify secure handling of sensitive data like phone numbers.",
+        "priority": "high",
+        "dependencies": [
+          2,
+          5,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Progressive Web App Implementation",
+        "description": "Implement PWA features for mobile-friendly delivery staff experience",
+        "details": "Configure Vue.js application as a Progressive Web App:\n\n1. Create manifest.json:\n```json\n{\n  \"name\": \"Delivery Management System\",\n  \"short_name\": \"DeliveryApp\",\n  \"start_url\": \"/\",\n  \"display\": \"standalone\",\n  \"background_color\": \"#ffffff\",\n  \"theme_color\": \"#4285f4\",\n  \"icons\": [\n    {\n      \"src\": \"/icons/icon-192x192.png\",\n      \"sizes\": \"192x192\",\n      \"type\": \"image/png\"\n    },\n    {\n      \"src\": \"/icons/icon-512x512.png\",\n      \"sizes\": \"512x512\",\n      \"type\": \"image/png\"\n    }\n  ]\n}\n```\n\n2. Implement service worker for offline capabilities\n3. Configure caching strategies for API responses\n4. Add \"Add to Home Screen\" prompt\n5. Optimize for mobile touch interactions\n6. Implement responsive design for all screen sizes\n\nEnsure the PWA works well on both Android and iOS devices.",
+        "testStrategy": "Test PWA installation on Android and iOS devices. Verify offline functionality works as expected. Test \"Add to Home Screen\" functionality. Validate responsive design on various screen sizes. Test touch interactions on mobile devices. Verify service worker updates correctly.",
+        "priority": "low",
+        "dependencies": [
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Deployment Configuration",
+        "description": "Configure deployment setup for production environment",
+        "details": "Set up deployment configuration:\n\n1. PM2 configuration for Node.js backend:\n```json\n{\n  \"apps\": [{\n    \"name\": \"delivery-backend\",\n    \"script\": \"dist/server.js\",\n    \"instances\": \"max\",\n    \"exec_mode\": \"cluster\",\n    \"env\": {\n      \"NODE_ENV\": \"production\"\n    },\n    \"log_date_format\": \"YYYY-MM-DD HH:mm:ss\",\n    \"combine_logs\": true\n  }]\n}\n```\n\n2. Nginx configuration for serving frontend and proxying API requests\n3. Environment variable management for production\n4. Build scripts for frontend and backend\n5. Database backup strategy (for future expansion)\n6. Monitoring setup with PM2\n\nCreate documentation for deployment process and environment setup.",
+        "testStrategy": "Test deployment process in a staging environment. Verify environment variables are correctly loaded. Test Nginx configuration with various request scenarios. Validate PM2 cluster mode works correctly. Test build scripts produce optimized output. Verify monitoring setup correctly tracks application health.",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-21T05:43:45.906Z",
+      "updated": "2025-08-21T05:43:45.906Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

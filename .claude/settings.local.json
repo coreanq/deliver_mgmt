@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__taskmaster-ai__initialize_project",
+      "Bash(cp:*)",
+      "mcp__taskmaster-ai__parse_prd",
+      "mcp__taskmaster-ai__models",
+      "mcp__taskmaster-ai__get_tasks"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "context7",
+    "taskmaster-ai",
+    "playwright"
+  ]
+}

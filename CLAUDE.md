@@ -1,34 +1,39 @@
-# Claude Code Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Task Master AI Instructions
 **Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
 @./.taskmaster/CLAUDE.md
 
-**기본 사항**
-- 한글로 답변한다.
-- 주석은 영어로 달아둔다.
-- 코드 작성시 context7 mcp 를 사용 
+## 프로젝트 개요
+구글 스프레드시트 기반 배달 관리 시스템 (MVP) - QR 코드와 본인 인증을 통한 배달 업무 관리 웹앱
 
-**javascript 작성 시 가이드**
+## 아키텍처 개요
+- **백엔드**: Node.js v22 + Express.js + TypeScript
+- **프론트엔드**: Vue.js 3 + Composition API + Vuetify 3 + TypeScript
+- **데이터 저장**: Google Sheets API (배달담당자별 개별 시트)
+- **인증**: QR 코드 + 본인 이름 확인 (2단계 인증)
+- **메시지 발송**: SOLAPI OAuth2 연동 (배달 완료시만)
 
-- TypeScript 사용
-- UI Element 들은 공통의 모듈에 선언하여 전역으로 import 해서 사용한다.
-- Dark Mode 를 고려해서 색상 설정이 되어야 한다.
-- 반응형 웹
-- 태블릿, Mobile, PC 버전에서 보이도록 UI 구성되야 하며, 가로 보기 세로 보기 고려되야함
-- node.js 를 사용하는 경우 version 22 기준이여야 함
+## 핵심 기능
+1. **구글 스프레드시트 연동**: 배달담당자별 시트 관리 (A:고객명, B:연락처, C:주소, D:배달상태)
+2. **QR 코드 시스템**: 시트명 기반 QR 생성 + 본인 인증
+3. **배달 상태 관리**: "대기" → "준비중" → "출발" → "완료"
+4. **카카오톡 알림**: SOLAPI 연동, 배달 완료시에만 자동 발송
 
-**코드 추가/수정 시 룰**
-
-1. 단일 책임 원칙 (SRP: Single Responsibility Principle)
-목표: 클래스나 모듈은 오직 하나의 변경 이유만을 가져야 합니다. 즉, 하나의 책임만 수행해야 합니다.
-2. 개방-폐쇄 원칙 (OCP: Open/Closed Principle)
-목표: 소프트웨어 엔티티(클래스, 모듈, 함수 등)는 확장에 대해서는 개방되어야 하지만, 수정에 대해서는 폐쇄되어야 합니다. 즉, 새로운 기능을 추가할 때 기존 코드를 수정하지 않아야 합니다.
-3. 리스코프 치환 원칙 (LSP: Liskov Substitution Principle)
-목표: 상위 타입의 객체는 하위 타입의 객체로 치환해도 프로그램의 정확성이 유지되어야 합니다. 즉, 부모 클래스를 사용하는 코드가 자식 클래스로 대체되어도 문제없이 동작해야 합니다.
-4. 인터페이스 분리 원칙 (ISP: Interface Segregation Principle)
-목표: 클라이언트는 자신이 사용하지 않는 메서드에 의존해서는 안 됩니다. 즉, 하나의 거대한 인터페이스보다는 여러 개의 작은 인터페이스가 낫습니다.
-5. 의존성 역전 원칙 (DIP: Dependency Inversion Principle)
-목표: 고수준 모듈은 저수준 모듈에 의존해서는 안 됩니다. 이 두 모듈 모두 추상화에 의존해야 합니다. 추상화는 세부 사항에 의존해서는 안 됩니다. 세부 사항이 추상화에 의존해야 합니다. (즉, 인터페이스나 추상 클래스에 의존하고, 구체 클래스에 직접 의존하지 않습니다.)
-6. 코드 수정 발생 시 코드 수정한 부분의 주석이 알맞게 변경한다.
-7. 기능 추가시 기존에 기능이 이미 추가 되어 있는지 반드시 확인한다.
+## 권장 디렉토리 구조
+```
+/backend          - Node.js/Express API 서버
+  /src
+    /routes       - API 라우트 (auth, sheets, solapi, delivery, qr)
+    /services     - 비즈니스 로직 (GoogleSheetsService, SolapiService)
+    /middleware   - 인증, 로깅 미들웨어
+    /utils        - 공통 유틸리티 (토큰, 해싱)
+/frontend         - Vue.js 3 SPA
+  /src
+    /components   - 재사용 가능한 컴포넌트
+    /views        - 페이지 컴포넌트 (Admin, Delivery)
+    /stores       - Pinia 상태 관리
+    /services     - API 호출 서비스
+```

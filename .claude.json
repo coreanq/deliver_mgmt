@@ -1,0 +1,85 @@
+{
+    "name": "프로젝트 코딩 규칙 및 가이드라인",
+    "description": "TypeScript 기반 반응형 웹 프로젝트 개발 규칙",
+    "version": "1.0.0",
+    
+    "guidelines": {
+      "communication": {
+        "response_language": "한글로 답변",
+        "comment_language": "영어로 주석 작성"
+      },
+      
+      "tools": {
+        "mcp": "context7 mcp 사용"
+      },
+      
+      "technology_stack": {
+        "language": "TypeScript",
+        "nodejs_version": "22",
+        "ui_framework": "공통 모듈 기반 UI Element 사용"
+      },
+      
+      "design_requirements": {
+        "color_scheme": "Dark Mode 지원",
+        "responsive": true,
+        "device_support": [
+          "PC",
+          "Tablet", 
+          "Mobile"
+        ],
+        "orientation_support": [
+          "가로 보기",
+          "세로 보기"
+        ]
+      },
+      
+      "coding_principles": {
+        "solid": {
+          "srp": {
+            "name": "단일 책임 원칙 (Single Responsibility Principle)",
+            "rule": "클래스나 모듈은 오직 하나의 변경 이유만을 가져야 합니다. 즉, 하나의 책임만 수행해야 합니다."
+          },
+          "ocp": {
+            "name": "개방-폐쇄 원칙 (Open/Closed Principle)", 
+            "rule": "소프트웨어 엔티티(클래스, 모듈, 함수 등)는 확장에 대해서는 개방되어야 하지만, 수정에 대해서는 폐쇄되어야 합니다. 즉, 새로운 기능을 추가할 때 기존 코드를 수정하지 않아야 합니다."
+          },
+          "lsp": {
+            "name": "리스코프 치환 원칙 (Liskov Substitution Principle)",
+            "rule": "상위 타입의 객체는 하위 타입의 객체로 치환해도 프로그램의 정확성이 유지되어야 합니다. 즉, 부모 클래스를 사용하는 코드가 자식 클래스로 대체되어도 문제없이 동작해야 합니다."
+          },
+          "isp": {
+            "name": "인터페이스 분리 원칙 (Interface Segregation Principle)",
+            "rule": "클라이언트는 자신이 사용하지 않는 메서드에 의존해서는 안 됩니다. 즉, 하나의 거대한 인터페이스보다는 여러 개의 작은 인터페이스가 낫습니다."
+          },
+          "dip": {
+            "name": "의존성 역전 원칙 (Dependency Inversion Principle)",
+            "rule": "고수준 모듈은 저수준 모듈에 의존해서는 안 됩니다. 이 두 모듈 모두 추상화에 의존해야 합니다. 추상화는 세부 사항에 의존해서는 안 됩니다. 세부 사항이 추상화에 의존해야 합니다. (즉, 인터페이스나 추상 클래스에 의존하고, 구체 클래스에 직접 의존하지 않습니다.)"
+          }
+        }
+      },
+      
+      "code_modification_rules": [
+        "코드 수정 발생 시 코드 수정한 부분의 주석이 알맞게 변경한다.",
+        "기능 추가시 기존에 기능이 이미 추가 되어 있는지 반드시 확인한다."
+      ]
+    },
+    
+    "include": [
+      "src/**/*.ts",
+      "src/**/*.tsx", 
+      "src/**/*.js",
+      "src/**/*.jsx",
+      "*.md",
+      "package.json",
+      "tsconfig.json",
+      ".env"
+    ],
+    
+    "exclude": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "*.log",
+      ".git/**"
+    ]
+  }
