@@ -5,7 +5,13 @@
       "Bash(cp:*)",
       "mcp__taskmaster-ai__parse_prd",
       "mcp__taskmaster-ai__models",
-      "mcp__taskmaster-ai__get_tasks"
+      "mcp__taskmaster-ai__get_tasks",
+      "mcp__taskmaster-ai__next_task",
+      "mcp__taskmaster-ai__set_task_status",
+      "Bash(mkdir:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

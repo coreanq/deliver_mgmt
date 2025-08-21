@@ -8,9 +8,22 @@ dev-debug.log
 
 # Dependency directories
 node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build directories
+backend/dist/
+frontend/dist/
+backend/build/
+frontend/build/
 
 # Environment variables
 .env
+.env.local
+.env.production
+.env.development
+backend/.env
+frontend/.env
 
 # Editor directories and files
 .idea
@@ -23,8 +36,26 @@ node_modules/
 
 # OS specific
 .DS_Store
+Thumbs.db
 
-.env
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+*.coverage
+
+# Temporary files
+tmp/
+temp/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# MCP config (local)
 .mcp.json
 
 # Task files

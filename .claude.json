@@ -16,7 +16,8 @@
       "technology_stack": {
         "language": "TypeScript",
         "nodejs_version": "22",
-        "ui_framework": "공통 모듈 기반 UI Element 사용"
+        "ui_framework": "공통 모듈 기반 UI Element 사용",
+        "build": "vite"
       },
       
       "design_requirements": {
@@ -71,8 +72,7 @@
       "src/**/*.jsx",
       "*.md",
       "package.json",
-      "tsconfig.json",
-      ".env"
+      "tsconfig.json"
     ],
     
     "exclude": [
