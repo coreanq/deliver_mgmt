@@ -2,7 +2,10 @@ import { Router, Response } from 'express'
 import GoogleSheetsService from '../services/GoogleSheetsService'
 import TokenService from '../services/TokenService'
 import SheetMappingService from '../services/SheetMappingService'
-import { requireGoogleAuth, optionalGoogleAuth } from '../middleware/auth'
+import SecurityService from '../services/SecurityService'
+import { requireGoogleAuth, optionalGoogleAuth, requireStaffAuth, requireSheetAccess } from '../middleware/auth'
+import { validateStaffName, validateDeliveryStatus, validateQrToken } from '../middleware/validation'
+import { qrGenerateRateLimit, deliveryUpdateRateLimit } from '../middleware/rateLimiter'
 import { 
   asyncHandler, 
   ValidationError, 
@@ -32,7 +35,7 @@ const router = Router()
  * QR 코드 로그인 API
  * POST /api/delivery/qr-login
  */
-router.post('/qr-login', asyncHandler(async (req: CustomRequest, res: Response) => {
+router.post('/qr-login', qrGenerateRateLimit, asyncHandler(async (req: CustomRequest, res: Response) => {
   const { staffName, token, workDate } = req.body
 
   // 입력값 검증
@@ -184,7 +187,7 @@ router.get('/current-work', asyncHandler(async (req: CustomRequest, res: Respons
  * 배송 상태 업데이트 API (QR 인증 기반)
  * PUT /api/delivery/update-status
  */
-router.put('/update-status', asyncHandler(async (req: CustomRequest, res: Response) => {
+router.put('/update-status', deliveryUpdateRateLimit, validateDeliveryStatus, asyncHandler(async (req: CustomRequest, res: Response) => {
   const deliveryAuth = req.session?.deliveryAuth
   if (!deliveryAuth) {
     throw new AuthenticationError('로그인이 필요합니다.', {
@@ -296,7 +299,7 @@ router.post('/logout', async (req: CustomRequest, res: Response) => {
 /**
  * 배달담당자의 주문 목록 조회 (QR 코드 접근용)
  */
-router.get('/orders/:staffName', optionalGoogleAuth, async (req: CustomRequest, res: Response) => {
+router.get('/orders/:staffName', validateStaffName, requireStaffAuth, requireSheetAccess, async (req: CustomRequest, res: Response) => {
   try {
     // 관리자 인증이 없는 경우 세션에서 연결된 스프레드시트 확인
     const connectedSpreadsheet = req.session?.connectedSpreadsheet
@@ -360,7 +363,7 @@ router.get('/orders/:staffName', optionalGoogleAuth, async (req: CustomRequest, 
 /**
  * 배달 상태 업데이트 (배달담당자용)
  */
-router.put('/update-status/:staffName', async (req: CustomRequest, res: Response) => {
+router.put('/update-status/:staffName', validateStaffName, validateDeliveryStatus, deliveryUpdateRateLimit, requireStaffAuth, requireSheetAccess, async (req: CustomRequest, res: Response) => {
   try {
     const { staffName } = req.params
     const { rowIndex, status, customerName } = req.body
@@ -431,7 +434,7 @@ router.put('/update-status/:staffName', async (req: CustomRequest, res: Response
 /**
  * 배달담당자별 통계 조회
  */
-router.get('/stats/:staffName', optionalGoogleAuth, async (req: CustomRequest, res: Response) => {
+router.get('/stats/:staffName', validateStaffName, requireStaffAuth, requireSheetAccess, async (req: CustomRequest, res: Response) => {
   try {
     const { staffName } = req.params
     const connectedSpreadsheet = req.session?.connectedSpreadsheet

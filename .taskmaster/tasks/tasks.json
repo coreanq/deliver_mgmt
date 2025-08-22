@@ -42,7 +42,7 @@
         "id": 4,
         "title": "Admin Settings Page UI",
         "description": "Create the admin settings page for Google Sheets and SOLAPI integration with delivery staff management",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           1
         ],
@@ -54,7 +54,7 @@
             "id": 1,
             "title": "Implement Delivery Staff Management UI",
             "description": "Create the UI components for registering and managing delivery staff",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -63,7 +63,7 @@
             "id": 2,
             "title": "Implement QR Code Generation System",
             "description": "Create functionality to automatically generate and download QR codes for each delivery staff",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -72,7 +72,7 @@
             "id": 3,
             "title": "Implement Date-based Spreadsheet Connection UI",
             "description": "Create UI for connecting different spreadsheets by date with URL input and automatic mapping",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -81,7 +81,7 @@
             "id": 4,
             "title": "Implement Google Sheets Connection Status Component",
             "description": "Create component to display and manage connection status for spreadsheets",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -90,7 +90,7 @@
             "id": 5,
             "title": "Implement SOLAPI Integration UI",
             "description": "Create the UI for SOLAPI connection and configuration",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -99,7 +99,7 @@
             "id": 6,
             "title": "Create Pinia Store for Admin Settings",
             "description": "Implement store to manage delivery staff data, spreadsheet connections, and API states",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -335,7 +335,7 @@
           5,
           7
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -368,7 +368,7 @@
     ],
     "metadata": {
       "created": "2025-08-21T05:43:45.906Z",
-      "updated": "2025-08-22T01:27:06.012Z",
+      "updated": "2025-08-22T07:47:45.492Z",
       "description": "Tasks for master context"
     }
   }

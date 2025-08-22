@@ -210,7 +210,7 @@ export class SheetMappingService {
    * 시트 매핑 데이터 저장
    */
   private async saveMappingData(data: SheetMapping[]): Promise<void> {
-    await fs.writeFile(this.mappingFilePath, JSON.stringify(data, null, 2))
+    await fs.writeFile(this.mappingFilePath, JSON.stringify(data, null, 2), 'utf8')
   }
 
   /**
@@ -230,7 +230,7 @@ export class SheetMappingService {
    * 배송자 데이터 저장
    */
   private async saveStaffData(data: DeliveryStaff[]): Promise<void> {
-    await fs.writeFile(this.staffFilePath, JSON.stringify(data, null, 2))
+    await fs.writeFile(this.staffFilePath, JSON.stringify(data, null, 2), 'utf8')
   }
 
   /**

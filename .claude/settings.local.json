@@ -22,7 +22,13 @@
       "Bash(lsof:*)",
       "mcp__taskmaster-ai__update_task",
       "Bash(del package-lock.json)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run lint)",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_tab_select",
+      "mcp__playwright__browser_tab_close",
+      "mcp__playwright__browser_snapshot"
     ]
   },
   "enableAllProjectMcpServers": true,

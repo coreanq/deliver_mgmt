@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth2 스프레드시트 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .spreadsheet-item {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .spreadsheet-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .spreadsheet-id {
+            font-family: monospace;
+            color: #666;
+            font-size: 12px;
+        }
+        .spreadsheet-info {
+            color: #888;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔗 Google OAuth2 스프레드시트 연동 테스트</h1>
+    
+    <div id="status">
+        <p>인증 상태를 확인 중...</p>
+    </div>
+
+    <div id="controls">
+        <button onclick="checkAuthStatus()">🔍 인증 상태 확인</button>
+        <button onclick="authenticateGoogle()">🔑 Google 로그인</button>
+        <button onclick="loadSpreadsheets()">📊 스프레드시트 목록 조회</button>
+        <button onclick="searchSpreadsheets()">🔎 스프레드시트 검색</button>
+        <button onclick="clearLog()">🗑️ 로그 초기화</button>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const className = type;
+            logDiv.innerHTML += `<div class="${className}">[${new Date().toLocaleTimeString()}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    credentials: 'include',
+                    headers: {
+                        'Origin': 'http://localhost:3000',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || `HTTP ${response.status}`);
+                }
+                
+                return data;
+            } catch (error) {
+                log(`API 호출 실패 (${endpoint}): ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function checkAuthStatus() {
+            try {
+                log('인증 상태 확인 중...', 'info');
+                const data = await apiCall('/api/admin/auth-status');
+                
+                const statusDiv = document.getElementById('status');
+                if (data.authenticated) {
+                    statusDiv.innerHTML = '<p class="success">✅ Google 인증됨</p>';
+                    log('Google 인증 상태: 인증됨 ✅', 'success');
+                } else {
+                    statusDiv.innerHTML = '<p class="error">❌ Google 인증 필요</p>';
+                    log('Google 인증 상태: 인증 필요 ❌', 'error');
+                }
+                
+                log(`세션 ID: ${data.sessionId}`, 'info');
+            } catch (error) {
+                log(`인증 상태 확인 실패: ${error.message}`, 'error');
+            }
+        }
+
+        async function authenticateGoogle() {
+            try {
+                log('Google 인증 URL 요청 중...', 'info');
+                const data = await apiCall('/api/admin/google-auth-url');
+                
+                log('Google 인증 페이지로 이동합니다...', 'info');
+                log(`인증 URL: ${data.authUrl}`, 'info');
+                
+                // 새 창에서 인증 진행
+                window.open(data.authUrl, 'googleAuth', 'width=500,height=600');
+                
+                // 5초 후 인증 상태 재확인
+                setTimeout(() => {
+                    log('5초 후 인증 상태를 확인합니다...', 'info');
+                    checkAuthStatus();
+                }, 5000);
+                
+            } catch (error) {
+                log(`Google 인증 URL 생성 실패: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadSpreadsheets() {
+            try {
+                log('스프레드시트 목록 조회 중...', 'info');
+                const data = await apiCall('/api/admin/spreadsheets?pageSize=10');
+                
+                if (data.success && data.data) {
+                    log(`📊 총 ${data.data.totalCount}개의 스프레드시트를 찾았습니다.`, 'success');
+                    
+                    const spreadsheets = data.data.files || [];
+                    if (spreadsheets.length > 0) {
+                        let html = '<h3>📋 스프레드시트 목록</h3>';
+                        
+                        spreadsheets.forEach(sheet => {
+                            html += `
+                                <div class="spreadsheet-item">
+                                    <div class="spreadsheet-name">${sheet.name}</div>
+                                    <div class="spreadsheet-id">ID: ${sheet.id}</div>
+                                    <div class="spreadsheet-info">
+                                        수정일: ${new Date(sheet.modifiedTime).toLocaleString('ko-KR')} | 
+                                        소유자: ${sheet.owners ? sheet.owners.join(', ') : 'N/A'}
+                                        ${sheet.starred ? ' ⭐' : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        document.getElementById('log').innerHTML += html;
+                        
+                        // JSON 응답도 표시
+                        log('전체 응답:', 'info');
+                        document.getElementById('log').innerHTML += 
+                            `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    }
+                } else {
+                    log('스프레드시트 목록을 가져올 수 없습니다.', 'error');
+                }
+                
+            } catch (error) {
+                if (error.message.includes('401') || error.message.includes('인증')) {
+                    log('❌ 인증이 필요합니다. Google 로그인을 먼저 진행해주세요.', 'error');
+                } else {
+                    log(`스프레드시트 목록 조회 실패: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function searchSpreadsheets() {
+            const query = prompt('검색할 키워드를 입력하세요:', '배송');
+            if (!query) return;
+            
+            try {
+                log(`"${query}" 키워드로 스프레드시트 검색 중...`, 'info');
+                const data = await apiCall(`/api/admin/spreadsheets?query=${encodeURIComponent(query)}&pageSize=5`);
+                
+                if (data.success && data.data) {
+                    log(`🔎 "${query}" 검색 결과: ${data.data.totalCount}개 발견`, 'success');
+                    
+                    const spreadsheets = data.data.files || [];
+                    if (spreadsheets.length > 0) {
+                        let html = `<h3>🔍 "${query}" 검색 결과</h3>`;
+                        
+                        spreadsheets.forEach(sheet => {
+                            html += `
+                                <div class="spreadsheet-item">
+                                    <div class="spreadsheet-name">${sheet.name}</div>
+                                    <div class="spreadsheet-id">ID: ${sheet.id}</div>
+                                    <div class="spreadsheet-info">
+                                        수정일: ${new Date(sheet.modifiedTime).toLocaleString('ko-KR')}
+                                        ${sheet.starred ? ' ⭐' : ''}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        document.getElementById('log').innerHTML += html;
+                    }
+                }
+                
+            } catch (error) {
+                log(`검색 실패: ${error.message}`, 'error');
+            }
+        }
+
+        // 페이지 로드시 인증 상태 확인
+        window.onload = function() {
+            checkAuthStatus();
+        };
+        
+        // 인증 완료 후 콜백 처리
+        window.addEventListener('message', function(event) {
+            if (event.origin !== API_BASE) return;
+            
+            if (event.data.type === 'oauth_success') {
+                log('✅ Google 인증이 완료되었습니다!', 'success');
+                checkAuthStatus();
+            } else if (event.data.type === 'oauth_error') {
+                log(`❌ Google 인증 실패: ${event.data.error}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

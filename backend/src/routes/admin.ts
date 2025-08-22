@@ -40,6 +40,40 @@ router.get('/auth-status', asyncHandler(async (req: CustomRequest, res: Response
 }))
 
 /**
+ * 세션 기반 인증 확인 API (OAuth 팝업 후 세션 연결용)
+ * POST /api/admin/auth-status/check-session
+ */
+router.post('/auth-status/check-session', asyncHandler(async (req: CustomRequest, res: Response) => {
+  const { sessionId } = req.body
+  
+  if (!sessionId) {
+    return res.json({
+      authenticated: false,
+      message: '세션 ID가 필요합니다.'
+    })
+  }
+  
+  // 현재 세션에 토큰이 있는지 확인
+  const isAuthenticated = !!(req.session?.googleTokens && req.session.googleTokens.access_token)
+  
+  if (isAuthenticated) {
+    return res.json({
+      authenticated: true,
+      sessionId: req.session?.id,
+      message: '이미 인증되었습니다.'
+    })
+  }
+  
+  // TODO: 실제 환경에서는 Redis나 DB를 사용해서 세션 간 토큰 공유
+  // 개발환경에서는 세션 ID 매칭으로 간단히 처리
+  return res.json({
+    authenticated: false,
+    sessionId: req.session?.id,
+    message: '인증되지 않았습니다. 다시 시도해주세요.'
+  })
+}))
+
+/**
  * 구글 OAuth 인증 URL 생성 API
  * GET /api/admin/google-auth-url
  */
@@ -97,10 +131,11 @@ router.post('/staff', asyncHandler(async (req: CustomRequest, res: Response) => 
   // 중복 배송자 확인
   const existingStaff = await SheetMappingService.getDeliveryStaffByName(name)
   if (existingStaff) {
-    throw new StaffManagementError(StaffErrorTypes.DUPLICATE_STAFF, {
+    const error = new StaffManagementError('이미 등록된 배송자입니다.', {
       staffName: name,
       existingId: existingStaff.id
     })
+    throw error
   }
 
   // 배송자 등록
@@ -114,6 +149,7 @@ router.post('/staff', asyncHandler(async (req: CustomRequest, res: Response) => 
     throw new StaffManagementError('배송자 등록에 실패했습니다.')
   }
 
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
   return res.status(201).json({
     success: true,
     message: `${name}님이 성공적으로 등록되었습니다.`,

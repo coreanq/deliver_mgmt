@@ -1,14 +1,18 @@
 import express, { Request, Response } from 'express'
 import TokenService from '../services/TokenService'
 import GoogleSheetsService from '../services/GoogleSheetsService'
+import SecurityService from '../services/SecurityService'
+import { requireGoogleAuth } from '../middleware/auth'
+import { validateStaffName, validateQrToken } from '../middleware/validation'
+import { qrGenerateRateLimit } from '../middleware/rateLimiter'
 
 const router = express.Router()
 
 /**
- * QR 코드 생성 API
+ * QR 코드 생성 API (관리자 전용)
  * POST /api/qr/generate
  */
-router.post('/generate', async (req: Request, res: Response) => {
+router.post('/generate', requireGoogleAuth, qrGenerateRateLimit, async (req: Request, res: Response) => {
   try {
     const { staffName, sheetName } = req.body
 
@@ -19,9 +23,28 @@ router.post('/generate', async (req: Request, res: Response) => {
       })
     }
 
-    // QR 코드 생성
-    const qrCodeDataUrl = await TokenService.generateStaffQrCode(staffName, sheetName)
-    const qrCodeUrl = TokenService.generateStaffQrUrl(staffName, sheetName)
+    // 입력값 새니타이제이션 및 검증
+    const sanitizedStaffName = SecurityService.sanitizeInput(staffName)
+    const sanitizedSheetName = sheetName ? SecurityService.sanitizeInput(sheetName) : null
+
+    if (!sanitizedStaffName || sanitizedStaffName.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '유효하지 않은 배달기사 이름입니다.'
+      })
+    }
+
+    // 보안 감사 로그
+    SecurityService.createAuditLog('QR_CODE_GENERATION', (req as any).session?.user?.id || 'admin', {
+      staffName: sanitizedStaffName,
+      sheetName: sanitizedSheetName,
+      userAgent: req.headers['user-agent'],
+      ip: req.ip
+    })
+
+    // QR 코드 생성 (새니타이즈된 값 사용)
+    const qrCodeDataUrl = await TokenService.generateStaffQrCode(sanitizedStaffName, sanitizedSheetName || undefined)
+    const qrCodeUrl = TokenService.generateStaffQrUrl(sanitizedStaffName, sanitizedSheetName || undefined)
 
     return res.json({
       success: true,
