@@ -41,15 +41,70 @@
       {
         "id": 4,
         "title": "Admin Settings Page UI",
-        "description": "Create the admin settings page for Google Sheets and SOLAPI integration",
-        "details": "Develop a Vue.js component for the admin settings page with the following features:\n\n1. Google Sheets connection section:\n```vue\n<template>\n  <v-card>\n    <v-card-title>Google Sheets Connection</v-card-title>\n    <v-card-text>\n      <div v-if=\"!isConnected\">\n        <v-btn color=\"primary\" @click=\"connectGoogleSheets\">\n          Connect Google Sheets\n        </v-btn>\n      </div>\n      <div v-else>\n        <div class=\"connection-status\">\n          <v-icon color=\"green\">mdi-check-circle</v-icon>\n          Connected to: {{ spreadsheetName }}\n        </div>\n        <v-btn text @click=\"disconnectGoogleSheets\">Disconnect</v-btn>\n        <v-btn text @click=\"connectDifferentSheet\">Connect Different Sheet</v-btn>\n      </div>\n    </v-card-text>\n  </v-card>\n</template>\n```\n\n2. SOLAPI connection section\n3. Delivery staff management section for creating staff sheets\n4. QR code generation and download functionality\n\nImplement the necessary Pinia store for managing connection states and API interactions.",
-        "testStrategy": "Test UI rendering and responsive design on different screen sizes. Verify all buttons trigger the correct actions. Test connection status updates correctly based on API responses. Validate form validation for required fields. Test with mock API responses for various scenarios.",
-        "priority": "medium",
+        "description": "Create the admin settings page for Google Sheets and SOLAPI integration with delivery staff management",
+        "status": "pending",
         "dependencies": [
           1
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Develop a Vue.js component for the admin settings page with the following features:\n\n1. Delivery Staff Management Section:\n   - Form to register new delivery staff (name, contact information)\n   - List of registered delivery staff with edit/delete options\n   - Automatic QR code generation for each staff member\n   - Download functionality for QR codes (individual or batch)\n\n2. Date-based Spreadsheet Management:\n   - Interface to connect spreadsheets by date\n   - URL input field for Google Sheets with automatic mapping\n   - Calendar view to select dates and assign spreadsheets\n   - Status indicator showing connection state for each date\n\n3. Google Sheets Connection Section:\n```vue\n<template>\n  <v-card>\n    <v-card-title>Google Sheets Connection</v-card-title>\n    <v-card-text>\n      <div v-if=\"!isConnected\">\n        <v-btn color=\"primary\" @click=\"connectGoogleSheets\">\n          Connect Google Sheets\n        </v-btn>\n      </div>\n      <div v-else>\n        <div class=\"connection-status\">\n          <v-icon color=\"green\">mdi-check-circle</v-icon>\n          Connected to: {{ spreadsheetName }}\n        </div>\n        <v-btn text @click=\"disconnectGoogleSheets\">Disconnect</v-btn>\n        <v-btn text @click=\"connectDifferentSheet\">Connect Different Sheet</v-btn>\n      </div>\n    </v-card-text>\n  </v-card>\n</template>\n```\n\n4. SOLAPI Connection Section:\n   - Connection status display\n   - Authentication button for SOLAPI integration\n   - Test message functionality\n\n5. QR Code System:\n   - Preview of generated QR codes\n   - Explanation that QR codes will automatically load the correct day's work when scanned\n\nImplement the necessary Pinia store for managing connection states, delivery staff data, and API interactions.",
+        "testStrategy": "Test UI rendering and responsive design on different screen sizes. Verify all buttons trigger the correct actions. Test connection status updates correctly based on API responses. Validate form validation for required fields. Test with mock API responses for various scenarios. Specifically test:\n\n1. Delivery staff registration and QR code generation\n2. Date-based spreadsheet connection workflow\n3. QR code download functionality\n4. Spreadsheet status verification\n5. Error handling for invalid spreadsheet URLs\n6. Mobile responsiveness of the entire admin interface",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Delivery Staff Management UI",
+            "description": "Create the UI components for registering and managing delivery staff",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement QR Code Generation System",
+            "description": "Create functionality to automatically generate and download QR codes for each delivery staff",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Date-based Spreadsheet Connection UI",
+            "description": "Create UI for connecting different spreadsheets by date with URL input and automatic mapping",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Google Sheets Connection Status Component",
+            "description": "Create component to display and manage connection status for spreadsheets",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement SOLAPI Integration UI",
+            "description": "Create the UI for SOLAPI connection and configuration",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Create Pinia Store for Admin Settings",
+            "description": "Implement store to manage delivery staff data, spreadsheet connections, and API states",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 5,
@@ -74,35 +129,145 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
         "id": 7,
         "title": "Delivery Staff Authentication System",
-        "description": "Implement the two-step authentication system for delivery staff",
-        "details": "Create a two-step authentication system:\n\n1. QR code scanning (first step)\n2. Name verification (second step)\n\n```javascript\n// Verify staff token from QR code\nfunction verifyStaffToken(token, staffName) {\n  try {\n    const secretKey = process.env.JWT_SECRET;\n    const decoded = jwt.verify(token, secretKey);\n    return decoded.staff === staffName;\n  } catch (error) {\n    return false;\n  }\n}\n\n// API endpoint for staff authentication\napp.post('/api/delivery/auth', (req, res) => {\n  const { token, staffName, inputName } = req.body;\n  \n  // Verify token is valid\n  if (!verifyStaffToken(token, staffName)) {\n    return res.status(401).json({ error: 'Invalid token' });\n  }\n  \n  // Verify input name matches staff name exactly\n  if (inputName !== staffName) {\n    return res.status(401).json({ error: 'Name does not match' });\n  }\n  \n  // Create session for authenticated staff\n  req.session.staff = staffName;\n  req.session.authenticated = true;\n  \n  return res.json({ success: true });\n});\n```\n\nCreate Vue components for:\n1. QR code scanning page (using device camera)\n2. Name verification form\n3. Error messages for failed authentication",
-        "testStrategy": "Test authentication flow with valid and invalid QR codes. Verify name matching is case-sensitive and exact. Test error handling for incorrect names. Ensure session is properly created after successful authentication. Test on multiple mobile devices and browsers.",
-        "priority": "high",
+        "description": "Implement the automated authentication system for delivery staff",
+        "status": "pending",
         "dependencies": [
           6
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "high",
+        "details": "Create an automated authentication system using QR code scanning:\n\n1. QR code contains delivery staff information and work date\n2. After scanning, automatically fetch assigned orders from the spreadsheet for that date\n3. Display appropriate error UI for various scenarios\n\n```javascript\n// Verify staff token from QR code\nfunction verifyStaffToken(token) {\n  try {\n    const secretKey = process.env.JWT_SECRET;\n    const decoded = jwt.verify(token, secretKey);\n    return {\n      staffName: decoded.staff,\n      workDate: decoded.workDate,\n      valid: true\n    };\n  } catch (error) {\n    return { valid: false };\n  }\n}\n\n// API endpoint for staff authentication\napp.post('/api/delivery/auth', async (req, res) => {\n  const { token } = req.body;\n  \n  // Verify token is valid\n  const tokenData = verifyStaffToken(token);\n  if (!tokenData.valid) {\n    return res.status(401).json({ error: 'Invalid QR code', errorType: 'auth' });\n  }\n  \n  try {\n    // Fetch staff orders from spreadsheet for the work date\n    const orders = await fetchStaffOrders(tokenData.staffName, tokenData.workDate);\n    \n    // Create session for authenticated staff\n    req.session.staff = tokenData.staffName;\n    req.session.workDate = tokenData.workDate;\n    req.session.authenticated = true;\n    \n    return res.json({ success: true, orders });\n  } catch (error) {\n    // Handle specific error types\n    if (error.code === 'SPREADSHEET_NOT_FOUND') {\n      return res.status(404).json({ error: 'Spreadsheet not found for this date', errorType: 'spreadsheet' });\n    }\n    return res.status(500).json({ error: 'System error', errorType: 'system' });\n  }\n});\n```\n\nCreate Vue components for:\n1. QR code scanning page (using device camera)\n2. Error handling UI for different error scenarios:\n   - Authentication errors\n   - Missing spreadsheet errors\n   - System errors\n3. Success redirect to delivery staff UI",
+        "testStrategy": "Test authentication flow with valid and invalid QR codes. Test error handling for various scenarios (missing spreadsheet, system errors, permission issues). Ensure session is properly created after successful authentication. Verify automatic order fetching works correctly. Test on multiple mobile devices and browsers. Verify successful redirect to delivery staff UI after authentication.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "",
+            "description": "Implement QR code scanning component using device camera",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "",
+            "description": "Update authentication backend to handle new QR code format with staff info and work date",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "",
+            "description": "Create function to fetch staff orders from spreadsheet based on date",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "",
+            "description": "Implement error handling UI for different error scenarios",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "",
+            "description": "Create automatic redirect to delivery staff UI after successful authentication",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "",
+            "description": "Add comprehensive error handling for spreadsheet access issues",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 8,
         "title": "Delivery Staff Order Management UI",
-        "description": "Create the mobile-optimized UI for delivery staff to view and update order status",
-        "details": "Develop a Vue.js component for the delivery staff interface:\n\n```vue\n<template>\n  <div class=\"delivery-staff-app\">\n    <div class=\"header\">\n      <h1>{{ staffName }}님의 배달 목록</h1>\n      <div class=\"progress\">\n        <span>완료: {{ completedOrders }} / {{ totalOrders }}</span>\n        <v-progress-linear\n          :value=\"(completedOrders / totalOrders) * 100\"\n          color=\"success\"\n        ></v-progress-linear>\n      </div>\n    </div>\n    \n    <div class=\"orders-list\">\n      <v-card v-for=\"order in orders\" :key=\"order.id\" class=\"order-card mb-4\">\n        <v-card-title>{{ order.customerName }}</v-card-title>\n        <v-card-subtitle>{{ order.address }}</v-card-subtitle>\n        <v-card-text>\n          <p>연락처: {{ order.phone }}</p>\n          <p>상태: {{ getStatusText(order.status) }}</p>\n        </v-card-text>\n        <v-card-actions>\n          <v-btn\n            v-if=\"order.status === 'waiting'\"\n            color=\"primary\"\n            @click=\"updateStatus(order.id, 'preparing')\"\n          >\n            배달 준비중\n          </v-btn>\n          <v-btn\n            v-if=\"order.status === 'preparing'\"\n            color=\"info\"\n            @click=\"updateStatus(order.id, 'departed')\"\n          >\n            배달 출발\n          </v-btn>\n          <v-btn\n            v-if=\"order.status === 'departed'\"\n            color=\"success\"\n            @click=\"updateStatus(order.id, 'completed')\"\n          >\n            배달 완료\n          </v-btn>\n        </v-card-actions>\n      </v-card>\n    </div>\n  </div>\n</template>\n```\n\nImplement the necessary Pinia store for managing orders and status updates. Create API service for fetching orders and updating status. Ensure the UI is optimized for mobile devices with touch-friendly buttons and responsive layout.",
-        "testStrategy": "Test UI rendering on various mobile device sizes. Verify order status updates correctly reflect in the UI. Test progress tracking accuracy. Ensure buttons are appropriately disabled/enabled based on current status. Test with mock data for various order scenarios.",
-        "priority": "medium",
+        "description": "Create the mobile-optimized UI for delivery staff to view and update order status with QR scanning integration",
+        "status": "pending",
         "dependencies": [
           3,
           7
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "Develop a Vue.js component for the delivery staff interface with QR scanning and automated workflows:\n\n```vue\n<template>\n  <div class=\"delivery-staff-app\">\n    <div v-if=\"!isAuthenticated\" class=\"qr-scanner-container\">\n      <h2>QR 코드를 스캔하세요</h2>\n      <qr-scanner @scan=\"handleQrScan\"></qr-scanner>\n    </div>\n    \n    <div v-else class=\"authenticated-view\">\n      <div class=\"header\">\n        <h1>{{ staffName }}님의 배달 목록</h1>\n        <div class=\"progress\">\n          <span>완료: {{ completedOrders }} / {{ totalOrders }}</span>\n          <v-progress-linear\n            :value=\"(completedOrders / totalOrders) * 100\"\n            color=\"success\"\n          ></v-progress-linear>\n        </div>\n      </div>\n      \n      <div class=\"orders-list\">\n        <v-card v-for=\"order in orders\" :key=\"order.id\" class=\"order-card mb-4\">\n          <v-card-title>{{ order.customerName }}</v-card-title>\n          <v-card-subtitle>{{ order.address }}</v-card-subtitle>\n          <v-card-text>\n            <p>연락처: {{ order.phone }}</p>\n            <p>상태: {{ getStatusText(order.status) }}</p>\n          </v-card-text>\n          <v-card-actions>\n            <v-btn\n              v-if=\"order.status === 'waiting'\"\n              color=\"primary\"\n              @click=\"updateStatus(order.id, 'preparing')\"\n              :loading=\"isUpdating === order.id\"\n            >\n              준비중\n            </v-btn>\n            <v-btn\n              v-if=\"order.status === 'preparing'\"\n              color=\"info\"\n              @click=\"updateStatus(order.id, 'departed')\"\n              :loading=\"isUpdating === order.id\"\n            >\n              출발\n            </v-btn>\n            <v-btn\n              v-if=\"order.status === 'departed'\"\n              color=\"success\"\n              @click=\"updateStatus(order.id, 'completed')\"\n              :loading=\"isUpdating === order.id\"\n            >\n              완료\n            </v-btn>\n          </v-card-actions>\n          <v-snackbar v-model=\"order.showError\" color=\"error\">\n            {{ order.errorMessage }}\n            <template v-slot:actions>\n              <v-btn text @click=\"order.showError = false\">닫기</v-btn>\n            </template>\n          </v-snackbar>\n        </v-card>\n      </div>\n    </div>\n  </div>\n</template>\n```\n\nImplement the necessary Pinia store for managing orders and status updates. Create API service for QR scanning, fetching orders, and updating status. Ensure the UI is optimized for mobile devices with touch-friendly buttons and responsive layout. Implement real-time status updates to Google Spreadsheet and automatic KakaoTalk message sending when an order is marked as completed.",
+        "testStrategy": "Test QR scanning functionality with valid and invalid QR codes. Test UI rendering on various mobile device sizes. Verify order status updates correctly reflect in the UI and Google Spreadsheet. Test KakaoTalk message sending when orders are completed. Test progress tracking accuracy. Ensure buttons are appropriately disabled/enabled based on current status. Test error handling for network issues and failed updates. Test with mock data for various order scenarios.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement QR scanning component",
+            "description": "Create a QR code scanner component that automatically authenticates the delivery staff and fetches their assigned orders for the day",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Create order management Pinia store",
+            "description": "Implement a Pinia store to manage order data, status updates, and synchronization with Google Spreadsheet",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Develop order status update service",
+            "description": "Create a service that updates order status in the Google Spreadsheet and triggers KakaoTalk messages when orders are completed",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Design mobile-optimized UI",
+            "description": "Implement responsive, touch-friendly UI components optimized for mobile devices with appropriate loading states and error handling",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement real-time status updates",
+            "description": "Add functionality to reflect status changes in real-time and handle synchronization errors gracefully",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Integrate KakaoTalk message sending",
+            "description": "Implement automatic KakaoTalk message sending when an order is marked as completed",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 9,
@@ -203,7 +368,7 @@
     ],
     "metadata": {
       "created": "2025-08-21T05:43:45.906Z",
-      "updated": "2025-08-21T10:20:46.996Z",
+      "updated": "2025-08-22T00:30:43.938Z",
       "description": "Tasks for master context"
     }
   }

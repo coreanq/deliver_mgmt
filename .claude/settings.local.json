@@ -19,7 +19,8 @@
       "WebFetch(domain:developers.solapi.com)",
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:github.com)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "mcp__taskmaster-ai__update_task"
     ]
   },
   "enableAllProjectMcpServers": true,

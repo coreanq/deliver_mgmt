@@ -91,6 +91,7 @@ npm run type-check
 - `/api/delivery/*` - 배달 상태 관리 및 업데이트
 - `/api/sync/*` - 실시간 동기화 엔드포인트
 - `/api/solapi/*` - SOLAPI OAuth2 및 메시지 발송
+- `/api/qr/*` - QR 코드 생성, 검증 및 구글 시트 연동
 
 ## 환경 설정
 - 백엔드 환경변수: `backend/.env` (예시: `backend/.env.example`)
@@ -106,6 +107,44 @@ npm run type-check
 
 ## 배달 상태 플로우
 "대기" → "준비중" → "출발" → "완료" (Google Sheets D열에 저장)
+
+## 새로운 시스템 워크플로우
+
+### 관리자 워크플로우
+1. **배송자 등록**: 웹 관리 페이지에서 배송자 이름, 연락처 등록
+2. **QR 코드 생성**: 시스템이 자동으로 배송자별 QR 코드 생성 (날짜 정보 포함)
+3. **날짜별 스프레드시트 연결**: 매일 새로 생성한 스프레드시트 URL을 시스템에 등록
+4. **QR 코드 배포**: 생성된 QR 코드를 배송자에게 전달
+
+### 배송자 워크플로우
+1. **QR 코드 스캔**: 모바일 기기로 QR 코드 스캔
+2. **자동 인증**: QR 코드의 배송자 정보와 날짜로 자동 인증
+3. **주문 목록 로드**: 해당 날짜 스프레드시트에서 본인 담당 주문 자동 조회
+4. **상태 변경**: "준비중" → "출발" → "완료" 버튼 클릭으로 상태 업데이트
+5. **자동 알림**: "완료" 상태 변경 시 고객에게 카카오톡 자동 발송
+
+### QR 코드 구조
+```javascript
+{
+  staffName: "홍길동",
+  workDate: "2025-01-15",  // 작업 날짜
+  token: "eyJhbGciOiJIUzI1NiIs...",  // JWT 토큰
+  type: "delivery_staff"
+}
+```
+
+### 날짜별 스프레드시트 매핑
+```javascript
+{
+  "2025-01-15": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+  "2025-01-16": "1CxjNWt1YSB6oGNeFvCeBajhgmVVrqumct85PgwF3vqnt"
+}
+```
+
+### 오류 처리
+- **스프레드시트 미등록**: 해당 날짜의 시트가 없을 때 친화적인 오류 UI
+- **권한 오류**: 스프레드시트 접근 권한 문제 시 안내
+- **QR 코드 오류**: 잘못된 QR 코드 스캔 시 재스캔 유도
 
 ## 테스트 페이지
 - SOLAPI OAuth2 테스트: `http://localhost:5000/test/test-oauth.html`
