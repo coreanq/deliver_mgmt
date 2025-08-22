@@ -57,6 +57,7 @@ pids
 
 # MCP config (local)
 .mcp.json
+.env
 
 # Task files
 # tasks.json
