@@ -20,7 +20,9 @@
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:github.com)",
       "Bash(lsof:*)",
-      "mcp__taskmaster-ai__update_task"
+      "mcp__taskmaster-ai__update_task",
+      "Bash(del package-lock.json)",
+      "Bash(cat:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

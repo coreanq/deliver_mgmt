@@ -7,10 +7,7 @@ export default defineConfig({
   plugins: [
     vue(),
     vuetify({
-      autoImport: true,
-      styles: {
-        configFile: 'src/styles/settings.scss'
-      }
+      autoImport: true
     })
   ],
   resolve: {
@@ -19,10 +16,11 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
+    host: process.env.VITE_HOST || '0.0.0.0',
+    port: Number(process.env.VITE_PORT) || 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:5000',
         changeOrigin: true
       }
     }

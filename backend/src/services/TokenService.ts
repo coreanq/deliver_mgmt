@@ -1,5 +1,7 @@
 import { google } from 'googleapis'
 import { createOAuth2Client } from '../config/google'
+import jwt from 'jsonwebtoken'
+import QRCode from 'qrcode'
 
 export class TokenService {
   private oauth2Client: any
@@ -97,6 +99,108 @@ export class TokenService {
     const tenMinutesFromNow = new Date(now.getTime() + 10 * 60 * 1000)
     
     return expiry <= tenMinutesFromNow
+  }
+
+  /**
+   * 배달기사용 JWT 토큰 생성 (날짜 정보 포함)
+   */
+  generateStaffToken(staffName: string, workDate?: string, sheetName?: string): string {
+    const secretKey = process.env.QR_SECRET_KEY || process.env.JWT_SECRET
+    if (!secretKey) {
+      throw new Error('QR_SECRET_KEY 또는 JWT_SECRET이 설정되지 않았습니다.')
+    }
+
+    const today = new Date().toISOString().split('T')[0]
+    const targetDate = workDate || today
+
+    const payload = {
+      staff: staffName,
+      workDate: targetDate,
+      sheet: sheetName || staffName,
+      type: 'delivery_staff',
+      createdDate: today,
+      iat: Math.floor(Date.now() / 1000)
+    }
+
+    return jwt.sign(payload, secretKey, { expiresIn: '30d' }) // 한 달간 유효
+  }
+
+  /**
+   * 배달기사용 JWT 토큰 검증
+   */
+  verifyStaffToken(token: string): any {
+    try {
+      const secretKey = process.env.QR_SECRET_KEY || process.env.JWT_SECRET
+      if (!secretKey) {
+        throw new Error('QR_SECRET_KEY 또는 JWT_SECRET이 설정되지 않았습니다.')
+      }
+
+      const decoded = jwt.verify(token, secretKey)
+      return decoded
+    } catch (error) {
+      console.error('토큰 검증 실패:', error)
+      throw new Error('유효하지 않은 토큰입니다.')
+    }
+  }
+
+  /**
+   * 배달기사용 QR 코드 URL 생성 (날짜 정보 포함)
+   */
+  generateStaffQrUrl(staffName: string, workDate?: string, sheetName?: string): string {
+    const token = this.generateStaffToken(staffName, workDate, sheetName)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+    
+    return `${frontendUrl}/delivery?staff=${encodeURIComponent(staffName)}&workDate=${workDate || new Date().toISOString().split('T')[0]}&token=${token}`
+  }
+
+  /**
+   * 배달기사용 QR 코드 이미지 생성 (Data URL)
+   */
+  async generateStaffQrCode(staffName: string, workDate?: string, sheetName?: string): Promise<string> {
+    try {
+      const url = this.generateStaffQrUrl(staffName, workDate, sheetName)
+      return await QRCode.toDataURL(url, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        width: 256
+      })
+    } catch (error) {
+      console.error('QR 코드 생성 실패:', error)
+      throw new Error('QR 코드 생성에 실패했습니다.')
+    }
+  }
+
+  /**
+   * QR 코드에서 추출한 정보 검증
+   */
+  validateQrCodeData(staffName: string, token: string): boolean {
+    try {
+      const decoded = this.verifyStaffToken(token)
+      
+      // 토큰의 배달기사 이름과 요청된 이름이 일치하는지 확인
+      if (decoded.staff !== staffName) {
+        console.error('토큰의 배달기사 이름이 일치하지 않습니다:', { 
+          tokenStaff: decoded.staff, 
+          requestStaff: staffName 
+        })
+        return false
+      }
+
+      // 토큰 타입 확인
+      if (decoded.type !== 'delivery_staff') {
+        console.error('잘못된 토큰 타입입니다:', decoded.type)
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error('QR 코드 데이터 검증 실패:', error)
+      return false
+    }
   }
 }
 

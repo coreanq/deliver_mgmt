@@ -2,6 +2,13 @@ import 'express-session'
 
 declare module 'express-session' {
   interface SessionData {
+    tokens?: {
+      access_token?: string
+      refresh_token?: string
+      scope?: string
+      token_type?: string
+      expiry_date?: number
+    }
     googleTokens?: {
       access_token?: string
       refresh_token?: string
@@ -22,5 +29,13 @@ declare module 'express-session' {
     }
     syncActive?: boolean
     syncSessionId?: string
+    deliveryAuth?: {
+      staffName: string
+      staffId: number
+      workDate: string
+      spreadsheetId: string
+      loginTime: string
+      tokenData: any
+    }
   }
 }

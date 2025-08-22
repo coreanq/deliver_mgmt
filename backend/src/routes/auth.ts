@@ -48,6 +48,12 @@ router.get('/google/callback', async (req: CustomRequest, res: Response) => {
     
     // OAuth2 클라이언트에 토큰 설정
     oauth2Client.setCredentials(tokens)
+    
+    console.log('구글 OAuth 인증 성공:', {
+      tokenType: tokens.token_type,
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token
+    })
 
     return res.json({
       success: true,

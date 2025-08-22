@@ -1,0 +1,17 @@
+{
+  "name": "delivery-mgmt",
+  "version": "1.0.0",
+  "description": "배달 관리 시스템",
+  "scripts": {
+    "setup-network": "node setup-network.js",
+    "setup-ip": "node setup-network.js",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build",
+    "start": "cd backend && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
