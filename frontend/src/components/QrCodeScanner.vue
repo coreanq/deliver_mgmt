@@ -255,11 +255,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
 import { useRouter } from 'vue-router'
+import { useDeliveryStore } from '@/stores/deliveryStore'
 
-// Router
+// Router & Store
 const router = useRouter()
+const deliveryStore = useDeliveryStore()
 
 // 반응형 데이터
 const form = ref()
@@ -439,23 +440,19 @@ const processQrData = async (qrData: string) => {
   }
 }
 
-// 로그인 수행
+// 로그인 수행 (스토어 사용)
 const performLogin = async (staffName: string, token: string, workDate?: string) => {
   try {
-    const response = await axios.post('/api/delivery/qr-login', {
-      staffName,
-      token,
-      workDate
-    })
+    const result = await deliveryStore.loginWithQR(staffName, token, workDate)
 
-    if (response.data.success) {
+    if (result.success) {
       scanResult.value = {
         success: true,
-        message: response.data.message,
-        data: response.data.data
+        message: result.data.message,
+        data: result.data.data
       }
     } else {
-      throw new Error(response.data.message)
+      throw new Error(result.data?.message || '로그인에 실패했습니다.')
     }
   } catch (error: any) {
     const errorData = error.response?.data

@@ -10,22 +10,12 @@ export interface SheetMapping {
   lastAccessedAt?: string
 }
 
-export interface DeliveryStaff {
-  id: number
-  name: string
-  phone: string
-  qrToken?: string
-  createdAt: string
-  active: boolean
-}
 
 export class SheetMappingService {
   private mappingFilePath: string
-  private staffFilePath: string
 
   constructor() {
     this.mappingFilePath = path.join(process.cwd(), 'data', 'sheet-mapping.json')
-    this.staffFilePath = path.join(process.cwd(), 'data', 'delivery-staff.json')
     this.ensureDataDirectory()
   }
 
@@ -109,89 +99,6 @@ export class SheetMappingService {
     }
   }
 
-  /**
-   * 배송자 정보 추가
-   */
-  async addDeliveryStaff(staff: Omit<DeliveryStaff, 'id' | 'createdAt'>): Promise<DeliveryStaff | null> {
-    try {
-      const data = await this.loadStaffData()
-      const newId = Math.max(...data.map(s => s.id), 0) + 1
-
-      const newStaff: DeliveryStaff = {
-        id: newId,
-        ...staff,
-        createdAt: new Date().toISOString()
-      }
-
-      data.push(newStaff)
-      await this.saveStaffData(data)
-      return newStaff
-    } catch (error) {
-      console.error('배송자 추가 실패:', error)
-      return null
-    }
-  }
-
-  /**
-   * 모든 배송자 정보 조회
-   */
-  async getAllDeliveryStaff(): Promise<DeliveryStaff[]> {
-    try {
-      return await this.loadStaffData()
-    } catch (error) {
-      console.error('배송자 목록 조회 실패:', error)
-      return []
-    }
-  }
-
-  /**
-   * 배송자 정보 업데이트
-   */
-  async updateDeliveryStaff(id: number, updates: Partial<DeliveryStaff>): Promise<boolean> {
-    try {
-      const data = await this.loadStaffData()
-      const index = data.findIndex(s => s.id === id)
-
-      if (index < 0) {
-        return false
-      }
-
-      data[index] = { ...data[index], ...updates }
-      await this.saveStaffData(data)
-      return true
-    } catch (error) {
-      console.error('배송자 정보 업데이트 실패:', error)
-      return false
-    }
-  }
-
-  /**
-   * 배송자 삭제
-   */
-  async removeDeliveryStaff(id: number): Promise<boolean> {
-    try {
-      const data = await this.loadStaffData()
-      const filteredData = data.filter(s => s.id !== id)
-      await this.saveStaffData(filteredData)
-      return true
-    } catch (error) {
-      console.error('배송자 삭제 실패:', error)
-      return false
-    }
-  }
-
-  /**
-   * 배송자명으로 배송자 정보 조회
-   */
-  async getDeliveryStaffByName(name: string): Promise<DeliveryStaff | null> {
-    try {
-      const data = await this.loadStaffData()
-      return data.find(s => s.name === name && s.active) || null
-    } catch (error) {
-      console.error('배송자 조회 실패:', error)
-      return null
-    }
-  }
 
   /**
    * 시트 매핑 데이터 로드
@@ -213,25 +120,6 @@ export class SheetMappingService {
     await fs.writeFile(this.mappingFilePath, JSON.stringify(data, null, 2), 'utf8')
   }
 
-  /**
-   * 배송자 데이터 로드
-   */
-  private async loadStaffData(): Promise<DeliveryStaff[]> {
-    try {
-      const content = await fs.readFile(this.staffFilePath, 'utf-8')
-      return JSON.parse(content)
-    } catch (error) {
-      // 파일이 없으면 빈 배열 반환
-      return []
-    }
-  }
-
-  /**
-   * 배송자 데이터 저장
-   */
-  private async saveStaffData(data: DeliveryStaff[]): Promise<void> {
-    await fs.writeFile(this.staffFilePath, JSON.stringify(data, null, 2), 'utf8')
-  }
 
   /**
    * 마지막 접근 시간 업데이트

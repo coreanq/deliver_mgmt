@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import SyncService, { SyncConfig } from '../services/SyncService'
 import GoogleSheetsService from '../services/GoogleSheetsService'
+import WebSocketManager from '../services/WebSocketManager'
 import { requireGoogleAuth } from '../middleware/auth'
 
 // 세션 타입 확장
@@ -50,7 +51,9 @@ router.post('/start', async (req: CustomRequest, res: Response) => {
       spreadsheetId: connectedSpreadsheet.id,
       staffList,
       tokens: req.googleTokens,
-      intervalMs: req.body.intervalMs || 30000 // 기본 30초
+      intervalMs: req.body.intervalMs || 30000, // 기본 30초
+      batchSize: req.body.batchSize || 5, // 배치 크기 (성능 최적화)
+      maxConcurrent: req.body.maxConcurrent || 3 // 최대 동시 요청 수
     }
 
     const started = SyncService.startSync(sessionId, syncConfig)
@@ -66,7 +69,10 @@ router.post('/start', async (req: CustomRequest, res: Response) => {
           sessionId,
           spreadsheetTitle: connectedSpreadsheet.title,
           staffList,
-          intervalMs: syncConfig.intervalMs
+          intervalMs: syncConfig.intervalMs,
+          batchSize: syncConfig.batchSize,
+          maxConcurrent: syncConfig.maxConcurrent,
+          connectedClients: WebSocketManager.getSessionClientsCount(sessionId)
         },
         message: '실시간 동기화가 시작되었습니다.'
       })
@@ -246,13 +252,23 @@ router.post('/refresh/:staffName', async (req: CustomRequest, res: Response) => 
 router.get('/active', (req: CustomRequest, res: Response) => {
   try {
     const activeSyncs = SyncService.getActiveSyncs()
+    const connectedClients = WebSocketManager.getConnectedClients()
 
     return res.json({
       success: true,
       data: {
         activeCount: activeSyncs.length,
         activeSyncs,
-        currentSession: req.session.syncSessionId || null
+        currentSession: req.session.syncSessionId || null,
+        websocket: {
+          connectedClientsCount: WebSocketManager.getConnectedClientsCount(),
+          connectedClients: connectedClients.map(client => ({
+            socketId: client.socketId,
+            sessionId: client.info.sessionId,
+            userId: client.info.userId,
+            connectedAt: client.info.connectedAt
+          }))
+        }
       },
       message: '활성 동기화 목록을 조회했습니다.'
     })
@@ -261,6 +277,76 @@ router.get('/active', (req: CustomRequest, res: Response) => {
     return res.status(500).json({
       success: false,
       message: error.message || '활성 동기화 목록 조회에 실패했습니다.'
+    })
+  }
+})
+
+/**
+ * 성능 최적화 설정 업데이트
+ */
+router.put('/config', (req: CustomRequest, res: Response) => {
+  try {
+    const sessionId = req.session.syncSessionId
+    const { intervalMs, batchSize, maxConcurrent } = req.body
+
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: '활성화된 동기화가 없습니다.'
+      })
+    }
+
+    const status = SyncService.getSyncStatus(sessionId)
+    if (!status || !status.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: '동기화가 활성 상태가 아닙니다.'
+      })
+    }
+
+    // 기존 동기화 중지 후 새 설정으로 재시작
+    const connectedSpreadsheet = req.session?.connectedSpreadsheet
+    if (!connectedSpreadsheet) {
+      return res.status(400).json({
+        success: false,
+        message: '연결된 스프레드시트가 없습니다.'
+      })
+    }
+
+    const syncConfig: SyncConfig = {
+      spreadsheetId: connectedSpreadsheet.id,
+      staffList: req.session.staffList || [],
+      tokens: req.googleTokens,
+      intervalMs: intervalMs || 30000,
+      batchSize: batchSize || 5,
+      maxConcurrent: maxConcurrent || 3
+    }
+
+    SyncService.stopSync(sessionId)
+    const restarted = SyncService.startSync(sessionId, syncConfig)
+
+    if (restarted) {
+      return res.json({
+        success: true,
+        data: {
+          sessionId,
+          intervalMs: syncConfig.intervalMs,
+          batchSize: syncConfig.batchSize,
+          maxConcurrent: syncConfig.maxConcurrent
+        },
+        message: '동기화 설정이 업데이트되었습니다.'
+      })
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: '설정 업데이트에 실패했습니다.'
+      })
+    }
+  } catch (error: any) {
+    console.error('동기화 설정 업데이트 실패:', error)
+    return res.status(500).json({
+      success: false,
+      message: error.message || '설정 업데이트에 실패했습니다.'
     })
   }
 })

@@ -1,4 +1,12 @@
 import { Request, Response, NextFunction } from 'express'
+import logger from '../services/LoggerService'
+import { v4 as uuidv4 } from 'uuid'
+
+// Request 타입 확장
+interface LoggedRequest extends Request {
+  requestId?: string
+  startTime?: number
+}
 
 export interface ApiError extends Error {
   statusCode?: number
@@ -63,21 +71,58 @@ export class StaffManagementError extends DeliverySystemError {
   }
 }
 
+/**
+ * 요청 ID 및 시작 시간 설정 미들웨어
+ */
+export const requestLogger = (req: LoggedRequest, res: Response, next: NextFunction) => {
+  req.requestId = uuidv4()
+  req.startTime = Date.now()
+  
+  // 요청 로깅
+  logger.http('Incoming request', {
+    requestId: req.requestId,
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    userAgent: req.get('User-Agent'),
+    ip: req.ip || req.connection.remoteAddress,
+    sessionId: (req as any).sessionID
+  })
+
+  // 응답 완료 시 로깅
+  res.on('finish', () => {
+    const duration = Date.now() - (req.startTime || 0)
+    logger.apiResponse(req.method, req.path, res.statusCode, duration, {
+      requestId: req.requestId,
+      contentLength: res.get('content-length')
+    })
+  })
+
+  next()
+}
+
 // 에러 핸들링 미들웨어
 export const errorHandler = (
   err: ApiError | Error,
-  req: Request,
+  req: LoggedRequest,
   res: Response,
   next: NextFunction
 ) => {
-  // 로깅
-  console.error('에러 발생:', {
-    error: err.message,
-    stack: err.stack,
-    url: req.url,
+  const requestId = req.requestId || uuidv4()
+  
+  // 구조화된 에러 로깅
+  logger.error('Request error occurred', {
+    requestId,
     method: req.method,
-    timestamp: new Date().toISOString()
-  })
+    path: req.path,
+    query: req.query,
+    body: process.env.NODE_ENV === 'development' ? req.body : '[REDACTED]',
+    userAgent: req.get('User-Agent'),
+    ip: req.ip || req.connection.remoteAddress,
+    sessionId: (req as any).sessionID,
+    userId: (req as any).session?.userId,
+    duration: req.startTime ? Date.now() - req.startTime : undefined
+  }, err)
 
   // DeliverySystemError 처리
   if (err instanceof DeliverySystemError) {
@@ -86,6 +131,7 @@ export const errorHandler = (
       message: err.message,
       errorType: err.errorType,
       details: err.details,
+      requestId,
       timestamp: new Date().toISOString()
     })
   }
@@ -137,6 +183,7 @@ export const errorHandler = (
     success: false,
     message,
     errorType: 'INTERNAL_SERVER_ERROR',
+    requestId,
     timestamp: new Date().toISOString(),
     // 개발 환경에서만 스택 트레이스 포함
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
@@ -161,8 +208,12 @@ export const asyncHandler = (fn: Function) => {
 }
 
 // 구글 시트 API 에러를 우리 에러로 변환하는 헬퍼
-export const handleGoogleSheetsError = (error: any): DeliverySystemError => {
-  console.error('Google Sheets API 에러:', error)
+export const handleGoogleSheetsError = (error: any, context?: any): DeliverySystemError => {
+  logger.error('Google Sheets API error', {
+    originalError: error.message,
+    code: error.code,
+    ...context
+  }, error)
 
   // 권한 오류
   if (error.code === 403) {

@@ -3,6 +3,9 @@ import GoogleSheetsService from '../services/GoogleSheetsService'
 import TokenService from '../services/TokenService'
 import SheetMappingService from '../services/SheetMappingService'
 import SecurityService from '../services/SecurityService'
+import SolapiService from '../services/SolapiService'
+import { DeliveryStatusService } from '../services/DeliveryStatusService'
+import logger from '../services/LoggerService'
 import { requireGoogleAuth, optionalGoogleAuth, requireStaffAuth, requireSheetAccess } from '../middleware/auth'
 import { validateStaffName, validateDeliveryStatus, validateQrToken } from '../middleware/validation'
 import { qrGenerateRateLimit, deliveryUpdateRateLimit } from '../middleware/rateLimiter'
@@ -12,10 +15,8 @@ import {
   AuthenticationError, 
   NotFoundError, 
   QrCodeError,
-  StaffManagementError,
   handleGoogleSheetsError,
   QrErrorTypes,
-  StaffErrorTypes,
   SheetMappingErrorTypes
 } from '../middleware/errorHandler'
 
@@ -81,21 +82,7 @@ router.post('/qr-login', qrGenerateRateLimit, asyncHandler(async (req: CustomReq
     })
   }
 
-  // 배송자 정보 확인
-  const staffInfo = await SheetMappingService.getDeliveryStaffByName(staffName)
-  if (!staffInfo) {
-    throw new StaffManagementError(StaffErrorTypes.NOT_REGISTERED, {
-      staffName,
-      suggestion: '관리자에게 배송자 등록을 요청하세요.'
-    })
-  }
-
-  if (!staffInfo.active) {
-    throw new StaffManagementError(StaffErrorTypes.INACTIVE_STAFF, {
-      staffName,
-      suggestion: '관리자에게 계정 활성화를 요청하세요.'
-    })
-  }
+  // 배달기사 등록 확인 제거 - 날짜별 시트 방식에서는 스프레드시트 이름에서 자동으로 배달기사 정보를 추출합니다.
 
   // 해당 날짜의 스프레드시트 조회
   const spreadsheetId = await SheetMappingService.getSheetMapping(targetDate)
@@ -112,7 +99,7 @@ router.post('/qr-login', qrGenerateRateLimit, asyncHandler(async (req: CustomReq
   // 세션에 인증 정보 저장
   req.session.deliveryAuth = {
     staffName,
-    staffId: staffInfo.id,
+    staffId: staffName, // 배달기사 ID는 이름으로 사용
     workDate: targetDate,
     spreadsheetId,
     loginTime: new Date().toISOString(),
@@ -126,9 +113,9 @@ router.post('/qr-login', qrGenerateRateLimit, asyncHandler(async (req: CustomReq
       staffName,
       workDate: targetDate,
       staffInfo: {
-        id: staffInfo.id,
-        name: staffInfo.name,
-        phone: staffInfo.phone
+        id: staffName,
+        name: staffName,
+        phone: ''
       }
     }
   })
@@ -216,17 +203,7 @@ router.put('/update-status', deliveryUpdateRateLimit, validateDeliveryStatus, as
     })
   }
 
-  // 유효한 상태인지 확인
-  const validStatuses = ['대기', '준비중', '출발', '완료']
-  if (!validStatuses.includes(status)) {
-    throw new ValidationError(`유효하지 않은 상태입니다.`, {
-      providedStatus: status,
-      validStatuses,
-      suggestion: `다음 중 하나를 선택하세요: ${validStatuses.join(', ')}`
-    })
-  }
-
-  // 관리자 토큰 사용
+  // 관리자 토큰 확인
   const tokens = req.session?.googleTokens
   if (!tokens) {
     throw new AuthenticationError('시스템 인증 오류가 발생했습니다.', {
@@ -234,6 +211,57 @@ router.put('/update-status', deliveryUpdateRateLimit, validateDeliveryStatus, as
       errorType: 'SYSTEM_AUTH_ERROR'
     })
   }
+
+  // 상태 유효성 검증
+  if (!DeliveryStatusService.isValidStatus(status)) {
+    throw new ValidationError(`유효하지 않은 상태입니다.`, {
+      providedStatus: status,
+      validStatuses: DeliveryStatusService.getValidStatuses(),
+      suggestion: `다음 중 하나를 선택하세요: ${DeliveryStatusService.getValidStatuses().join(', ')}`
+    })
+  }
+
+  // 현재 상태 조회 후 상태 전환 유효성 검증
+  let currentOrderData
+  try {
+    const deliveryData = await GoogleSheetsService.getDeliveryData(tokens, spreadsheetId, staffName)
+    currentOrderData = deliveryData.find(order => order.rowIndex === rowIndex)
+    
+    if (!currentOrderData) {
+      throw new NotFoundError('해당 주문을 찾을 수 없습니다.', {
+        rowIndex,
+        staffName,
+        suggestion: '올바른 주문 번호를 확인하세요.'
+      })
+    }
+  } catch (error) {
+    throw handleGoogleSheetsError(error)
+  }
+
+  const currentStatus = currentOrderData.status || '대기'
+  
+  // 상태 전환 유효성 검증
+  if (!DeliveryStatusService.isValidTransition(currentStatus, status)) {
+    const errorMessage = DeliveryStatusService.getTransitionError(currentStatus, status)
+    throw new ValidationError(`상태 전환 오류: ${errorMessage}`, {
+      currentStatus,
+      requestedStatus: status,
+      validNextStatuses: DeliveryStatusService.getNextValidStatuses(currentStatus),
+      suggestion: currentStatus === status 
+        ? '이미 해당 상태입니다.' 
+        : `현재 '${currentStatus}' 상태에서 가능한 다음 상태: ${DeliveryStatusService.getNextValidStatuses(currentStatus).join(', ')}`
+    })
+  }
+
+  logger.info('배달 상태 전환 시도', {
+    staffName,
+    rowIndex,
+    customerName: currentOrderData.customerName,
+    currentStatus,
+    newStatus: status,
+    isValidTransition: true,
+    service: 'delivery'
+  })
 
   // 배송 상태 업데이트
   let result
@@ -249,6 +277,122 @@ router.put('/update-status', deliveryUpdateRateLimit, validateDeliveryStatus, as
     throw handleGoogleSheetsError(error)
   }
 
+  // 배달 완료 시 자동 카카오톡 알림 발송
+  let notificationResult = null
+  if (status === '완료' && result && result.phone) {
+    const notificationStartTime = Date.now()
+    
+    try {
+      const solapiTokens = req.session?.solapiTokens
+      if (solapiTokens) {
+        // 발신번호는 설정에서 가져오거나 기본값 사용
+        const senderNumber = req.session?.senderNumber || process.env.DEFAULT_SENDER_NUMBER || '1588-0000'
+        const templateId = req.session?.kakaoTemplateId // 관리자가 설정한 템플릿 ID
+        
+        logger.info('배달 완료 알림 발송 시작', {
+          staffName,
+          customerName: customerName || result.customerName,
+          phone: result.phone,
+          senderNumber,
+          templateId: templateId || 'SMS_FALLBACK',
+          service: 'delivery'
+        })
+        
+        notificationResult = await SolapiService.sendDeliveryCompleteNotification(
+          solapiTokens,
+          customerName || result.customerName || '고객',
+          result.phone,
+          senderNumber,
+          templateId
+        )
+
+        const notificationDuration = Date.now() - notificationStartTime
+
+        // 알림 발송 결과 로깅
+        if (notificationResult.success) {
+          logger.info('배달 완료 알림 발송 성공', {
+            staffName,
+            customerName: customerName || result.customerName,
+            phone: result.phone,
+            messageId: notificationResult.messageId,
+            messageType: notificationResult.messageType || 'unknown',
+            duration: notificationDuration,
+            service: 'delivery',
+            notification: true
+          })
+          
+          // 성능 메트릭 기록
+          logger.metric('delivery_notification_success', 1, {
+            messageType: notificationResult.messageType,
+            duration: notificationDuration,
+            staffName
+          })
+        } else {
+          logger.warn('배달 완료 알림 발송 실패', {
+            staffName,
+            customerName: customerName || result.customerName,
+            phone: result.phone,
+            error: notificationResult.errorMessage,
+            errorCode: notificationResult.errorCode,
+            duration: notificationDuration,
+            service: 'delivery',
+            notification: true
+          })
+          
+          // 실패 메트릭 기록
+          logger.metric('delivery_notification_failure', 1, {
+            errorCode: notificationResult.errorCode || 'UNKNOWN',
+            staffName
+          })
+        }
+      } else {
+        logger.warn('SOLAPI 토큰이 없어 알림 발송을 건너뜁니다', {
+          staffName,
+          customerName: customerName || result.customerName,
+          phone: result.phone,
+          suggestion: '관리자가 SOLAPI 인증을 완료해야 합니다',
+          service: 'delivery'
+        })
+        
+        // 설정 누락 메트릭
+        logger.metric('delivery_notification_skipped', 1, {
+          reason: 'NO_SOLAPI_TOKEN',
+          staffName
+        })
+      }
+    } catch (notificationError: any) {
+      const notificationDuration = Date.now() - notificationStartTime
+      
+      logger.error('배달 완료 알림 발송 중 시스템 오류', {
+        staffName,
+        customerName: customerName || result.customerName,
+        phone: result.phone,
+        error: notificationError.message,
+        stack: notificationError.stack,
+        duration: notificationDuration,
+        service: 'delivery'
+      }, notificationError)
+      
+      // 시스템 에러 메트릭
+      logger.metric('delivery_notification_system_error', 1, {
+        errorType: notificationError.name || 'Error',
+        staffName
+      })
+      
+      // 알림 발송 실패는 전체 작업을 실패시키지 않음
+    }
+  } else if (status === '완료') {
+    logger.warn('배달 완료로 변경되었지만 전화번호가 없어 알림을 발송할 수 없습니다', {
+      staffName,
+      customerName,
+      hasResult: !!result,
+      hasPhone: !!(result && result.phone),
+      service: 'delivery'
+    })
+  }
+
+  const responseMessage = `${customerName ? customerName + '님의 ' : ''}배달 상태가 '${status}'로 업데이트되었습니다.`
+  
   return res.json({
     success: true,
     data: { 
@@ -257,10 +401,16 @@ router.put('/update-status', deliveryUpdateRateLimit, validateDeliveryStatus, as
       status,
       customerName,
       rowIndex,
-      workDate: deliveryAuth.workDate
+      workDate: deliveryAuth.workDate,
+      notificationSent: notificationResult?.success || false
     },
-    message: `${customerName ? customerName + '님의 ' : ''}배달 상태가 '${status}'로 업데이트되었습니다.`,
-    shouldSendNotification: status === '완료' // 완료 상태일 때만 알림 발송 필요
+    message: responseMessage,
+    shouldSendNotification: status === '완료',
+    notificationResult: notificationResult?.success 
+      ? { sent: true, messageId: notificationResult.messageId }
+      : notificationResult?.errorMessage
+        ? { sent: false, error: notificationResult.errorMessage }
+        : null
   })
 }))
 
@@ -413,7 +563,7 @@ router.put('/update-status/:staffName', validateStaffName, validateDeliveryStatu
     return res.json({
       success: true,
       data: { 
-        updated: result,
+        updated: result.updated,
         staffName,
         status,
         customerName,
@@ -569,5 +719,147 @@ router.get('/all-status', requireGoogleAuth, async (req: CustomRequest, res: Res
     })
   }
 })
+
+/**
+ * 배달 상태 정보 조회 API
+ * GET /api/delivery/status-info
+ */
+router.get('/status-info', asyncHandler(async (req: CustomRequest, res: Response) => {
+  const { current_status } = req.query
+
+  const statusInfo: any = {
+    validStatuses: DeliveryStatusService.getValidStatuses(),
+    statusDescriptions: DeliveryStatusService.getValidStatuses().reduce((acc, status) => {
+      acc[status] = {
+        description: DeliveryStatusService.getStatusDescription(status),
+        color: DeliveryStatusService.getStatusColor(status),
+        icon: DeliveryStatusService.getStatusIcon(status)
+      }
+      return acc
+    }, {} as Record<string, any>)
+  }
+
+  // 특정 상태가 주어진 경우 해당 상태에서 가능한 다음 상태들 포함
+  if (current_status && typeof current_status === 'string') {
+    const currentStatus = current_status as string
+    statusInfo.nextValidStatuses = DeliveryStatusService.getNextValidStatuses(currentStatus)
+    statusInfo.currentStatusInfo = {
+      status: currentStatus,
+      isValid: DeliveryStatusService.isValidStatus(currentStatus),
+      description: DeliveryStatusService.getStatusDescription(currentStatus),
+      color: DeliveryStatusService.getStatusColor(currentStatus),
+      icon: DeliveryStatusService.getStatusIcon(currentStatus),
+      isCompleted: DeliveryStatusService.isCompleted(currentStatus),
+      isInProgress: DeliveryStatusService.isInProgress(currentStatus)
+    }
+  }
+
+  return res.json({
+    success: true,
+    data: statusInfo,
+    message: '배달 상태 정보를 조회했습니다.'
+  })
+}))
+
+/**
+ * 배달 상태 전환 유효성 검증 API
+ * POST /api/delivery/validate-transition
+ */
+router.post('/validate-transition', asyncHandler(async (req: CustomRequest, res: Response) => {
+  const { currentStatus, newStatus } = req.body
+
+  if (!currentStatus || !newStatus) {
+    throw new ValidationError('현재 상태와 새로운 상태가 필요합니다.', {
+      missingFields: [
+        !currentStatus && 'currentStatus',
+        !newStatus && 'newStatus'
+      ].filter(Boolean)
+    })
+  }
+
+  const isValid = DeliveryStatusService.isValidTransition(currentStatus, newStatus)
+  const errorMessage = isValid ? null : DeliveryStatusService.getTransitionError(currentStatus, newStatus)
+
+  return res.json({
+    success: true,
+    data: {
+      currentStatus,
+      newStatus,
+      isValidTransition: isValid,
+      errorMessage,
+      validNextStatuses: DeliveryStatusService.getNextValidStatuses(currentStatus),
+      transitionRules: {
+        from: currentStatus,
+        to: newStatus,
+        allowed: isValid
+      }
+    },
+    message: isValid ? '유효한 상태 전환입니다.' : '유효하지 않은 상태 전환입니다.'
+  })
+}))
+
+/**
+ * 주문별 상태 전환 히스토리 조회 API
+ * GET /api/delivery/status-history/:staffName/:rowIndex
+ */
+router.get('/status-history/:staffName/:rowIndex', requireStaffAuth, asyncHandler(async (req: CustomRequest, res: Response) => {
+  const { staffName, rowIndex } = req.params
+  const deliveryAuth = req.session?.deliveryAuth
+
+  if (!deliveryAuth) {
+    throw new AuthenticationError('로그인이 필요합니다.')
+  }
+
+  const { spreadsheetId } = deliveryAuth
+  const tokens = req.session?.googleTokens
+
+  if (!tokens) {
+    throw new AuthenticationError('시스템 인증 오류가 발생했습니다.')
+  }
+
+  try {
+    const deliveryData = await GoogleSheetsService.getDeliveryData(tokens, spreadsheetId, staffName)
+    const orderData = deliveryData.find(order => order.rowIndex === parseInt(rowIndex))
+
+    if (!orderData) {
+      throw new NotFoundError('해당 주문을 찾을 수 없습니다.')
+    }
+
+    const currentStatus = orderData.status || '대기'
+    const statusHistory = [
+      {
+        status: currentStatus,
+        timestamp: new Date().toISOString(),
+        description: DeliveryStatusService.getStatusDescription(currentStatus),
+        color: DeliveryStatusService.getStatusColor(currentStatus),
+        icon: DeliveryStatusService.getStatusIcon(currentStatus)
+      }
+    ]
+
+    return res.json({
+      success: true,
+      data: {
+        orderInfo: orderData,
+        currentStatus: {
+          status: currentStatus,
+          description: DeliveryStatusService.getStatusDescription(currentStatus),
+          color: DeliveryStatusService.getStatusColor(currentStatus),
+          icon: DeliveryStatusService.getStatusIcon(currentStatus),
+          nextValidStatuses: DeliveryStatusService.getNextValidStatuses(currentStatus)
+        },
+        statusHistory,
+        availableTransitions: DeliveryStatusService.getNextValidStatuses(currentStatus).map(status => ({
+          status,
+          description: DeliveryStatusService.getStatusDescription(status),
+          color: DeliveryStatusService.getStatusColor(status),
+          icon: DeliveryStatusService.getStatusIcon(status)
+        }))
+      },
+      message: '주문 상태 정보를 조회했습니다.'
+    })
+  } catch (error) {
+    throw handleGoogleSheetsError(error)
+  }
+}))
 
 export default router

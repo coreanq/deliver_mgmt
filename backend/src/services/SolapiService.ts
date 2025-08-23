@@ -30,6 +30,7 @@ export interface MessageSendResult {
   statusMessage?: string
   errorCode?: string
   errorMessage?: string
+  messageType?: string
 }
 
 export class SolapiService {
@@ -349,39 +350,80 @@ export class SolapiService {
     from: string,
     templateId?: string
   ): Promise<MessageSendResult> {
+    console.log(`배달 완료 알림 발송 시작: ${customerName} (${phoneNumber})`)
+    
     try {
+      // 전화번호 형식 검증 및 정규화
+      const cleanPhone = phoneNumber.replace(/[^0-9]/g, '')
+      if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+        return {
+          success: false,
+          errorMessage: '유효하지 않은 전화번호 형식입니다.'
+        }
+      }
+
       // 카카오톡 알림톡 시도
       if (templateId) {
+        console.log(`카카오톡 알림톡 발송 시도 - 템플릿 ID: ${templateId}`)
+        
         const kakaoResult = await this.sendKakaoMessage(
           tokens,
           templateId,
-          phoneNumber,
-          { 고객명: customerName },
+          cleanPhone,
+          { 
+            고객명: customerName,
+            상품명: '주문 상품',
+            배달시간: new Date().toLocaleTimeString('ko-KR'),
+            날짜: new Date().toLocaleDateString('ko-KR')
+          },
           from
         )
 
         if (kakaoResult.success) {
-          console.log(`카카오톡 배달 완료 알림 발송 성공: ${customerName} (${phoneNumber})`)
-          return kakaoResult
+          console.log(`✅ 카카오톡 배달 완료 알림 발송 성공: ${customerName} (${cleanPhone})`)
+          return {
+            ...kakaoResult,
+            messageType: 'kakao'
+          }
         }
 
-        console.log('카카오톡 발송 실패, SMS로 대체 발송 시도')
+        console.log(`⚠️ 카카오톡 발송 실패: ${kakaoResult.errorMessage}, SMS로 대체 발송 시도`)
+      } else {
+        console.log('카카오톡 템플릿 ID가 없어 SMS로 직접 발송')
       }
 
-      // SMS 대체 발송
-      const smsText = `${customerName}님, 주문하신 상품이 성공적으로 배달 완료되었습니다. 맛있게 드세요!`
-      const smsResult = await this.sendSMS(tokens, phoneNumber, smsText, from)
+      // SMS 대체 발송 - 더 정중하고 구체적인 메시지
+      const currentTime = new Date().toLocaleString('ko-KR', {
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      })
+      
+      const smsText = `[배달완료] ${customerName}님, ${currentTime}에 주문하신 상품의 배달이 완료되었습니다. 맛있게 드세요! 감사합니다.`
+      
+      console.log(`SMS 대체 발송 시도: ${smsText}`)
+      
+      const smsResult = await this.sendSMS(tokens, cleanPhone, smsText, from)
 
       if (smsResult.success) {
-        console.log(`SMS 배달 완료 알림 발송 성공: ${customerName} (${phoneNumber})`)
+        console.log(`✅ SMS 배달 완료 알림 발송 성공: ${customerName} (${cleanPhone})`)
+        return {
+          ...smsResult,
+          messageType: 'sms'
+        }
+      } else {
+        console.log(`❌ SMS 발송 실패: ${smsResult.errorMessage}`)
       }
 
       return smsResult
     } catch (error: any) {
-      console.error('배달 완료 알림 발송 실패:', error)
+      console.error('❌ 배달 완료 알림 발송 실패:', error)
       return {
         success: false,
-        errorMessage: '배달 완료 알림 발송에 실패했습니다.'
+        errorMessage: error.message || '배달 완료 알림 발송에 실패했습니다.',
+        errorCode: 'DELIVERY_NOTIFICATION_ERROR'
       }
     }
   }

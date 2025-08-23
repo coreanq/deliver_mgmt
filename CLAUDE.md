@@ -1,6 +1,8 @@
-# CLAUDE.md - 배달 관리 시스템 개발 가이드
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 배달 관리 시스템 개발 가이드
 
 ## Task Master AI Instructions
 **Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
@@ -79,13 +81,27 @@ cd backend && npm run build   # 백엔드 TypeScript 컴파일
 cd frontend && npm run build  # 프론트엔드 Vite 빌드
 npm start                     # 프로덕션 서버 시작
 
-# 코드 품질
+# 코드 품질 검사
 cd backend && npm run lint    # 백엔드 ESLint 검사
+cd backend && npm run lint:fix # 백엔드 ESLint 자동 수정
 cd frontend && npm run lint   # 프론트엔드 ESLint 검사
 cd frontend && npm run type-check  # Vue TypeScript 타입 검사
 
+# 테스트 실행
+cd backend && npm test        # 백엔드 Jest 테스트
+npm test                      # E2E Playwright 테스트
+npm run test:ui              # Playwright UI 모드
+npm run test:debug           # Playwright 디버그 모드
+npm run test:report          # Playwright 테스트 리포트
+
 # 네트워크 설정
 npm run setup-ip              # 환경 변수 기반 IP 설정
+npm run setup-network         # 네트워크 설정 (setup-ip와 동일)
+
+# 배포 관련 (PM2 프로덕션 배포)
+./deploy.sh production        # 프로덕션 배포 (자동화 스크립트)
+./deploy.sh staging          # 스테이징 배포
+./deploy.sh development      # 개발 환경 빌드
 ```
 
 ### 환경 변수 설정
@@ -122,6 +138,7 @@ VITE_API_BASE_URL=http://${VITE_SERVER_IP}:${VITE_SERVER_PORT}
 - **프론트엔드**: 포트 3000 (개발 서버)
 - **외부 접근**: `10.13.116.82:3000` 등 외부 IP 접근을 위해 HOST=0.0.0.0으로 바인딩
 - **CORS 설정**: 환경 변수 기반 동적 오리진 허용
+- **Playwright 테스트**: 백엔드 5001 포트 (테스트 전용), 프론트엔드 3000 포트
 
 ### 주요 API 엔드포인트
 ```bash
@@ -154,6 +171,29 @@ POST /api/solapi/send              # 메시지 발송
 GET  /api/solapi/account           # 계정 정보
 ```
 
+## 핵심 아키텍처 패턴
+
+### 실시간 통신 시스템
+- **WebSocket**: Socket.IO 기반 실시간 배달 상태 동기화
+- **SyncService**: 다중 클라이언트 간 데이터 동기화 관리
+- **이벤트 기반**: 배달 상태 변경 시 모든 연결된 클라이언트에게 실시간 알림
+
+### PWA (Progressive Web App) 구현
+- **에러 트래킹**: ErrorTracker 서비스로 클라이언트 에러 수집
+- **성능 모니터링**: 앱 마운트 시간, 페이지 로드 시간 측정
+- **오프라인 지원**: PWAService 통한 캐싱 및 백그라운드 동기화
+
+### OAuth2 인증 플로우 (중요)
+- **Google OAuth**: 리다이렉트 방식 사용 (팝업 방식 제거됨)
+- **URL 파라미터 기반**: 임시 토큰을 URL 파라미터로 전달하여 COOP 정책 회피
+- **세션 관리**: Express-session 기반 서버사이드 세션 관리
+- **SOLAPI OAuth**: 전통적인 OAuth2 방식, 클라이언트 시크릿 필수
+
+### 데이터 동기화 아키텍처
+- **중앙집중식**: 모든 배달 상태는 Google Sheets를 Single Source of Truth로 사용
+- **실시간 동기화**: WebSocket 통해 모든 클라이언트가 동일한 상태 유지
+- **오류 복구**: SyncService가 동기화 실패 시 자동 재시도 및 충돌 해결
+
 ## 주요 서비스 클래스
 
 ### GoogleDriveService.ts
@@ -164,6 +204,14 @@ getSpreadsheetsList(tokens, options): Promise<{files, nextPageToken, totalCount}
 
 // 특정 스프레드시트 상세 정보
 getSpreadsheetDetails(tokens, fileId): Promise<SpreadsheetInfo>
+```
+
+### GoogleSheetsService.ts
+스프레드시트 데이터 CRUD 작업
+```typescript
+// 시트 데이터 조회 및 업데이트
+getSheetData(sheetName): Promise<SheetData>
+updateDeliveryStatus(sheetName, rowIndex, newStatus): Promise<void>
 ```
 
 ### FilterPreferencesService.ts
@@ -188,14 +236,70 @@ sendMessage(to, message, from): Promise<SendResult>
 getAccountInfo(accessToken): Promise<AccountInfo>
 ```
 
+### TokenService.ts
+JWT 토큰 관리 (QR 코드 인증용)
+```typescript
+// QR 토큰 생성 및 검증
+generateQRToken(staffName, sheetName): Promise<string>
+verifyQRToken(token): Promise<{staffName, sheetName}>
+```
+
+### WebSocketManager.ts
+실시간 통신 및 클라이언트 연결 관리
+```typescript
+// WebSocket 서버 초기화 및 이벤트 관리
+initialize(httpServer): void
+broadcastSyncEvent(event): void
+getConnectedClients(): ClientInfo[]
+```
+
+### SyncService.ts
+다중 클라이언트 간 데이터 동기화
+```typescript
+// 동기화 이벤트 발생 및 처리
+emitSyncEvent(type, data): void
+handleSyncConflict(conflictData): void
+```
+
+### DeliveryStatusService.ts
+배달 상태 변경 로직 및 검증
+```typescript
+// 배달 상태 업데이트 및 유효성 검사
+updateDeliveryStatus(params): Promise<UpdateResult>
+validateStatusTransition(from, to): boolean
+```
+
+### LoggerService.ts
+Winston 기반 구조화된 로깅
+```typescript
+// 시스템 로그 관리 (일별 로테이션)
+info(message, meta): void
+error(message, meta): void
+audit(action, meta): void // 중요 작업 감사 로그
+```
+
+### SecurityService.ts
+보안 관련 유틸리티
+```typescript
+// 입력값 검증 및 보안 처리
+validateInput(data): boolean
+sanitizeSheetName(name): string
+```
+
 ## OAuth2 인증 플로우
 
-### Google OAuth
-1. 사용자가 "구글 로그인" 클릭
-2. `/api/auth/google` 호출하여 인증 URL 생성
-3. Google 인증 페이지로 리다이렉트
-4. `/api/auth/google/callback`에서 콜백 처리
-5. 토큰을 세션에 저장
+### Google OAuth (리다이렉트 방식)
+1. 사용자가 "구글 계정으로 인증" 클릭
+2. 프론트엔드에서 `/api/admin/google-auth-url` 호출하여 인증 URL 취득
+3. `window.location.href`로 Google 인증 페이지로 전체 페이지 리다이렉트 (팝업 없음)
+4. Google 인증 완료 후 `/api/auth/google/callback`으로 코드 전달
+5. 백엔드에서 임시 토큰 생성 후 `res.redirect()`로 프론트엔드로 리다이렉트
+6. URL 파라미터로 `temp_token` 전달: `/admin?temp_token=xxx&auth_status=completed`
+7. 프론트엔드에서 `handleUrlAuthParams()` 함수가 URL 파라미터 감지
+8. 임시 토큰으로 `/api/auth/complete` 호출하여 세션 인증 완료
+9. 자동으로 스프레드시트 목록 로딩
+
+**중요**: 팝업 방식 제거로 COOP(Cross-Origin-Opener-Policy) 문제 해결
 
 ### SOLAPI OAuth (주의: 클라이언트 시크릿 필수)
 - Google Sign-In 방식이 아닌 전통적인 OAuth2 사용
@@ -230,6 +334,24 @@ lsof -ti:3000 | xargs kill -9    # 3000번 포트 프로세스 종료
 - CORS 오류 시 환경 변수 및 허용 오리진 확인
 - 방화벽 설정 확인
 
+## 중요 파일 및 위치
+
+### 핵심 인증 로직
+- `backend/src/routes/auth.ts` - OAuth 콜백 및 인증 처리
+- `frontend/src/stores/adminStore.ts` - Google 인증 상태 관리 및 URL 파라미터 처리
+- `frontend/src/views/AdminDashboard.vue` - 인증 플로우 시작점
+
+### 실시간 동기화 코어
+- `backend/src/services/WebSocketManager.ts` - 실시간 통신 관리
+- `backend/src/services/SyncService.ts` - 데이터 동기화 로직
+- `frontend/src/stores/deliveryStore.ts` - 배달 상태 실시간 업데이트
+
+### 환경 설정 및 보안
+- `backend/.env` / `backend/.env.staging` - 백엔드 환경 변수
+- `frontend/.env` / `frontend/.env.staging` - 프론트엔드 환경 변수
+- `backend/src/middleware/errorHandler.ts` - 통합 에러 처리
+- `backend/ecosystem.config.js` - PM2 프로덕션 배포 설정
+
 ## 최근 구현 내용
 
 ### OAuth 기반 스프레드시트 관리 시스템
@@ -237,6 +359,17 @@ lsof -ti:3000 | xargs kill -9    # 3000번 포트 프로세스 종료
 - 복수 선택 가능한 스프레드시트 연결
 - 검색/필터 기능 및 검색 기록 저장
 - 실시간 연결 상태 모니터링
+
+### 팝업 없는 OAuth 인증 시스템 (2024년 최신 개선)
+- **COOP 정책 문제 해결**: 팝업 방식 제거하고 전체 페이지 리다이렉트 방식 채택
+- **seamless 인증**: 콜백 창 표시 없이 자연스럽게 메인 페이지로 복귀
+- **URL 파라미터 토큰 전달**: localStorage 대신 URL 파라미터로 임시 토큰 전달
+- **자동 스프레드시트 로딩**: 인증 완료 즉시 스프레드시트 목록 자동 조회
+
+### 실시간 동기화 및 PWA 구현
+- **WebSocket 기반 실시간 통신**: 배달 상태 변경 시 모든 클라이언트 동기화
+- **에러 트래킹 및 성능 모니터링**: ErrorTracker로 클라이언트 상태 추적
+- **PWA 지원**: 오프라인 기능 및 모바일 앱 같은 사용자 경험
 
 ### 동적 환경 설정 시스템
 - 하드코딩된 IP 제거
@@ -247,6 +380,23 @@ lsof -ti:3000 | xargs kill -9    # 3000번 포트 프로세스 종료
 - HOST=0.0.0.0 바인딩으로 외부 IP 접근 가능
 - 동적 CORS 오리진 설정
 - 환경 변수 기반 IP 설정
+
+## 아키텍처 및 데이터 플로우
+
+### 배달 상태 워크플로우
+```
+1. 스프레드시트 연동 → 2. QR 코드 생성 → 3. 배달담당자 인증 → 4. 상태 업데이트 → 5. 메시지 발송
+```
+
+### 인증 레이어
+- **관리자**: Google OAuth → 스프레드시트 접근 권한
+- **배달담당자**: QR 코드 + 이름 확인 → 배달 상태 업데이트 권한
+- **시스템**: SOLAPI OAuth → 메시지 발송 권한
+
+### 데이터 구조
+- **Google Sheets**: A열(고객명), B열(연락처), C열(주소), D열(배달상태)
+- **상태값**: "대기" → "준비중" → "출발" → "완료"
+- **QR 토큰**: JWT 기반, 시트명과 만료시간 포함
 
 ## 문제 해결 가이드
 
@@ -267,3 +417,4 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+- backend 나 frotnend 는 직접 시작하겠다

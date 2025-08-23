@@ -32,6 +32,9 @@
       <router-view />
     </v-main>
 
+    <!-- PWA 설치 프롬프트 -->
+    <PWAInstallPrompt />
+    
     <!-- 전역 스낵바 -->
     <v-snackbar
       v-model="globalSnackbar.show"
@@ -53,6 +56,7 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
 
 const router = useRouter()
 

@@ -12,6 +12,8 @@
     "test": "jest"
   },
   "dependencies": {
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
     "axios": "^1.11.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
@@ -23,9 +25,13 @@
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.0",
     "qrcode": "^1.5.0",
+    "socket.io": "^4.8.1",
     "solapi": "^4.0.0",
+    "uuid": "^11.1.0",
     "validator": "^13.9.0",
-    "winston": "^3.8.0"
+    "winston": "^3.8.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.13",

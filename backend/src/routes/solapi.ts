@@ -95,6 +95,25 @@ router.get('/auth/status', (req: ExtendedRequest, res: Response) => {
 })
 
 /**
+ * SOLAPI 상태 확인 (별칭)
+ */
+router.get('/status', (req: ExtendedRequest, res: Response) => {
+  const isAuthenticated = !!req.session.solapiTokens
+  const tokens = req.session.solapiTokens
+
+  return res.json({
+    success: true,
+    authenticated: isAuthenticated,
+    data: isAuthenticated ? {
+      scope: tokens.scope,
+      expiresIn: tokens.expires_in,
+      tokenType: tokens.token_type
+    } : null,
+    message: isAuthenticated ? 'SOLAPI 계정이 연결되어 있습니다.' : 'SOLAPI 계정이 연결되지 않았습니다.'
+  })
+})
+
+/**
  * SOLAPI 계정 정보 조회
  */
 router.get('/account', async (req: ExtendedRequest, res: Response) => {

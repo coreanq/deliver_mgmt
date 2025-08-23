@@ -44,15 +44,26 @@
           <v-icon class="me-2">mdi-file-table</v-icon>
           스프레드시트 목록
         </div>
-        <v-btn 
-          color="success" 
-          @click="connectSelectedSheets" 
-          :disabled="selectedSheets.length === 0" 
-          :loading="connectLoading"
-        >
-          <v-icon start>mdi-link</v-icon>
-          선택한 시트 연동 ({{ selectedSheets.length }})
-        </v-btn>
+        <div class="d-flex gap-2">
+          <v-btn 
+            color="warning" 
+            variant="outlined"
+            @click="disconnectGoogle" 
+            :loading="adminStore.loading.auth"
+          >
+            <v-icon start>mdi-logout</v-icon>
+            다른 계정으로 로그인
+          </v-btn>
+          <v-btn 
+            color="success" 
+            @click="connectSelectedSheets" 
+            :disabled="selectedSheets.length === 0" 
+            :loading="connectLoading"
+          >
+            <v-icon start>mdi-link</v-icon>
+            선택한 시트 연동 ({{ selectedSheets.length }})
+          </v-btn>
+        </div>
       </v-card-title>
 
       <v-card-text>
@@ -290,6 +301,17 @@ const authenticateGoogleNewTab = async () => {
 // 페이지 새로고침
 const refreshPage = () => {
   window.location.reload()
+}
+
+// 구글 로그아웃
+const disconnectGoogle = async () => {
+  try {
+    await adminStore.disconnectGoogle()
+    emitNotification('구글 계정 로그아웃이 완료되었습니다. 다른 계정으로 로그인할 수 있습니다.', 'success')
+  } catch (error) {
+    console.error('구글 로그아웃 실패:', error)
+    emitNotification('구글 로그아웃에 실패했습니다.', 'error')
+  }
 }
 
 // 스프레드시트 검색

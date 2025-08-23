@@ -2,6 +2,7 @@ import { Router, Response } from 'express'
 import SheetMappingService from '../services/SheetMappingService'
 import GoogleDriveService from '../services/GoogleDriveService'
 import FilterPreferencesService from '../services/FilterPreferencesService'
+import logger from '../services/LoggerService'
 import { requireGoogleAuth } from '../middleware/auth'
 import { 
   asyncHandler, 
@@ -95,158 +96,7 @@ router.get('/google-auth-url', asyncHandler(async (req: CustomRequest, res: Resp
   })
 }))
 
-/**
- * 배송자 등록 API
- * POST /api/admin/staff
- */
-router.post('/staff', asyncHandler(async (req: CustomRequest, res: Response) => {
-  const { name, phone, active = true } = req.body
 
-  // 입력값 검증
-  if (!name || !phone) {
-    throw new ValidationError('배송자 이름과 연락처가 필요합니다.', {
-      missingFields: [
-        !name && 'name',
-        !phone && 'phone'
-      ].filter(Boolean)
-    })
-  }
-
-  // 이름 유효성 검사
-  if (name.length < 2) {
-    throw new ValidationError('배송자 이름은 최소 2글자 이상이어야 합니다.', {
-      providedName: name
-    })
-  }
-
-  // 전화번호 형식 검사 (간단한 패턴)
-  const phonePattern = /^010-?\d{4}-?\d{4}$/
-  if (!phonePattern.test(phone.replace(/\s/g, ''))) {
-    throw new ValidationError('올바른 전화번호 형식이 아닙니다.', {
-      providedPhone: phone,
-      expectedFormat: '010-1234-5678'
-    })
-  }
-
-  // 중복 배송자 확인
-  const existingStaff = await SheetMappingService.getDeliveryStaffByName(name)
-  if (existingStaff) {
-    const error = new StaffManagementError('이미 등록된 배송자입니다.', {
-      staffName: name,
-      existingId: existingStaff.id
-    })
-    throw error
-  }
-
-  // 배송자 등록
-  const newStaff = await SheetMappingService.addDeliveryStaff({
-    name: name.trim(),
-    phone: phone.replace(/\s/g, ''),
-    active: Boolean(active)
-  })
-
-  if (!newStaff) {
-    throw new StaffManagementError('배송자 등록에 실패했습니다.')
-  }
-
-  res.setHeader('Content-Type', 'application/json; charset=utf-8')
-  return res.status(201).json({
-    success: true,
-    message: `${name}님이 성공적으로 등록되었습니다.`,
-    data: newStaff
-  })
-}))
-
-/**
- * 모든 배송자 조회 API
- * GET /api/admin/staff
- */
-router.get('/staff', asyncHandler(async (req: CustomRequest, res: Response) => {
-  const staffList = await SheetMappingService.getAllDeliveryStaff()
-
-  return res.json({
-    success: true,
-    data: staffList,
-    count: staffList.length,
-    message: `총 ${staffList.length}명의 배송자를 조회했습니다.`
-  })
-}))
-
-/**
- * 배송자 정보 업데이트 API
- * PUT /api/admin/staff/:id
- */
-router.put('/staff/:id', asyncHandler(async (req: CustomRequest, res: Response) => {
-  const staffId = parseInt(req.params.id)
-  const updates = req.body
-
-  if (isNaN(staffId) || staffId < 1) {
-    throw new ValidationError('유효하지 않은 배송자 ID입니다.', {
-      providedId: req.params.id
-    })
-  }
-
-  // 전화번호 업데이트 시 유효성 검사
-  if (updates.phone) {
-    const phonePattern = /^010-?\d{4}-?\d{4}$/
-    if (!phonePattern.test(updates.phone.replace(/\s/g, ''))) {
-      throw new ValidationError('올바른 전화번호 형식이 아닙니다.', {
-        providedPhone: updates.phone,
-        expectedFormat: '010-1234-5678'
-      })
-    }
-    updates.phone = updates.phone.replace(/\s/g, '')
-  }
-
-  // 이름 업데이트 시 유효성 검사
-  if (updates.name && updates.name.length < 2) {
-    throw new ValidationError('배송자 이름은 최소 2글자 이상이어야 합니다.', {
-      providedName: updates.name
-    })
-  }
-
-  const success = await SheetMappingService.updateDeliveryStaff(staffId, updates)
-  
-  if (!success) {
-    throw new NotFoundError('해당 배송자를 찾을 수 없습니다.', {
-      staffId
-    })
-  }
-
-  return res.json({
-    success: true,
-    message: '배송자 정보가 업데이트되었습니다.',
-    data: { id: staffId, ...updates }
-  })
-}))
-
-/**
- * 배송자 삭제 API
- * DELETE /api/admin/staff/:id
- */
-router.delete('/staff/:id', asyncHandler(async (req: CustomRequest, res: Response) => {
-  const staffId = parseInt(req.params.id)
-
-  if (isNaN(staffId) || staffId < 1) {
-    throw new ValidationError('유효하지 않은 배송자 ID입니다.', {
-      providedId: req.params.id
-    })
-  }
-
-  const success = await SheetMappingService.removeDeliveryStaff(staffId)
-  
-  if (!success) {
-    throw new NotFoundError('해당 배송자를 찾을 수 없습니다.', {
-      staffId
-    })
-  }
-
-  return res.json({
-    success: true,
-    message: '배송자가 삭제되었습니다.',
-    data: { id: staffId }
-  })
-}))
 
 /**
  * 스프레드시트 매핑 생성 API
@@ -405,17 +255,11 @@ router.delete('/sheet-mapping/:date', asyncHandler(async (req: CustomRequest, re
  * GET /api/admin/status
  */
 router.get('/status', asyncHandler(async (req: CustomRequest, res: Response) => {
-  const staffCount = (await SheetMappingService.getAllDeliveryStaff()).length
   const mappingCount = (await SheetMappingService.getAllSheetMappings()).length
-  const activeStaffCount = (await SheetMappingService.getAllDeliveryStaff())
-    .filter(staff => staff.active).length
 
   return res.json({
     success: true,
     data: {
-      totalStaff: staffCount,
-      activeStaff: activeStaffCount,
-      inactiveStaff: staffCount - activeStaffCount,
       totalMappings: mappingCount,
       systemStatus: 'operational',
       lastUpdated: new Date().toISOString()
@@ -727,6 +571,114 @@ router.delete('/filter-preferences/:id', asyncHandler(async (req: CustomRequest,
     message: '필터 선호도가 삭제되었습니다.',
     data: { id }
   })
+}))
+
+/**
+ * 연결된 스프레드시트 목록 조회 API
+ * GET /api/admin/connected-sheets
+ */
+router.get('/connected-sheets', asyncHandler(async (req: CustomRequest, res: Response) => {
+  // 모든 시트 매핑에서 연결된 것들만 조회
+  const allMappings = await SheetMappingService.getAllSheetMappings()
+  
+  // 연결된 시트만 필터링 (status가 'connected'인 것들)
+  const connectedSheets = allMappings
+    .filter(mapping => mapping.status === 'connected')
+    .map(mapping => ({
+      id: mapping.spreadsheetId,
+      name: mapping.title,
+      date: mapping.date,
+      status: mapping.status,
+      spreadsheetId: mapping.spreadsheetId
+    }))
+
+  return res.json({
+    success: true,
+    data: connectedSheets,
+    count: connectedSheets.length,
+    message: `${connectedSheets.length}개의 연결된 스프레드시트를 조회했습니다.`
+  })
+}))
+
+/**
+ * 연결된 스프레드시트 연결 해제 API
+ * DELETE /api/admin/connected-sheets/:sheetId
+ */
+router.delete('/connected-sheets/:sheetId', asyncHandler(async (req: CustomRequest, res: Response) => {
+  const { sheetId } = req.params
+
+  if (!sheetId) {
+    throw new ValidationError('스프레드시트 ID가 필요합니다.', {
+      providedSheetId: sheetId
+    })
+  }
+
+  // 해당 스프레드시트 ID를 가진 모든 매핑 찾기
+  const allMappings = await SheetMappingService.getAllSheetMappings()
+  const targetMappings = allMappings.filter(mapping => mapping.spreadsheetId === sheetId)
+
+  if (targetMappings.length === 0) {
+    throw new NotFoundError('연결된 스프레드시트를 찾을 수 없습니다.', {
+      sheetId
+    })
+  }
+
+  // 모든 해당 매핑 삭제
+  let deletedCount = 0
+  for (const mapping of targetMappings) {
+    const success = await SheetMappingService.removeSheetMapping(mapping.date)
+    if (success) {
+      deletedCount++
+    }
+  }
+
+  return res.json({
+    success: true,
+    message: `스프레드시트 연결이 해제되었습니다. (${deletedCount}개 매핑 삭제)`,
+    data: { 
+      sheetId, 
+      deletedCount,
+      targetMappings: targetMappings.map(m => ({ date: m.date, title: m.title }))
+    }
+  })
+}))
+
+/**
+ * 구글 로그아웃 API
+ * POST /api/admin/google-logout
+ */
+router.post('/google-logout', asyncHandler(async (req: CustomRequest, res: Response) => {
+  try {
+    // 세션에서 구글 토큰 정보 제거
+    if (req.session) {
+      req.session.googleTokens = null
+      req.session.googleAuth = null
+      
+      // 세션 저장
+      req.session.save((err: any) => {
+        if (err) {
+          logger.warn('세션 저장 중 오류:', err)
+        }
+      })
+      
+      logger.info('구글 세션 정보가 삭제되었습니다.', {
+        sessionId: req.session.id
+      })
+    }
+    
+    return res.json({
+      success: true,
+      message: '구글 계정 로그아웃이 완료되었습니다.'
+    })
+    
+  } catch (error: any) {
+    logger.error('구글 로그아웃 처리 중 오류:', error)
+    
+    return res.json({
+      success: true, // 로그아웃은 항상 성공으로 처리
+      message: '로그아웃이 완료되었습니다.'
+    })
+  }
 }))
 
 export default router

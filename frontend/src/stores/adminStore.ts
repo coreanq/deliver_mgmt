@@ -3,20 +3,6 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 
 // 인터페이스 정의
-export interface DeliveryStaff {
-  id: string
-  name: string
-  phone: string
-  email?: string
-  status: 'active' | 'inactive'
-  vehicleType?: string
-  notes?: string
-  qrCodeUrl?: string
-  qrCodeDataUrl?: string
-  lastActive?: string
-  createdAt: string
-  updatedAt: string
-}
 
 export interface SheetConnection {
   id: string
@@ -82,9 +68,6 @@ export const useAdminStore = defineStore('admin', () => {
     solapi: false
   })
   
-  // 배달기사 관리
-  const deliveryStaff = ref<DeliveryStaff[]>([])
-  const selectedStaff = ref<DeliveryStaff | null>(null)
   
   // 스프레드시트 관리
   const spreadsheets = ref<SpreadsheetInfo[]>([])
@@ -107,13 +90,6 @@ export const useAdminStore = defineStore('admin', () => {
   
   // === 계산된 속성 ===
   
-  const activeStaff = computed(() => 
-    deliveryStaff.value.filter(staff => staff.status === 'active')
-  )
-  
-  const inactiveStaff = computed(() => 
-    deliveryStaff.value.filter(staff => staff.status === 'inactive')
-  )
   
   const connectedSheetConnections = computed(() =>
     sheetConnections.value.filter(conn => conn.status === 'connected')
@@ -135,6 +111,59 @@ export const useAdminStore = defineStore('admin', () => {
   
   // === 인증 관련 액션 ===
   
+  // URL 파라미터에서 임시 토큰을 확인하고 인증을 완료하는 함수
+  const handleUrlAuthParams = async () => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search)
+      const tempToken = urlParams.get('temp_token')
+      const authStatus = urlParams.get('auth_status')
+      const timestamp = urlParams.get('timestamp')
+      
+      if (tempToken && authStatus === 'completed' && timestamp) {
+        const timeDiff = Date.now() - parseInt(timestamp)
+        if (timeDiff < 30000) { // 30초 이내
+          console.log('URL에서 임시 토큰 발견, 인증 완료 시도:', tempToken)
+          
+          try {
+            loading.value.auth = true
+            const completeResponse = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/complete`, {
+              tempToken
+            }, {
+              withCredentials: true
+            })
+            console.log('URL 임시 토큰으로 세션 인증 완료:', completeResponse.data)
+            
+            // URL 파라미터 정리
+            const cleanUrl = window.location.pathname
+            window.history.replaceState({}, document.title, cleanUrl)
+            
+            // 인증 상태 업데이트
+            await checkGoogleAuthStatus()
+            
+            // 스프레드시트 목록 자동 로딩
+            try {
+              await searchSpreadsheets()
+              console.log('URL 인증 성공 후 스프레드시트 목록 로딩 완료')
+            } catch (error) {
+              console.warn('스프레드시트 목록 로딩 실패:', error)
+            }
+            
+            return true
+          } catch (error) {
+            console.error('URL 임시 토큰으로 세션 인증 완료 실패:', error)
+          } finally {
+            loading.value.auth = false
+          }
+        } else {
+          console.log('URL 임시 토큰이 만료됨 (30초 초과)')
+        }
+      }
+    } catch (error) {
+      console.warn('URL 인증 파라미터 처리 중 오류:', error)
+    }
+    return false
+  }
+  
   const checkGoogleAuthStatus = async () => {
     try {
       loading.value.auth = true
@@ -155,70 +184,37 @@ export const useAdminStore = defineStore('admin', () => {
       loading.value.auth = true
       const response = await axios.get('/api/admin/google-auth-url')
       
-      // 팝업 창에서 인증 진행
-      const popup = window.open(response.data.authUrl, 'googleAuth', 'width=500,height=600')
-      console.log('Google 인증 팝업 열림:', popup)
+      // 전체 페이지 리다이렉트 방식으로 인증 진행 (팝업 대신)
+      console.log('Google 인증 페이지로 이동:', response.data.authUrl)
+      window.location.href = response.data.authUrl
       
-      // 팝업에서 인증 완료 메시지 대기
-      return new Promise((resolve, reject) => {
-        let authTimeout: NodeJS.Timeout
-        let checkClosed: NodeJS.Timeout
-        
-        const handleMessage = async (event: MessageEvent) => {
-          console.log('팝업에서 메시지 받음:', event.data)
-          if (event.data.type === 'oauth_success') {
-            console.log('Google 인증 성공! 임시 토큰:', event.data.tempToken)
-            clearInterval(checkClosed)
-            clearTimeout(authTimeout)
-            window.removeEventListener('message', handleMessage)
-            popup?.close()
-            
-            // 임시 토큰으로 현재 세션에 인증 완료
-            try {
-              const completeResponse = await axios.post('/api/auth/complete', {
-                tempToken: event.data.tempToken
-              })
-              console.log('세션 인증 완료:', completeResponse.data)
-              
-              // 인증 상태 업데이트
-              await checkGoogleAuthStatus()
-              resolve(event.data)
-            } catch (error) {
-              console.error('세션 인증 완료 실패:', error)
-              reject(new Error('세션 인증 완료에 실패했습니다.'))
-            }
-          } else if (event.data.type === 'oauth_error') {
-            console.log('Google 인증 실패:', event.data.error)
-            clearInterval(checkClosed)
-            clearTimeout(authTimeout)
-            window.removeEventListener('message', handleMessage)
-            popup?.close()
-            reject(new Error(event.data.error))
-          }
-        }
-        
-        window.addEventListener('message', handleMessage)
-        
-        // 팝업이 닫힌 경우 처리 (더 긴 타임아웃 설정)
-        checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed)
-            clearTimeout(authTimeout)
-            window.removeEventListener('message', handleMessage)
-            reject(new Error('인증이 취소되었습니다.'))
-          }
-        }, 2000)
-        
-        // 30초 타임아웃 설정
-        authTimeout = setTimeout(() => {
-          clearInterval(checkClosed)
-          window.removeEventListener('message', handleMessage)
-          popup?.close()
-          reject(new Error('인증 시간이 초과되었습니다.'))
-        }, 30000)
-      })
     } catch (error) {
       console.error('Google 인증 실패:', error)
+      loading.value.auth = false
+      throw error
+    }
+  }
+  
+  const disconnectGoogle = async () => {
+    try {
+      loading.value.auth = true
+      const response = await axios.post('/api/admin/google-logout')
+      
+      if (response.data.success) {
+        // 로컬 상태 초기화
+        isGoogleAuthenticated.value = false
+        spreadsheets.value = []
+        connectedSheets.value = []
+        sheetConnections.value = []
+        nextPageToken.value = null
+        
+        console.log('구글 로그아웃 완료')
+        return true
+      } else {
+        throw new Error(response.data.message || '로그아웃 실패')
+      }
+    } catch (error) {
+      console.error('구글 로그아웃 실패:', error)
       throw error
     } finally {
       loading.value.auth = false
@@ -243,111 +239,6 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
   
-  // === 배달기사 관리 액션 ===
-  
-  const loadDeliveryStaff = async () => {
-    try {
-      loading.value.staff = true
-      const response = await axios.get('/api/admin/staff')
-      deliveryStaff.value = response.data.data || []
-      return response.data
-    } catch (error) {
-      console.error('배달기사 목록 로드 실패:', error)
-      throw error
-    } finally {
-      loading.value.staff = false
-    }
-  }
-  
-  const addDeliveryStaff = async (staffData: Partial<DeliveryStaff>) => {
-    try {
-      const response = await axios.post('/api/admin/staff', staffData)
-      if (response.data.success && response.data.data) {
-        deliveryStaff.value.push(response.data.data)
-      }
-      return response.data
-    } catch (error) {
-      console.error('배달기사 추가 실패:', error)
-      throw error
-    }
-  }
-  
-  const updateDeliveryStaff = async (staffId: string, staffData: Partial<DeliveryStaff>) => {
-    try {
-      const response = await axios.put(`/api/admin/delivery-staff/${staffId}`, staffData)
-      const index = deliveryStaff.value.findIndex(staff => staff.id === staffId)
-      if (index !== -1) {
-        deliveryStaff.value[index] = response.data
-      }
-      return response.data
-    } catch (error) {
-      console.error('배달기사 수정 실패:', error)
-      throw error
-    }
-  }
-  
-  const deleteDeliveryStaff = async (staffId: string) => {
-    try {
-      await axios.delete(`/api/admin/delivery-staff/${staffId}`)
-      deliveryStaff.value = deliveryStaff.value.filter(staff => staff.id !== staffId)
-      return true
-    } catch (error) {
-      console.error('배달기사 삭제 실패:', error)
-      throw error
-    }
-  }
-  
-  const toggleStaffStatus = async (staffId: string) => {
-    try {
-      const staff = deliveryStaff.value.find(s => s.id === staffId)
-      if (!staff) return
-      
-      const newStatus = staff.status === 'active' ? 'inactive' : 'active'
-      await axios.patch(`/api/admin/delivery-staff/${staffId}/status`, { status: newStatus })
-      
-      staff.status = newStatus
-      return staff
-    } catch (error) {
-      console.error('배달기사 상태 변경 실패:', error)
-      throw error
-    }
-  }
-  
-  const generateStaffQrCode = async (staffId: string) => {
-    try {
-      const staff = deliveryStaff.value.find(s => s.id === staffId)
-      if (!staff) throw new Error('배달기사를 찾을 수 없습니다.')
-      
-      const response = await axios.post('/api/qr/generate', {
-        staffName: staff.name,
-        sheetName: staff.name
-      })
-      
-      staff.qrCodeUrl = response.data.data.qrCodeUrl
-      staff.qrCodeDataUrl = response.data.data.qrCodeDataUrl
-      
-      return response.data
-    } catch (error) {
-      console.error('QR 코드 생성 실패:', error)
-      throw error
-    }
-  }
-  
-  const generateAllQrCodes = async () => {
-    try {
-      const activeStaffList = activeStaff.value
-      const promises = activeStaffList.map(staff => generateStaffQrCode(staff.id))
-      const results = await Promise.allSettled(promises)
-      
-      const successful = results.filter(result => result.status === 'fulfilled').length
-      const failed = results.filter(result => result.status === 'rejected').length
-      
-      return { successful, failed, total: activeStaffList.length }
-    } catch (error) {
-      console.error('QR 코드 일괄 생성 실패:', error)
-      throw error
-    }
-  }
   
   // === 스프레드시트 관리 액션 ===
   
@@ -363,17 +254,19 @@ export const useAdminStore = defineStore('admin', () => {
       
       if (params.filterType === 'starred') {
         const response = await axios.get('/api/admin/spreadsheets/starred')
-        spreadsheets.value = response.data
+        spreadsheets.value = response.data.data || response.data
         nextPageToken.value = null
       } else {
         const response = await axios.get('/api/admin/spreadsheets', { params })
+        console.log('🔍 프론트엔드 응답 받음:', response.data)
         
+        const files = response.data.data?.files || response.data.files || []
         if (params.pageToken) {
-          spreadsheets.value.push(...response.data.files)
+          spreadsheets.value.push(...files)
         } else {
-          spreadsheets.value = response.data.files
+          spreadsheets.value = files
         }
-        nextPageToken.value = response.data.nextPageToken || null
+        nextPageToken.value = response.data.data?.nextPageToken || response.data.nextPageToken || null
       }
       
       return spreadsheets.value
@@ -641,9 +534,9 @@ export const useAdminStore = defineStore('admin', () => {
       
       if (isGoogleAuthenticated.value) {
         await Promise.all([
-          loadDeliveryStaff(),
           loadConnectedSheets(),
-          loadSheetConnections()
+          loadSheetConnections(),
+          searchSpreadsheets() // 구글 인증 성공 후 자동으로 스프레드시트 목록 로딩
         ])
       }
       
@@ -664,8 +557,6 @@ export const useAdminStore = defineStore('admin', () => {
     isSolapiConnected.value = false
     
     // 데이터 초기화
-    deliveryStaff.value = []
-    selectedStaff.value = null
     spreadsheets.value = []
     connectedSheets.value = []
     sheetConnections.value = []
@@ -693,8 +584,6 @@ export const useAdminStore = defineStore('admin', () => {
     isGoogleAuthenticated,
     isSolapiConnected,
     loading,
-    deliveryStaff,
-    selectedStaff,
     spreadsheets,
     connectedSheets,
     sheetConnections,
@@ -706,8 +595,6 @@ export const useAdminStore = defineStore('admin', () => {
     filterPreferences,
     
     // 계산된 속성
-    activeStaff,
-    inactiveStaff,
     connectedSheetConnections,
     recentConnections,
     successfulMessages,
@@ -716,16 +603,10 @@ export const useAdminStore = defineStore('admin', () => {
     // 인증 액션
     checkGoogleAuthStatus,
     authenticateGoogle,
+    disconnectGoogle,
     checkSolapiStatus,
+    handleUrlAuthParams,
     
-    // 배달기사 관리 액션
-    loadDeliveryStaff,
-    addDeliveryStaff,
-    updateDeliveryStaff,
-    deleteDeliveryStaff,
-    toggleStaffStatus,
-    generateStaffQrCode,
-    generateAllQrCodes,
     
     // 스프레드시트 관리 액션
     searchSpreadsheets,

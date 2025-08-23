@@ -37,6 +37,10 @@ export class GoogleDriveService {
     totalCount: number
   }> {
     try {
+      console.log('🔍 GoogleDriveService: 스프레드시트 목록 조회 시작')
+      console.log('📝 받은 옵션:', options)
+      console.log('🔑 토큰 존재 여부:', !!tokens, '액세스 토큰:', !!tokens?.access_token)
+      
       this.oauth2Client.setCredentials(tokens)
       const drive = google.drive({ version: 'v3', auth: this.oauth2Client })
 
@@ -57,6 +61,9 @@ export class GoogleDriveService {
         const nameQueries = searchTerms.map(term => `name contains '${term.replace(/'/g, "\\'")}'`).join(' or ')
         searchQuery += ` and (${nameQueries})`
       }
+      
+      console.log('🔍 최종 검색 쿼리:', searchQuery)
+      console.log('📄 페이지 사이즈:', pageSize, '정렬:', orderBy)
 
       const response = await drive.files.list({
         q: searchQuery,
@@ -69,6 +76,11 @@ export class GoogleDriveService {
       })
 
       const files = response.data.files || []
+      console.log('📊 Google Drive API 응답:', {
+        totalFiles: files.length,
+        nextPageToken: response.data.nextPageToken,
+        fileNames: files.map(f => f.name).slice(0, 5)
+      })
       
       const spreadsheets: SpreadsheetInfo[] = files.map(file => ({
         id: file.id!,

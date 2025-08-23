@@ -1,0 +1,275 @@
+/* PWA Mobile Optimizations */
+
+/* Touch-friendly interactions */
+* {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection for inputs and content areas */
+input,
+textarea,
+[contenteditable],
+.selectable-text {
+  -webkit-user-select: text;
+  -khtml-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Minimum touch target size (44px for iOS guidelines) */
+.v-btn,
+.v-list-item,
+.v-chip,
+.v-tab,
+.v-card,
+button,
+[role="button"] {
+  min-height: 44px !important;
+}
+
+/* Touch-friendly spacing for mobile */
+@media (max-width: 768px) {
+  .v-btn {
+    min-height: 48px !important;
+    padding: 0 16px !important;
+  }
+  
+  .v-list-item {
+    min-height: 56px !important;
+    padding: 8px 16px !important;
+  }
+  
+  .v-card {
+    margin: 8px !important;
+    border-radius: 12px !important;
+  }
+  
+  .v-container {
+    padding: 12px !important;
+  }
+  
+  /* Larger touch targets for navigation */
+  .v-bottom-navigation .v-btn {
+    min-height: 64px !important;
+  }
+  
+  .v-app-bar .v-btn {
+    min-height: 48px !important;
+  }
+}
+
+/* PWA-specific styles when in standalone mode */
+@media all and (display-mode: standalone) {
+  /* Hide the URL bar space */
+  body {
+    padding-top: constant(safe-area-inset-top);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: constant(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Adjust app bar for PWA mode */
+  .v-app-bar {
+    padding-top: constant(safe-area-inset-top);
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  /* Full-screen app appearance */
+  .v-application {
+    background: #f5f5f5;
+  }
+}
+
+/* iOS Safari PWA mode */
+@media all and (display-mode: standalone) and (-webkit-touch-callout: none) {
+  .v-app-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+  }
+  
+  .v-main {
+    padding-top: 64px;
+  }
+}
+
+/* Smooth scrolling for better mobile experience */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Optimize font rendering on mobile */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Loading states optimized for mobile */
+.v-progress-circular,
+.v-progress-linear {
+  touch-action: none;
+}
+
+/* Better focus indicators for accessibility */
+.v-btn:focus,
+.v-list-item:focus,
+.v-card:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+/* Prevent zoom on inputs in iOS */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important;
+    transform-origin: left top;
+  }
+}
+
+/* Pull-to-refresh indicator styling */
+@media (max-width: 768px) {
+  .v-main {
+    overscroll-behavior: contain;
+  }
+}
+
+/* Haptic feedback simulation */
+.v-btn:active,
+.v-list-item:active,
+.v-card:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Enhanced readability on small screens */
+@media (max-width: 480px) {
+  .v-card-title {
+    font-size: 1.1rem !important;
+    line-height: 1.4 !important;
+  }
+  
+  .v-card-text {
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+  }
+  
+  .v-btn .v-btn__content {
+    font-size: 0.9rem !important;
+  }
+}
+
+/* Dark mode support for PWA */
+@media (prefers-color-scheme: dark) {
+  .v-application.theme--light {
+    /* Override with dark colors when system prefers dark */
+    background: #121212 !important;
+    color: #ffffff !important;
+  }
+}
+
+/* Landscape orientation optimizations */
+@media (orientation: landscape) and (max-height: 500px) {
+  .v-app-bar {
+    height: 48px !important;
+  }
+  
+  .v-app-bar .v-toolbar__content {
+    height: 48px !important;
+  }
+  
+  .v-main {
+    padding-top: 48px !important;
+  }
+}
+
+/* Connection status indicator */
+.network-status-indicator {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4caf50;
+  z-index: 2000;
+  opacity: 0.7;
+}
+
+.network-status-indicator.offline {
+  background: #f44336;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Installation banner */
+.pwa-install-banner {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  background: #1976d2;
+  color: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1500;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Update available indicator */
+.update-indicator {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  background: #4caf50;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  z-index: 1200;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}

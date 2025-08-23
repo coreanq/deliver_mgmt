@@ -90,30 +90,11 @@ router.get('/google/callback', async (req: CustomRequest, res: Response) => {
       tempToken
     })
 
-    // 임시 토큰과 함께 팝업 창에서 부모 창으로 메시지 전송
-    return res.send(`
-      <html>
-        <body>
-          <script>
-            // 부모 창의 localStorage에 임시 토큰 저장
-            if (window.opener && window.opener.localStorage) {
-              window.opener.localStorage.setItem('google_temp_token', '${tempToken}');
-            }
-            
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'oauth_success',
-                message: 'Google 인증이 완료되었습니다.',
-                hasRefreshToken: ${!!tokens.refresh_token},
-                tempToken: '${tempToken}'
-              }, '*');
-            }
-            window.close();
-          </script>
-          <p>인증이 완료되었습니다. 창이 자동으로 닫힙니다.</p>
-        </body>
-      </html>
-    `)
+    // HTTP 리다이렉트 방식 사용 - 콜백 창 표시하지 않고 즉시 메인 페이지로 이동
+    const frontendUrl = process.env.FRONTEND_URL || `http://${process.env.SERVER_IP || 'localhost'}:${process.env.FRONTEND_PORT || 3000}`
+    const redirectUrl = `${frontendUrl}/admin?temp_token=${tempToken}&auth_status=completed&timestamp=${Date.now()}`
+    
+    return res.redirect(redirectUrl)
   } catch (error) {
     console.error('Google OAuth2 콜백 처리 실패:', error)
     return res.send(`

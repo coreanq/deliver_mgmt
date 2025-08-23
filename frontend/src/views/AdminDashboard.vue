@@ -37,7 +37,7 @@
               <v-icon>mdi-account-group</v-icon>
             </v-avatar>
             <div>
-              <div class="text-h6">{{ adminStore.activeStaff.length }}</div>
+              <div class="text-h6">0</div>
               <div class="text-caption text-grey">활성 배달기사</div>
             </div>
           </v-card-text>
@@ -86,11 +86,6 @@
 
     <!-- 탭 네비게이션 -->
     <v-tabs v-model="currentTab" class="mb-6" fixed-tabs>
-      <v-tab value="staff">
-        <v-icon start>mdi-account-group</v-icon>
-        <span class="d-none d-md-inline">배달기사 관리</span>
-        <span class="d-inline d-md-none">기사</span>
-      </v-tab>
       <v-tab value="sheets">
         <v-icon start>mdi-file-table</v-icon>
         <span class="d-none d-md-inline">스프레드시트</span>
@@ -115,10 +110,6 @@
 
     <!-- 탭 컨텐츠 -->
     <v-tabs-window v-model="currentTab">
-      <!-- 배달기사 관리 탭 -->
-      <v-tabs-window-item value="staff">
-        <DeliveryStaffManagement />
-      </v-tabs-window-item>
 
       <!-- 스프레드시트 연동 탭 -->
       <v-tabs-window-item value="sheets">
@@ -172,7 +163,6 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useAdminStore } from '@/stores/adminStore'
 
 // 컴포넌트 임포트
-import DeliveryStaffManagement from '@/components/DeliveryStaffManagement.vue'
 import GoogleSheetsConnection from '@/components/GoogleSheetsConnection.vue'
 import DateBasedSheetConnection from '@/components/DateBasedSheetConnection.vue'
 import SolapiIntegration from '@/components/SolapiIntegration.vue'
@@ -182,7 +172,7 @@ import SystemSettings from '@/components/SystemSettings.vue'
 const adminStore = useAdminStore()
 
 // 반응형 데이터
-const currentTab = ref('staff')
+const currentTab = ref('sheets')
 const snackbar = ref({
   show: false,
   message: '',
@@ -195,7 +185,7 @@ const isLoading = computed(() => {
 })
 
 const qrCodeCount = computed(() => {
-  return adminStore.deliveryStaff.filter(staff => staff.qrCodeUrl).length
+  return 0 // 배달기사 관리 제거로 인해 항상 0 반환
 })
 
 // 탭 변경 감시
@@ -228,13 +218,18 @@ watch(currentTab, (newTab) => {
 // 컴포넌트 마운트
 onMounted(async () => {
   try {
+    // URL 인증 파라미터 먼저 처리
+    const authCompleted = await adminStore.handleUrlAuthParams()
+    
     await adminStore.initializeStore()
     
-    // URL 파라미터로 초기 탭 설정
-    const urlParams = new URLSearchParams(window.location.search)
-    const tabParam = urlParams.get('tab')
-    if (tabParam && ['staff', 'sheets', 'connections', 'solapi', 'settings'].includes(tabParam)) {
-      currentTab.value = tabParam
+    // URL 파라미터로 초기 탭 설정 (인증 완료되지 않은 경우만)
+    if (!authCompleted) {
+      const urlParams = new URLSearchParams(window.location.search)
+      const tabParam = urlParams.get('tab')
+      if (tabParam && ['staff', 'sheets', 'connections', 'solapi', 'settings'].includes(tabParam)) {
+        currentTab.value = tabParam
+      }
     }
   } catch (error) {
     handleError(error)

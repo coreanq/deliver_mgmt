@@ -4,6 +4,7 @@ import session from 'express-session'
 import path from 'path'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
+import { createServer } from 'http'
 
 // UTF-8 환경 설정
 process.env.LANG = 'ko_KR.UTF-8'
@@ -15,15 +16,18 @@ import syncRoutes from './routes/sync'
 import solapiRoutes from './routes/solapi'
 import qrRoutes from './routes/qr'
 import adminRoutes from './routes/admin'
+import loggingRoutes from './routes/logging'
 import SyncService from './services/SyncService'
-import { errorHandler, notFoundHandler } from './middleware/errorHandler'
+import WebSocketManager from './services/WebSocketManager'
+import logger from './services/LoggerService'
+import { errorHandler, notFoundHandler, requestLogger } from './middleware/errorHandler'
 import { sanitizeInputs, setSecurityHeaders } from './middleware/validation'
 import { generalRateLimit, authRateLimit } from './middleware/rateLimiter'
 
 dotenv.config()
 
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = process.env.SERVER_PORT || 5000
 const HOST = process.env.HOST || '0.0.0.0'
 
 // CORS 오리진 설정 - 환경변수에서 동적 생성 및 보안 강화
@@ -78,7 +82,8 @@ app.use(helmet({
       frameSrc: ["'none'"]
     }
   },
-  crossOriginEmbedderPolicy: false // QR 코드 이미지 표시를 위해
+  crossOriginEmbedderPolicy: false, // QR 코드 이미지 표시를 위해
+  crossOriginOpenerPolicy: false // OAuth 팝업 창 통신을 위해
 }))
 
 // 개발 환경에서 CORS를 좀 더 관대하게 설정
@@ -108,6 +113,9 @@ app.use(cors({
   exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   maxAge: 86400
 }))
+
+// 요청 로깅 미들웨어 (가장 먼저 실행)
+app.use(requestLogger)
 
 // 보안 헤더 설정
 app.use(setSecurityHeaders)
@@ -160,6 +168,7 @@ app.use('/api/sync', syncRoutes)
 app.use('/api/solapi', solapiRoutes)
 app.use('/api/qr', qrRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/logging', loggingRoutes)
 
 // 기본 라우트
 app.get('/', (req, res) => {
@@ -176,24 +185,60 @@ app.use(notFoundHandler)
 // 에러 핸들링 미들웨어 (맨 마지막에 위치)
 app.use(errorHandler)
 
+// HTTP 서버 생성 및 WebSocket 서버 설정
+const httpServer = createServer(app)
+WebSocketManager.initialize(httpServer)
+
 // 서버 시작
-app.listen(Number(PORT), HOST, () => {
-  console.log(`서버가 ${HOST}:${PORT}에서 실행 중입니다.`)
-  console.log(`환경: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`허용된 프론트엔드 URLs:`, getFrontendUrls())
+httpServer.listen(Number(PORT), HOST, () => {
+  logger.info('Server started successfully', {
+    host: HOST,
+    port: Number(PORT),
+    environment: process.env.NODE_ENV || 'development',
+    allowedOrigins: getFrontendUrls(),
+    websocketEnabled: true,
+    pid: process.pid
+  })
+  
+  // 개발 환경에서는 콘솔에도 출력
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`서버가 ${HOST}:${PORT}에서 실행 중입니다.`)
+    console.log(`환경: ${process.env.NODE_ENV || 'development'}`)
+    console.log(`허용된 프론트엔드 URLs:`, getFrontendUrls())
+    console.log(`WebSocket 서버 활성화됨`)
+  }
 })
 
 // 서버 종료 시 정리 작업
-process.on('SIGINT', () => {
-  console.log('\n서버 종료 중...')
+const gracefulShutdown = (signal: string) => {
+  logger.info(`Received ${signal}, shutting down gracefully`, {
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage()
+  })
+  
+  console.log(`\n${signal} 신호로 서버 종료 중...`)
+  
   SyncService.stopAllSyncs()
+  WebSocketManager.shutdown()
+  
+  logger.info('Server shutdown completed')
   process.exit(0)
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+
+// 처리되지 않은 예외 처리
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', {}, error)
+  process.exit(1)
 })
 
-process.on('SIGTERM', () => {
-  console.log('\n서버 종료 중...')
-  SyncService.stopAllSyncs()
-  process.exit(0)
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection', {
+    reason,
+    promise: promise.toString()
+  })
 })
 
 export default app

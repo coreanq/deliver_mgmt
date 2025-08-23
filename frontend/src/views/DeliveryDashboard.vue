@@ -233,15 +233,18 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { useDeliveryStore } from '@/stores/deliveryStore'
+import { useErrorTracker } from '@/services/ErrorTracker'
 
-// Router
+// Router & Stores
 const router = useRouter()
+const deliveryStore = useDeliveryStore()
+const errorTracker = useErrorTracker()
 
-// 반응형 데이터
-const userInfo = ref<any>(null)
-const orders = ref<any[]>([])
-const ordersLoading = ref(false)
+// 반응형 데이터 (스토어 사용)
+const userInfo = computed(() => deliveryStore.currentStaff)
+const orders = computed(() => deliveryStore.orders)
+const ordersLoading = computed(() => deliveryStore.loading)
 const refreshLoading = ref(false)
 const updateLoading = ref(false)
 const statusFilter = ref('전체')
@@ -277,57 +280,32 @@ const orderHeaders = [
   { title: '상태 변경', value: 'actions', width: '150px', sortable: false }
 ]
 
-// 계산된 속성
-const stats = computed(() => {
-  const total = orders.value.length
-  const completed = orders.value.filter(order => order.status === '완료').length
-  const pending = total - completed
-  
-  return {
-    totalOrders: total,
-    completedOrders: completed,
-    pendingOrders: pending
-  }
-})
+// 계산된 속성 (스토어에서 가져오기)
+const stats = computed(() => ({
+  totalOrders: deliveryStore.ordersCount,
+  completedOrders: deliveryStore.completedOrders,
+  pendingOrders: deliveryStore.pendingOrders
+}))
 
-const completionRate = computed(() => {
-  if (stats.value.totalOrders === 0) return 0
-  return Math.round((stats.value.completedOrders / stats.value.totalOrders) * 100)
-})
+const completionRate = computed(() => deliveryStore.completionRate)
 
-const filteredOrders = computed(() => {
-  if (statusFilter.value === '전체') {
-    return orders.value
-  }
-  return orders.value.filter(order => order.status === statusFilter.value)
-})
+const filteredOrders = computed(() => 
+  deliveryStore.getOrdersByStatus(statusFilter.value)
+)
 
 // 컴포넌트 마운트
 onMounted(async () => {
   await loadCurrentWork()
 })
 
-// 현재 작업 로드
+// 현재 작업 로드 (스토어 사용)
 const loadCurrentWork = async () => {
-  ordersLoading.value = true
   try {
-    const response = await axios.get('/api/delivery/current-work')
+    await deliveryStore.loadCurrentWork()
     
-    if (response.data.success) {
-      const data = response.data.data
-      userInfo.value = {
-        staffName: data.staffName,
-        workDate: data.workDate,
-        staffInfo: data.staffInfo || {}
-      }
-      
-      // 주문에 updating 플래그 추가
-      orders.value = data.orders.map((order: any) => ({
-        ...order,
-        updating: false
-      }))
-    } else {
-      throw new Error(response.data.message)
+    // 로드 성공 시 실시간 동기화 시작
+    if (deliveryStore.isAuthenticated) {
+      deliveryStore.enableRealtimeSync()
     }
   } catch (error: any) {
     if (error.response?.status === 401) {
@@ -338,19 +316,23 @@ const loadCurrentWork = async () => {
     
     errorMessage.value = error.response?.data?.message || '작업 정보를 불러오는데 실패했습니다.'
     errorSnackbar.value = true
-  } finally {
-    ordersLoading.value = false
   }
 }
 
-// 주문 새로고침
+// 주문 새로고침 (스토어 사용)
 const refreshOrders = async () => {
   refreshLoading.value = true
-  await loadCurrentWork()
-  refreshLoading.value = false
-  
-  successMessage.value = '주문 목록이 새로고침되었습니다.'
-  successSnackbar.value = true
+  try {
+    await deliveryStore.refreshOrders()
+    
+    successMessage.value = '주문 목록이 새로고침되었습니다.'
+    successSnackbar.value = true
+  } catch (error: any) {
+    errorMessage.value = error.response?.data?.message || '새로고침에 실패했습니다.'
+    errorSnackbar.value = true
+  } finally {
+    refreshLoading.value = false
+  }
 }
 
 // 상태 색상 반환
@@ -376,54 +358,41 @@ const updateStatus = (order: any, newStatus: string) => {
   confirmDialog.value = true
 }
 
-// 상태 업데이트 확인
+// 상태 업데이트 확인 (스토어 사용)
 const confirmStatusUpdate = async () => {
   if (!pendingUpdate.value) return
   
   const { order, newStatus } = pendingUpdate.value
   
   updateLoading.value = true
-  order.updating = true
   
   try {
-    const response = await axios.put('/api/delivery/update-status', {
-      rowIndex: order.rowIndex,
-      status: newStatus,
-      customerName: order.customerName
-    })
+    const result = await deliveryStore.updateOrderStatus(order, newStatus)
     
-    if (response.data.success) {
-      // 주문 상태 업데이트
-      order.status = newStatus
-      
-      successMessage.value = response.data.message
-      successSnackbar.value = true
-      
-      // 완료 처리 시 추가 메시지
-      if (newStatus === '완료' && response.data.shouldSendNotification) {
-        setTimeout(() => {
-          successMessage.value = '고객에게 카카오톡 알림이 발송됩니다.'
-          successSnackbar.value = true
-        }, 2000)
-      }
-    } else {
-      throw new Error(response.data.message)
+    successMessage.value = result.message
+    successSnackbar.value = true
+    
+    // 완료 처리 시 추가 메시지
+    if (newStatus === '완료' && result.shouldSendNotification) {
+      setTimeout(() => {
+        successMessage.value = '고객에게 카카오톡 알림이 발송됩니다.'
+        successSnackbar.value = true
+      }, 2000)
     }
   } catch (error: any) {
     errorMessage.value = error.response?.data?.message || '상태 업데이트에 실패했습니다.'
     errorSnackbar.value = true
   } finally {
     updateLoading.value = false
-    order.updating = false
     confirmDialog.value = false
     pendingUpdate.value = null
   }
 }
 
-// 로그아웃
+// 로그아웃 (스토어 사용)
 const logout = async () => {
   try {
-    await axios.post('/api/delivery/logout')
+    await deliveryStore.logout()
     router.push('/qr-scanner')
   } catch (error) {
     // 에러가 발생해도 프론트엔드에서 로그아웃 처리
@@ -435,6 +404,7 @@ const logout = async () => {
 <style scoped>
 .v-container {
   max-width: 1200px;
+  padding: 12px;
 }
 
 .v-card-title {
@@ -460,5 +430,84 @@ const logout = async () => {
 
 .v-card.v-card--variant-elevated .v-icon {
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .v-container {
+    padding: 8px;
+  }
+  
+  /* 헤더 간소화 */
+  .v-card-title {
+    font-size: 1.1rem;
+    padding: 12px 16px;
+  }
+  
+  /* 통계 카드 작게 */
+  .v-card-text {
+    padding: 12px;
+  }
+  
+  .text-h4 {
+    font-size: 1.8rem !important;
+  }
+  
+  .text-body-2 {
+    font-size: 0.75rem !important;
+  }
+  
+  /* 테이블 스크롤 및 최적화 */
+  .v-data-table {
+    font-size: 0.875rem;
+  }
+  
+  .v-data-table th,
+  .v-data-table td {
+    padding: 8px 4px !important;
+  }
+  
+  /* 버튼 크기 조정 */
+  .v-btn {
+    min-height: 36px;
+  }
+  
+  .v-btn--size-small {
+    min-height: 32px;
+    font-size: 0.75rem;
+  }
+  
+  /* 폼 요소 간격 */
+  .v-select {
+    min-width: 100px !important;
+  }
+  
+  /* 모달 최적화 */
+  .v-dialog .v-card {
+    margin: 16px;
+    max-width: calc(100vw - 32px);
+  }
+}
+
+/* 터치 친화적 버튼 */
+@media (hover: none) and (pointer: coarse) {
+  .v-btn {
+    min-height: 44px; /* iOS 권장 최소 터치 타겟 */
+  }
+  
+  .v-chip {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+  
+  /* 테이블 행 높이 증가 */
+  .v-data-table .v-data-table__tr {
+    height: 56px;
+  }
+}
+
+/* 가로 스크롤 방지 */
+.v-data-table-wrapper {
+  overflow-x: auto;
 }
 </style>

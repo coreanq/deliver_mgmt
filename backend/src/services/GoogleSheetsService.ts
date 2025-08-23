@@ -1,5 +1,6 @@
 import { google } from 'googleapis'
 import TokenService from './TokenService'
+import { parseSheetName } from '../utils/sheetNameParser'
 
 export interface DeliveryData {
   customerName: string
@@ -14,6 +15,14 @@ export interface SheetRow {
   phoneNumber: string
   address: string
   status: string
+}
+
+export interface DeliveryStaffInfo {
+  staffName: string
+  date: string
+  sheetName: string
+  spreadsheetId: string
+  isValid: boolean
 }
 
 export class GoogleSheetsService {
@@ -168,10 +177,22 @@ export class GoogleSheetsService {
     sheetName: string, 
     rowIndex: number, 
     status: string
-  ): Promise<boolean> {
+  ): Promise<{ updated: boolean; phone?: string; customerName?: string }> {
     try {
       const { client } = await TokenService.getAuthenticatedClient(tokens)
 
+      // 먼저 해당 행의 정보를 가져와서 전화번호 추출
+      const getResponse = await this.sheets.spreadsheets.values.get({
+        auth: client,
+        spreadsheetId,
+        range: `${sheetName}!A${rowIndex}:C${rowIndex}`
+      })
+
+      const rowData = getResponse.data.values?.[0] || []
+      const customerName = rowData[0] || ''
+      const phone = rowData[1] || ''
+
+      // 상태 업데이트
       await this.sheets.spreadsheets.values.update({
         auth: client,
         spreadsheetId,
@@ -183,7 +204,12 @@ export class GoogleSheetsService {
       })
 
       console.log(`시트 '${sheetName}'의 ${rowIndex}행 상태를 '${status}'로 업데이트했습니다.`)
-      return true
+      
+      return {
+        updated: true,
+        phone: phone || undefined,
+        customerName: customerName || undefined
+      }
     } catch (error) {
       console.error(`상태 업데이트 실패:`, error)
       throw new Error(`배달 상태 업데이트에 실패했습니다.`)
@@ -249,6 +275,141 @@ export class GoogleSheetsService {
     } catch (error) {
       console.error('배달담당자 목록 조회 실패:', error)
       throw new Error('배달담당자 목록을 가져올 수 없습니다.')
+    }
+  }
+  /**
+   * 스프레드시트 이름에서 배달기사 정보 추출
+   */
+  extractStaffFromSheetName(sheetName: string, spreadsheetId: string): DeliveryStaffInfo {
+    const parsed = parseSheetName(sheetName)
+    
+    return {
+      staffName: parsed.staffName,
+      date: parsed.date,
+      sheetName: parsed.originalName,
+      spreadsheetId,
+      isValid: parsed.isValid
+    }
+  }
+
+  /**
+   * 여러 스프레드시트에서 배달기사 정보 추출
+   */
+  async extractStaffFromMultipleSheets(tokens: any, spreadsheetInfos: Array<{id: string, name: string}>): Promise<DeliveryStaffInfo[]> {
+    const staffInfos: DeliveryStaffInfo[] = []
+
+    for (const sheet of spreadsheetInfos) {
+      const staffInfo = this.extractStaffFromSheetName(sheet.name, sheet.id)
+      if (staffInfo.isValid) {
+        staffInfos.push(staffInfo)
+      }
+    }
+
+    // 날짜순으로 정렬 (최신순)
+    return staffInfos.sort((a, b) => {
+      if (a.date !== b.date) {
+        return b.date.localeCompare(a.date)
+      }
+      return a.staffName.localeCompare(b.staffName)
+    })
+  }
+
+  /**
+   * 특정 날짜의 배달기사별 배달 데이터 조회
+   */
+  async getDeliveryDataByStaffAndDate(tokens: any, staffName: string, date: string): Promise<{
+    staffInfo: DeliveryStaffInfo | null,
+    deliveryData: SheetRow[]
+  }> {
+    try {
+      // Google Drive에서 해당 날짜와 배달기사 이름에 맞는 스프레드시트 찾기
+      const { google } = await import('googleapis')
+      const oauth2Client = new google.auth.OAuth2()
+      oauth2Client.setCredentials(tokens)
+      
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
+      
+      const response = await drive.files.list({
+        q: 'mimeType="application/vnd.google-apps.spreadsheet"',
+        pageSize: 100,
+        fields: 'files(id, name)'
+      })
+
+      const sheets = response.data.files || []
+      
+      // 날짜와 배달기사명이 매치하는 스프레드시트 찾기
+      let targetSheet: any = null
+      let staffInfo: DeliveryStaffInfo | null = null
+
+      for (const sheet of sheets) {
+        const extractedInfo = this.extractStaffFromSheetName(sheet.name!, sheet.id!)
+        if (extractedInfo.isValid && 
+            extractedInfo.staffName === staffName && 
+            extractedInfo.date === date) {
+          targetSheet = sheet
+          staffInfo = extractedInfo
+          break
+        }
+      }
+
+      if (!targetSheet || !staffInfo) {
+        return {
+          staffInfo: null,
+          deliveryData: []
+        }
+      }
+
+      // 스프레드시트 데이터 조회
+      const deliveryData = await this.getDeliveryData(tokens, targetSheet.id, 'Sheet1')
+
+      return {
+        staffInfo,
+        deliveryData
+      }
+
+    } catch (error) {
+      console.error('배달기사별 데이터 조회 오류:', error)
+      return {
+        staffInfo: null,
+        deliveryData: []
+      }
+    }
+  }
+
+  /**
+   * 오늘 날짜의 모든 배달기사 목록 조회
+   */
+  async getTodayDeliveryStaff(tokens: any): Promise<DeliveryStaffInfo[]> {
+    try {
+      const { google } = await import('googleapis')
+      const oauth2Client = new google.auth.OAuth2()
+      oauth2Client.setCredentials(tokens)
+      
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
+      
+      const response = await drive.files.list({
+        q: 'mimeType="application/vnd.google-apps.spreadsheet"',
+        pageSize: 100,
+        fields: 'files(id, name)'
+      })
+
+      const sheets = response.data.files || []
+      const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+      
+      const todayStaff: DeliveryStaffInfo[] = []
+
+      for (const sheet of sheets) {
+        const extractedInfo = this.extractStaffFromSheetName(sheet.name!, sheet.id!)
+        if (extractedInfo.isValid && extractedInfo.date === today) {
+          todayStaff.push(extractedInfo)
+        }
+      }
+
+      return todayStaff.sort((a, b) => a.staffName.localeCompare(b.staffName))
+
+    } catch (error) {
+      console.error('오늘 배달기사 목록 조회 오류:', error)
+      return []
     }
   }
 }

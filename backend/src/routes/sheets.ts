@@ -175,7 +175,7 @@ router.put('/update-status', async (req: CustomRequest, res: Response) => {
 
     return res.json({
       success: true,
-      data: { updated: result },
+      data: { updated: result.updated },
       message: `배달 상태가 '${status}'로 업데이트되었습니다.`
     })
   } catch (error: any) {
