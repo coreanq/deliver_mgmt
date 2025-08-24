@@ -71,7 +71,11 @@
       "code_modification_rules": [
         "코드 수정 발생 시 코드 수정한 부분의 주석이 알맞게 변경한다.",
         "기능 추가시 기존에 기능이 이미 추가 되어 있는지 반드시 확인한다."
-      ]
+      ],
+      
+      "todo_management": {
+        "update_tasks_md": "todo 완료 될때마다 tasks.md 파일의 해당 항목을 [x]로 체크 표시하여 업데이트한다."
+      }
     },
     
     "include": [

@@ -3,122 +3,150 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-A Google Sheets-based delivery management system (MVP) that allows managers to manage orders via Google Spreadsheets and delivery staff to access their assignments through QR codes with name verification. Customer notifications are sent only upon delivery completion via SOLAPI KakaoTalk integration.
 
-## Technology Stack (Planned)
-- **Backend**: Node.js + Express.js + TypeScript
-- **Frontend**: Vue.js 3 (Composition API) + Vite + Vuetify 3
-- **State Management**: Pinia
-- **Authentication**: Google OAuth2 + SOLAPI OAuth2
-- **Data Storage**: Google Sheets as primary data store
-- **Messaging**: SOLAPI for KakaoTalk notifications
-- **QR Generation**: qrcode library
-- **Logging**: Winston
+Google Sheets-based delivery management system with Vue.js frontend and Node.js backend. Uses Google Sheets as primary database, QR code staff authentication, and SOLAPI OAuth2 for KakaoTalk messaging. **MVP status: Core features implemented and tested.**
 
-## Project Structure (To Be Created)
-```
-deliver_mgmt/
-├── backend/                 # Node.js Express API server
-│   ├── src/
-│   │   ├── routes/         # API routes (/api/auth, /api/sheets, /api/solapi, /api/delivery)
-│   │   ├── services/       # Google Sheets, SOLAPI services
-│   │   ├── middleware/     # Authentication, CORS, logging
-│   │   └── utils/          # QR generation, JWT helpers
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/               # Vue.js 3 SPA
-│   ├── src/
-│   │   ├── components/     # Admin settings, delivery UI components
-│   │   ├── views/          # Admin dashboard, delivery staff interface
-│   │   ├── stores/         # Pinia state management
-│   │   └── router/         # Vue Router configuration
-│   ├── package.json
-│   └── vite.config.ts
-└── docs/                   # Additional documentation
-```
+## Development Commands
 
-## Key Architecture Concepts
-
-### Authentication Flow
-- **Google OAuth2**: For spreadsheet access and admin authentication
-- **SOLAPI OAuth2**: For KakaoTalk message sending permissions
-- **QR + Name Verification**: Two-step authentication for delivery staff
-  1. QR scan with URL format: `?staff=김배달&token=HASH_TOKEN`
-  2. Name input verification (must match sheet name exactly)
-
-### Data Model
-- **Primary Data Store**: Google Sheets with separate sheets per delivery staff
-- **Sheet Structure**: A:Customer Name | B:Phone | C:Address | D:Delivery Status
-- **Status Values**: "대기" → "준비중" → "출발" → "완료"
-- **Notification Trigger**: Only on "완료" status (delivery complete)
-
-### API Structure (Planned)
-```
-/api/auth/*          # OAuth2 authentication (Google + SOLAPI)
-/api/sheets/*        # Google Sheets management
-/api/solapi/*        # SOLAPI integration and messaging
-/api/delivery/*      # Delivery management (QR, status updates)
-```
-
-## Development Commands (To Be Set Up)
-
-### Backend Development
+### Root Level (runs both servers concurrently)
 ```bash
-cd backend
-npm install
-npm run dev          # Start development server
-npm run build        # Build TypeScript
-npm run test         # Run Jest tests
-npm run lint         # ESLint
-npm run typecheck    # TypeScript checking
+npm run dev              # Start both backend (5001) and frontend (5173)
+npm run build           # Build both projects
+npm run test            # Run all tests
+npm run test:e2e        # Run Playwright E2E tests
+npm run lint            # Lint both projects
 ```
 
-### Frontend Development
+### Backend Specific
 ```bash
-cd frontend
-npm install
-npm run dev          # Start Vite dev server
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run test         # Run tests
-npm run lint         # ESLint
-npm run typecheck    # Vue TypeScript checking
+cd backend && npm run dev        # nodemon + ts-node (port 5001)
+cd backend && npm run build      # TypeScript compilation
+cd backend && npm run typecheck  # Type checking only
+cd backend && npm run lint       # ESLint
 ```
 
-## Important Implementation Notes
+### Frontend Specific
+```bash
+cd frontend && npm run dev       # Vite dev server (port 5173)
+cd frontend && npm run build     # Production build
+cd frontend && npm run preview   # Preview production build
+```
 
-### Security Requirements
-- QR tokens must use hash-based security: `HASH(sheet_name + secret_key + date)`
-- OAuth2 tokens must be stored securely (backend only)
-- Name verification must be case-sensitive and exact match
-- Each delivery staff can only access their own sheet
+### Testing
+- **Playwright E2E**: Use Playwright MCP tools, NOT `npx playwright test`
+- **Backend Tests**: Jest framework
+- **Test Page**: `http://localhost:5173/test` for development testing
 
-### Korean Language Requirements
-- All user-facing text should be in Korean
-- Code comments should be in English
-- API responses and error messages in Korean
-- Customer notification messages in polite Korean
+## Architecture
 
-### Mobile Optimization
-- PWA configuration for mobile app-like experience
-- Touch-friendly UI components
-- Responsive design for all screen sizes
-- Support for both portrait and landscape orientations
+### Tech Stack
+- **Backend**: Node.js 22+, Express.js, TypeScript 5.1+
+- **Frontend**: Vue.js 3 Composition API, Vuetify 3, Vite
+- **Database**: Google Sheets (primary), Express sessions (temporary)
+- **Authentication**: Google OAuth2, SOLAPI OAuth2, JWT QR tokens
 
-### Integration Requirements
-- Real-time synchronization with Google Sheets (polling or WebSocket)
-- SOLAPI message sending only on delivery completion
-- Template management for KakaoTalk messages
-- Comprehensive error handling and retry logic
+### Key Services (`backend/src/services/`)
+- **GoogleSheetsService**: Spreadsheet CRUD operations
+- **GoogleAuthService**: Google OAuth2 token management
+- **SolapiAuthService**: SOLAPI OAuth2 integration (**HTTP API, not SDK**)
 
-## Development Priorities
-1. **Phase 1**: Admin settings UI, Google OAuth, SOLAPI OAuth2, basic sheet operations
-2. **Phase 2**: QR system, delivery staff interface, status updates
-3. **Phase 3**: Message sending, real-time sync, mobile optimization
+### Authentication Flows
+1. **Google OAuth2**: Spreadsheet access (`/api/auth/google`)
+2. **SOLAPI OAuth2**: KakaoTalk messaging (`/api/solapi/auth/login`)
+3. **QR Authentication**: JWT tokens for staff (`/api/delivery/qr/`)
 
-## Key Files to Reference
-- `prd.md`: Detailed product requirements and specifications
-- `tasks.md`: Comprehensive development task checklist
-- `.claude.json`: Project coding guidelines and SOLID principles
+### API Routes
+- **Authentication**: `/api/auth/*` - OAuth flows
+- **Sheets**: `/api/sheets/*` - Spreadsheet operations
+- **Delivery**: `/api/delivery/*` - QR codes, status updates
+- **SOLAPI**: `/api/solapi/*` - Messaging, account management
+- **Test**: `GET /api/sheets/test` - Development mock data
 
-- todo 완료 될때마다 tasks.md 업데이트
+### Frontend Views (`frontend/src/views/`)
+- **AdminView.vue**: Main admin configuration
+- **DeliveryView.vue**: Staff delivery dashboard
+- **DeliveryAuthView.vue**: QR authentication
+- **TestView.vue**: Development testing interface
+
+## Configuration
+
+### Environment Variables (`.env`)
+```bash
+NODE_ENV=development
+PORT=5001
+
+# Google OAuth2
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URL=http://localhost:5001/api/auth/google/callback
+
+# SOLAPI OAuth2 (OAuth2 flow, not SDK)
+SOLAPI_CLIENT_ID=your-solapi-client-id
+SOLAPI_CLIENT_SECRET=your-solapi-client-secret
+SOLAPI_REDIRECT_URL=http://localhost:5001/api/solapi/auth/callback
+
+# Frontend
+CORS_ORIGIN=http://localhost:5173
+FRONTEND_URL=http://localhost:5173
+```
+
+## SOLAPI Implementation
+
+**CRITICAL**: Uses **SOLAPI OAuth2 flow**, NOT SDK. Follow https://developers.solapi.com/references/authentication/oauth2-3/oauth2
+
+Implementation in `backend/src/services/solapiAuth.ts`:
+- Direct HTTP API calls to SOLAPI endpoints
+- OAuth2 token exchange and refresh
+- KakaoTalk message sending
+- Account and sender management
+
+## Data Model
+
+### Google Sheets Structure
+- **One sheet per delivery staff member**
+- **Columns**: A=Customer Name, B=Phone, C=Address, D=Status
+- **Status Flow**: `대기` → `준비중` → `출발` → `완료`
+
+### QR Code Security (`backend/src/utils/qrGenerator.ts`)
+- **JWT tokens** with SHA256 hash verification
+- **Hash**: SHA256(staffName + timestamp + secretKey)
+- **Expiration**: 24-hour lifecycle
+- **Two-step auth**: QR scan + name verification
+
+## Testing Approach
+
+### Playwright MCP (E2E)
+- **Use Playwright MCP tools** instead of `npx playwright test`
+- Test files in `/tests/` directory
+- Critical flows: admin setup, staff authentication, delivery management
+
+### Development Testing
+- **Test page**: `http://localhost:5173/test`
+- **API testing**: `curl http://localhost:5001/api/sheets/test`
+- **Mock endpoints**: Available in development mode
+
+## Implementation Status
+
+✅ **Completed Features**:
+- Google OAuth2 authentication system
+- SOLAPI OAuth2 integration (OAuth2 method)
+- QR code generation and verification
+- Google Sheets API connectivity
+- Admin configuration UI
+- Delivery staff interface
+- Basic Playwright E2E tests
+- TypeScript configuration and build system
+
+⏳ **Remaining MVP Tasks**:
+- Automatic message sending on delivery completion
+- Real-time synchronization improvements
+- Production deployment configuration
+
+## Important Notes
+
+1. **SOLAPI**: Always use OAuth2 flow, never the SDK
+2. **Testing**: Use Playwright MCP tools for browser automation
+3. **Google Sheets**: Primary database - handle with care
+4. **QR Codes**: 24-hour expiration for security
+5. **Environment**: Backend port changes require CORS_ORIGIN updates
+6. **Todo Updates**: Update tasks.md when todos are completed (as per .claude.json)
