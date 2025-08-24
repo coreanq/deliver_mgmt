@@ -3,78 +3,79 @@
 ## Phase 1: 필수 기능 개발
 
 ### 1. 프로젝트 초기 설정
-- [ ] Node.js + Express.js 백엔드 프로젝트 구조 생성
-- [ ] Vue.js 3 + Composition API 프론트엔드 프로젝트 구조 생성
-- [ ] TypeScript 설정 및 ESLint, Prettier 구성
-- [ ] 환경 변수 설정 (.env 파일)
-- [ ] 프로젝트 종속성 설치 및 패키지 관리
+- [x] Node.js + Express.js 백엔드 프로젝트 구조 생성
+- [x] Vue.js 3 + Composition API 프론트엔드 프로젝트 구조 생성
+- [x] TypeScript 설정 및 ESLint, Prettier 구성
+- [x] 환경 변수 설정 (.env 파일)
+- [x] 프로젝트 종속성 설치 및 패키지 관리
 
 ### 2. 백엔드 API 서버 구축
-- [ ] Express.js 서버 기본 설정
-- [ ] CORS, 세션, 미들웨어 설정
-- [ ] Winston을 이용한 로깅 시스템 구현
-- [ ] 에러 핸들링 미들웨어 구현
-- [ ] RESTful API 라우트 구조 설계
+- [x] Express.js 서버 기본 설정
+- [x] CORS, 세션, 미들웨어 설정
+- [x] Winston을 이용한 로깅 시스템 구현
+- [x] 에러 핸들링 미들웨어 구현
+- [x] RESTful API 라우트 구조 설계
 
 ### 3. Google OAuth2 인증 시스템
 - [ ] Google Cloud Console 프로젝트 생성 및 OAuth2 설정
-- [ ] Google OAuth2 클라이언트 라이브러리 연동
-- [ ] OAuth2 인증 플로우 구현 (백엔드)
-- [ ] 인증 콜백 처리 및 토큰 관리
-- [ ] 세션 기반 인증 상태 관리
+- [x] Google OAuth2 클라이언트 라이브러리 연동
+- [x] OAuth2 인증 플로우 구현 (백엔드)
+- [x] 인증 콜백 처리 및 토큰 관리
+- [x] 세션 기반 인증 상태 관리
 
 ### 4. Google Sheets API 연동
-- [ ] Google Sheets API v4 클라이언트 설정
-- [ ] 스프레드시트 목록 조회 API 구현
-- [ ] 스프레드시트 연결 및 검증 로직
-- [ ] 시트별 데이터 읽기/쓰기 기능 구현
+- [x] Google Sheets API v4 클라이언트 설정
+- [x] 스프레드시트 목록 조회 API 구현
+- [x] 스프레드시트 연결 및 검증 로직
+- [x] 시트별 데이터 읽기/쓰기 기능 구현
 - [ ] 실시간 동기화 로직 (폴링 방식)
 
 ### 5. 관리자 설정 UI (Vue.js)
-- [ ] Vue.js 3 프로젝트 설정 (Vite, Vue Router, Pinia)
-- [ ] Vuetify 3 UI 프레임워크 설정
-- [ ] 관리자 대시보드 기본 레이아웃
-- [ ] Google OAuth 인증 버튼 및 플로우 구현
-- [ ] 스프레드시트 목록 조회 및 선택 컴포넌트
-- [ ] 스프레드시트 연결 상태 표시
-- [ ] 배달담당자 시트 관리 인터페이스
+- [x] Vue.js 3 프로젝트 설정 (Vite, Vue Router, Pinia)
+- [x] Vuetify 3 UI 프레임워크 설정
+- [x] 관리자 대시보드 기본 레이아웃
+- [x] Google OAuth 인증 버튼 및 플로우 구현
+- [x] 스프레드시트 목록 조회 및 선택 컴포넌트
+- [x] 스프레드시트 연결 상태 표시
+- [x] 배달담당자 시트 관리 인터페이스
+- [x] 관리자 설정 UI Playwright E2E 테스트 구현
 
-### 6. SOLAPI OAuth2 연동 시스템
+### 6. SOLAPI OAuth2 연동 시스템 (OAuth2 방식, SDK 아님)
 - [ ] SOLAPI 개발자 계정 및 앱 등록
-- [ ] SOLAPI OAuth2 인증 플로우 구현
-- [ ] Access Token 및 Refresh Token 관리
-- [ ] 발신번호 목록 조회 API
-- [ ] 계정 정보 및 잔액 조회 기능
-- [ ] 템플릿 관리 시스템
+- [x] SOLAPI OAuth2 인증 플로우 구현 (https://developers.solapi.com/references/authentication/oauth2-3/oauth2 문서 기반)
+- [x] Access Token 및 Refresh Token 관리
+- [x] 발신번호 목록 조회 API
+- [x] 계정 정보 및 잔액 조회 기능
+- [x] 템플릿 관리 시스템
 
-### 7. SOLAPI 메시지 발송 시스템
-- [ ] solapi-nodejs SDK 연동
-- [ ] 카카오톡 메시지 발송 API 구현
-- [ ] 메시지 템플릿 관리
-- [ ] 발송 결과 처리 및 로깅
+### 7. SOLAPI 메시지 발송 시스템 (OAuth2 방식)
+- [x] SOLAPI OAuth2 기반 메시지 발송 API 구현
+- [x] 카카오톡 메시지 발송 기능
+- [x] 메시지 템플릿 관리
+- [x] 발송 결과 처리 및 로깅
 - [ ] 실패 시 재발송 로직
 
 ### 8. QR 코드 시스템
-- [ ] qrcode 라이브러리를 이용한 QR 코드 생성
-- [ ] 시트명 기반 고유 URL 생성 로직
-- [ ] JWT 기반 QR 토큰 생성 및 검증
-- [ ] 보안 해시 토큰 구현 (시트명 + 보안키 + 날짜)
-- [ ] QR 코드 이미지 생성 및 다운로드 API
+- [x] qrcode 라이브러리를 이용한 QR 코드 생성
+- [x] 시트명 기반 고유 URL 생성 로직
+- [x] JWT 기반 QR 토큰 생성 및 검증
+- [x] 보안 해시 토큰 구현 (시트명 + 보안키 + 날짜)
+- [x] QR 코드 이미지 생성 및 다운로드 API
 
 ### 9. 배달담당자 웹사이트 (Vue.js)
-- [ ] 배달담당자용 모바일 최적화 인터페이스
-- [ ] QR 코드 스캔 및 토큰 검증 페이지
-- [ ] 본인 이름 확인 인증 시스템
-- [ ] 배달 목록 조회 컴포넌트
-- [ ] 배달 상태 업데이트 버튼 (준비중/출발/완료)
-- [ ] 실시간 상태 동기화
+- [x] 배달담당자용 모바일 최적화 인터페이스
+- [x] QR 코드 스캔 및 토큰 검증 페이지
+- [x] 본인 이름 확인 인증 시스템
+- [x] 배달 목록 조회 컴포넌트
+- [x] 배달 상태 업데이트 버튼 (준비중/출발/완료)
+- [x] 실시간 상태 동기화
 
 ### 10. 배달 상태 관리 시스템
-- [ ] 배달 상태 워크플로우 구현 (대기→준비중→출발→완료)
-- [ ] 스프레드시트 D열 상태 업데이트 API
-- [ ] 상태 변경 검증 로직
-- [ ] 배달 완료 시 자동 메시지 발송
-- [ ] 배달 진행률 표시
+- [x] 배달 상태 워크플로우 구현 (대기→준비중→출발→완료)
+- [x] 스프레드시트 D열 상태 업데이트 API
+- [x] 상태 변경 검증 로직
+- [ ] 배달 완료 시 자동 메시지 발송 (SOLAPI 연동 필요)
+- [x] 배달 진행률 표시
 
 ## Phase 2: 부가 기능 및 개선
 
@@ -151,15 +152,15 @@
 ## 기술적 체크리스트
 
 ### 백엔드 (Node.js + Express.js)
-- [ ] TypeScript 설정 및 타입 정의
-- [ ] Express.js 미들웨어 구성
-- [ ] Google APIs 클라이언트 라이브러리
-- [ ] SOLAPI SDK (solapi-nodejs)
-- [ ] JWT 토큰 관리 (jsonwebtoken)
-- [ ] 세션 관리 (express-session)
-- [ ] QR 코드 생성 (qrcode)
-- [ ] 로깅 시스템 (winston)
-- [ ] 환경 변수 관리 (dotenv)
+- [x] TypeScript 설정 및 타입 정의
+- [x] Express.js 미들웨어 구성
+- [x] Google APIs 클라이언트 라이브러리
+- [x] SOLAPI OAuth2 인증 (SDK 아님, 직접 HTTP API 사용)
+- [x] JWT 토큰 관리 (jsonwebtoken)
+- [x] 세션 관리 (express-session)
+- [x] QR 코드 생성 (qrcode)
+- [x] 로깅 시스템 (winston)
+- [x] 환경 변수 관리 (dotenv)
 
 ### 프론트엔드 (Vue.js 3)
 - [ ] Vue 3 Composition API
