@@ -13,8 +13,10 @@ Google Sheets-based delivery management system with Vue.js frontend and Node.js 
 npm run dev              # Start both backend (5001) and frontend (5173)
 npm run build           # Build both projects
 npm run test            # Run all tests
-npm run test:e2e        # Run Playwright E2E tests
+npm run test:e2e        # Run Playwright E2E tests (use MCP tools instead)
+npm run test:e2e:ui     # Playwright UI mode
 npm run lint            # Lint both projects
+npm run typecheck       # Type check both projects
 ```
 
 ### Backend Specific
@@ -103,8 +105,11 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 ## Data Model
 
 ### Google Sheets Structure
-- **One sheet per delivery staff member**
-- **Columns**: A=Customer Name, B=Phone, C=Address, D=Status
+- **Dynamic header system**: Uses actual sheet headers without hardcoding
+- **DeliveryOrder interface**: `[key: string]: any` for dynamic properties from sheet headers
+- **Date-based sheets**: YYYYMMDD format sheets for daily orders
+- **Staff grouping**: Automatic detection of Korean staff names (2-4 characters) in headers
+- **Status column detection**: Flexible status column identification
 - **Status Flow**: `대기` → `준비중` → `출발` → `완료`
 
 ### QR Code Security (`backend/src/utils/qrGenerator.ts`)
@@ -150,5 +155,29 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 4. **QR Codes**: 24-hour expiration for security
 5. **Environment**: Backend port changes require CORS_ORIGIN updates
 6. **Todo Updates**: Update tasks.md when todos are completed (as per .claude.json)
+7. **Dynamic Data System**: Never hardcode column names - use actual sheet headers
+8. **Filter System**: Dynamic filter system allows users to filter by any sheet column
+9. **Korean Guidelines**: 한글로 답변, 영어로 주석 작성 (per .claude.json)
+10. **SOLID Principles**: Follow SOLID design principles for all code modifications
+
+## Critical Implementation Details
+
+### Dynamic Headers System
+- `GoogleSheetsService.getDeliveryOrders()` maps sheet headers directly to order objects
+- `DeliveryOrder` interface uses `[key: string]: any` for flexible properties
+- Filter system in AdminView allows selecting any column for filtering
+- Never assume specific column names - always use actual sheet data
+
+### Staff Detection Logic
+- `isLikelyStaffName()`: Korean names 2-4 characters (`/^[가-힣]{2,4}$/`)
+- `isStandardHeader()`: Recognizes standard headers to avoid treating them as staff names
+- `getDeliveryOrdersByStaff()`: Groups orders by detected staff names or data values
+
+### API Route Patterns
+- Date-based sheets: `/api/sheets/date/:date` (YYYYMMDD format)
+- Staff-grouped data: `/api/sheets/date/:date/by-staff`
+- Session-based authentication with `requireGoogleAuth` middleware
+- Mock endpoints available in development mode (`NODE_ENV=development`)
+
 - frontend, backend 포트 번호 설정을 건드리지 말아야 함
 - 기능 추가 변경 요청 인 경우 tasks.md 파일 같이 업데이트
