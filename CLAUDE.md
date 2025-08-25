@@ -179,5 +179,13 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 - Session-based authentication with `requireGoogleAuth` middleware
 - Mock endpoints available in development mode (`NODE_ENV=development`)
 
-- frontend, backend 포트 번호 설정을 건드리지 말아야 함
-- 기능 추가 변경 요청 인 경우 tasks.md 파일 같이 업데이트
+### Dependencies Note
+- **Backend**: Uses `solapi` package (v4.0.0) but implements OAuth2 flow directly via HTTP API, NOT SDK
+- **Frontend**: Includes QR code libraries (`qrcode-reader`, `html5-qrcode`) for staff authentication
+- **Testing**: Vitest (frontend) and Jest (backend) frameworks configured
+
+### Important Development Rules
+- **Port Configuration**: Never modify frontend (5173) or backend (5001) port settings
+- **Task Management**: When adding/changing features, update tasks.md file accordingly
+- **Language Guidelines**: 한글로 답변, 영어로 주석 작성 (as per .claude.json)
+- **SOLID Principles**: Follow SOLID design principles for all code modifications
