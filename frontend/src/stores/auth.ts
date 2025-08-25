@@ -65,7 +65,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Google data state  
   const googleSpreadsheets = ref<any[]>([]);
   const googleConnectedAt = ref<string>('');
-  const connectedSpreadsheet = ref<{ id: string; name: string } | null>(null);
+  const connectedSpreadsheet = ref<{ id: string; name?: string; sheets?: any[] } | null>(null);
 
   // Check authentication status from backend
   const checkAuthStatus = async (): Promise<void> => {

@@ -67,35 +67,173 @@ export class GoogleSheetsService {
   }
 
   /**
-   * Read delivery orders from a specific sheet
+   * Read delivery orders from a specific sheet using actual sheet headers
    */
   async getDeliveryOrders(spreadsheetId: string, sheetName: string): Promise<DeliveryOrder[]> {
     try {
       const sheets = this.googleAuth.getSheetsClient();
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: `${sheetName}!A:D`,
+        range: `${sheetName}!A:Z`,
       });
 
       const rows = response.data.values || [];
       
-      // Skip header row if exists
-      const dataRows = rows.length > 0 && this.isHeaderRow(rows[0]) ? rows.slice(1) : rows;
-      
-      const orders: DeliveryOrder[] = dataRows.map((row, index) => ({
-        customerName: row[0] || '',
-        phone: row[1] || '',
-        address: row[2] || '',
-        status: (row[3] as DeliveryStatus) || '대기',
-        rowIndex: index + (rows.length > dataRows.length ? 2 : 1), // Account for header
-      }));
+      if (rows.length === 0) {
+        return [];
+      }
 
-      logger.info(`Loaded ${orders.length} orders from sheet ${sheetName}`);
+      // Use first row as headers
+      const headers = rows[0] || [];
+      const dataRows = rows.slice(1);
+      
+      const orders: DeliveryOrder[] = dataRows.map((row, index) => {
+        const order: any = {
+          rowIndex: index + 2, // +2 because we start from row 2 (after header)
+        };
+        
+        // Map actual headers to data - only use sheet headers, no additional fields
+        headers.forEach((header, colIndex) => {
+          const cellValue = row[colIndex] || '';
+          order[header] = cellValue;
+        });
+
+        return order as DeliveryOrder;
+      }).filter(order => {
+        // Filter out empty rows - check if at least one cell has content
+        return Object.keys(order).some(key => 
+          key !== 'rowIndex' && order[key] && order[key].toString().trim()
+        );
+      });
+
+      logger.info(`Loaded ${orders.length} orders from sheet ${sheetName} with headers: ${headers.join(', ')}`);
       return orders;
     } catch (error) {
       logger.error('Failed to get delivery orders:', error);
       throw new Error('배달 주문 목록을 가져오는데 실패했습니다.');
     }
+  }
+
+  /**
+   * Read delivery orders grouped by delivery staff from header columns
+   */
+  async getDeliveryOrdersByStaff(spreadsheetId: string, sheetName: string): Promise<{ [staffName: string]: DeliveryOrder[] }> {
+    try {
+      // Get all orders with actual headers
+      const allOrders = await this.getDeliveryOrders(spreadsheetId, sheetName);
+      
+      if (allOrders.length === 0) {
+        return {};
+      }
+
+      // Get raw sheet data to analyze structure
+      const sheets = this.googleAuth.getSheetsClient();
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A:Z`,
+      });
+
+      const rows = response.data.values || [];
+      if (rows.length === 0) {
+        return {};
+      }
+
+      const headers = rows[0] || [];
+      const groupedOrders: { [staffName: string]: DeliveryOrder[] } = {};
+
+      // Strategy 1: Look for staff names in headers (column-based grouping)
+      const staffColumns = new Set<string>();
+      headers.forEach(header => {
+        if (header && !this.isStandardHeader(header) && this.isLikelyStaffName(header)) {
+          staffColumns.add(header);
+        }
+      });
+
+      // Strategy 2: If no staff columns found, group by actual data values
+      if (staffColumns.size === 0) {
+        // Group by unique values in the first meaningful column
+        allOrders.forEach(order => {
+          // Find the most likely grouping field (look for Korean names or locations)
+          let groupKey = '미분류';
+          
+          // Check all properties of the order to find the best grouping key
+          Object.keys(order).forEach(key => {
+            const value = (order as any)[key];
+            if (typeof value === 'string' && value.trim() && 
+                (this.isLikelyStaffName(value) || this.isLocationName(value))) {
+              groupKey = value.trim();
+            }
+          });
+
+          if (!groupedOrders[groupKey]) {
+            groupedOrders[groupKey] = [];
+          }
+          
+          groupedOrders[groupKey].push({
+            ...order,
+            staffName: groupKey,
+          });
+        });
+      } else {
+        // Use column-based grouping
+        staffColumns.forEach(staffName => {
+          groupedOrders[staffName] = allOrders.filter(order => {
+            // Check if this order belongs to this staff member
+            return Object.keys(order).some(key => {
+              const value = (order as any)[key];
+              return typeof value === 'string' && value.includes(staffName);
+            });
+          }).map(order => ({
+            ...order,
+            staffName,
+          }));
+        });
+      }
+
+      // Remove empty groups and duplicates
+      Object.keys(groupedOrders).forEach(staffName => {
+        if (groupedOrders[staffName].length === 0) {
+          delete groupedOrders[staffName];
+          return;
+        }
+
+        const uniqueOrders = new Map();
+        groupedOrders[staffName].forEach(order => {
+          const key = `${order.rowIndex}`;
+          if (!uniqueOrders.has(key)) {
+            uniqueOrders.set(key, order);
+          }
+        });
+        groupedOrders[staffName] = Array.from(uniqueOrders.values());
+      });
+
+      logger.info(`Loaded orders for ${Object.keys(groupedOrders).length} groups from sheet ${sheetName}, headers: ${headers.join(', ')}`);
+      return groupedOrders;
+    } catch (error) {
+      logger.error('Failed to get delivery orders by staff:', error);
+      throw new Error('배달담당자별 주문 목록을 가져오는데 실패했습니다.');
+    }
+  }
+
+  /**
+   * Check if a name looks like a Korean staff name
+   */
+  private isLikelyStaffName(name: string): boolean {
+    // Korean name pattern: typically 2-4 characters, contains Korean characters
+    const koreanNamePattern = /^[가-힣]{2,4}$/;
+    return koreanNamePattern.test(name.trim());
+  }
+
+  /**
+   * Check if a name looks like a location/area name
+   */
+  private isLocationName(name: string): boolean {
+    // Location patterns: contains location keywords or ends with common location suffixes
+    const locationKeywords = ['시', '구', '동', '면', '읍', '리', '로', '길', '아파트', '단지'];
+    const locationPattern = /^[가-힣]{2,10}(시|구|동|면|읍|리|로|길|아파트|단지)$/;
+    
+    return locationPattern.test(name.trim()) || 
+           locationKeywords.some(keyword => name.includes(keyword));
   }
 
   /**
@@ -178,6 +316,31 @@ export class GoogleSheetsService {
       headerKeywords.some(keyword => 
         cell.toLowerCase().includes(keyword.toLowerCase())
       )
+    );
+  }
+
+  /**
+   * Check if a cell value is a standard header (not a staff name)
+   */
+  private isStandardHeader(cellValue: string): boolean {
+    const standardHeaders = [
+      '고객명', '연락처', '주소', '배달상태', '상태',
+      'customer', 'phone', 'address', 'status',
+      '번호', 'no', '순번', 'index',
+      '날짜', 'date', '시간', 'time',
+      '배송지', '배송상태', '배송', '배달상태', '배달',
+      '담당자', '배달담당자', '배송담당자', '배달 담당자',
+      'delivery', 'shipping', 'location'
+    ];
+    
+    // Exact match for problematic headers
+    const exactMatches = ['배송지', '배달 담당자', '배송상태'];
+    if (exactMatches.includes(cellValue.trim())) {
+      return true;
+    }
+    
+    return standardHeaders.some(header => 
+      cellValue.toLowerCase().includes(header.toLowerCase())
     );
   }
 }

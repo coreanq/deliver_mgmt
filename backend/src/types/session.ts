@@ -14,6 +14,7 @@ declare module 'express-session' {
     solapiState?: string;
     connectedSpreadsheet?: {
       id: string;
+      name?: string;
       sheets: Array<{ sheetId: number; title: string }>;
     };
     deliveryAuth?: {

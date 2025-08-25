@@ -1,11 +1,9 @@
 // Common types for the delivery management system
 
 export interface DeliveryOrder {
-  customerName: string;
-  phone: string;
-  address: string;
-  status: DeliveryStatus;
   rowIndex?: number;
+  staffName?: string;
+  [key: string]: any; // Allow dynamic properties from sheet headers
 }
 
 export type DeliveryStatus = '대기' | '준비중' | '출발' | '완료';

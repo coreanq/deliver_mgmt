@@ -142,6 +142,22 @@ router.get('/status', async (req, res) => {
         spreadsheets: spreadsheets || [],
         connectedAt: req.session.googleTokens!.connectedAt || new Date().toISOString(),
       };
+
+      // Auto-connect to first spreadsheet if none is connected yet
+      if (!req.session.connectedSpreadsheet && spreadsheets && spreadsheets.length > 0) {
+        try {
+          const firstSheet = spreadsheets[0];
+          const sheets = await sheetsService.getSheets(firstSheet.id);
+          req.session.connectedSpreadsheet = {
+            id: firstSheet.id,
+            name: firstSheet.name,
+            sheets,
+          };
+          logger.info(`Auto-connected to first spreadsheet: ${firstSheet.name}`);
+        } catch (autoConnectError) {
+          logger.warn('Failed to auto-connect to first spreadsheet:', autoConnectError);
+        }
+      }
     } catch (error) {
       logger.error('Failed to get Google data in status check:', error);
       responseData.googleData = {

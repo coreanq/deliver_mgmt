@@ -40,42 +40,185 @@
                     </div>
                     
                     <div v-else>
-                      <p class="mb-2">사용 가능한 스프레드시트:</p>
-                      <div v-if="authStore.googleSpreadsheets.length > 0" class="mb-4">
-                        <v-list>
-                          <v-list-item
-                            v-for="sheet in authStore.googleSpreadsheets"
-                            :key="sheet.id"
-                            class="border mb-2"
-                          >
-                            <template #prepend>
-                              <v-icon>mdi-file-spreadsheet</v-icon>
-                            </template>
-                            
-                            <v-list-item-title>{{ sheet.name }}</v-list-item-title>
-                            <v-list-item-subtitle>{{ sheet.createdTime }}</v-list-item-subtitle>
-                            
-                            <template #append>
+                      <div class="d-flex align-center mb-4">
+                        <p class="mb-0 mr-4">Google Sheets 연결됨</p>
+                        <v-chip color="success" size="small">{{ authStore.googleSpreadsheets.length }}개 스프레드시트</v-chip>
+                      </div>
+                      
+                      <!-- Calendar Section -->
+                      <v-row class="mb-4">
+                        <v-col cols="12" md="6">
+                          <v-card variant="outlined">
+                            <v-card-title>날짜 선택</v-card-title>
+                            <v-card-text>
+                              <v-date-picker
+                                v-model="selectedDate"
+                                @update:model-value="onDateSelected"
+                                show-adjacent-months
+                                :max="new Date().toISOString().split('T')[0]"
+                              ></v-date-picker>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                        <v-col cols="12" md="6" v-if="selectedDateString">
+                          <v-card variant="outlined">
+                            <v-card-title>선택된 날짜</v-card-title>
+                            <v-card-text>
+                              <v-chip color="primary" size="large" class="mb-2">
+                                {{ formatDateDisplay(selectedDateString) }}
+                              </v-chip>
+                              <br>
+                              <small class="text-grey">시트명: {{ selectedDateString }}</small>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
+
+                      <!-- Data Table Section -->
+                      <v-row v-if="sheetData.length > 0">
+                        <v-col cols="12">
+                          <v-card variant="outlined">
+                            <v-card-title>
+                              배달 데이터 ({{ selectedDateString }})
+                              <v-chip 
+                                v-if="selectedStaff !== '전체'" 
+                                color="primary" 
+                                size="small" 
+                                class="ml-2"
+                              >
+                                {{ selectedStaff }}
+                              </v-chip>
+                              <v-spacer></v-spacer>
+                              <v-chip 
+                                color="info" 
+                                size="small" 
+                                class="mr-2"
+                              >
+                                {{ filteredData.length }}건
+                              </v-chip>
                               <v-btn
                                 size="small"
                                 variant="outlined"
-                                @click="connectToSheet(sheet)"
-                                :disabled="authStore.connectedSpreadsheet?.id === sheet.id"
-                                :color="authStore.connectedSpreadsheet?.id === sheet.id ? 'success' : 'primary'"
+                                @click="refreshData"
+                                :loading="dataLoading"
                               >
-                                {{ authStore.connectedSpreadsheet?.id === sheet.id ? '연결됨' : '연결' }}
+                                <v-icon start>mdi-refresh</v-icon>
+                                새로고침
                               </v-btn>
-                            </template>
-                          </v-list-item>
-                        </v-list>
-                      </div>
-                      <div v-else class="mb-4">
-                        <p class="text-body-2">스프레드시트를 불러오는 중...</p>
-                      </div>
+                            </v-card-title>
+                            <v-card-text>
+                              <!-- Filter Controls -->
+                              <v-row class="mb-4">
+                                <v-col cols="12" md="2">
+                                  <v-select
+                                    v-model="selectedStaff"
+                                    label="담당자"
+                                    :items="availableStaff"
+                                    prepend-inner-icon="mdi-account"
+                                    variant="outlined"
+                                    density="compact"
+                                  ></v-select>
+                                </v-col>
+                                <!-- Dynamic Filter System -->
+                                <v-col cols="12">
+                                  <div class="d-flex align-center gap-2 mb-3">
+                                    <v-btn
+                                      color="primary"
+                                      variant="outlined"
+                                      size="small"
+                                      prepend-icon="mdi-filter-plus"
+                                      @click="addFilter"
+                                      :disabled="activeFilters.length >= availableColumns.length"
+                                    >
+                                      필터 추가
+                                    </v-btn>
+                                    <v-btn
+                                      v-if="activeFilters.length > 0"
+                                      color="error"
+                                      variant="outlined"
+                                      size="small"
+                                      prepend-icon="mdi-filter-remove"
+                                      @click="clearAllFilters"
+                                    >
+                                      모든 필터 지우기
+                                    </v-btn>
+                                  </div>
+                                  
+                                  <!-- Active Filters -->
+                                  <v-row v-if="activeFilters.length > 0" class="mb-2">
+                                    <v-col 
+                                      v-for="filter in activeFilters" 
+                                      :key="filter.id" 
+                                      cols="12" 
+                                      md="4"
+                                      class="pb-2"
+                                    >
+                                      <div class="d-flex gap-2 align-center">
+                                        <v-select
+                                          :model-value="filter.column"
+                                          @update:model-value="updateFilterColumn(filter.id, $event)"
+                                          :items="availableColumns"
+                                          label="컬럼 선택"
+                                          variant="outlined"
+                                          density="compact"
+                                          style="min-width: 120px;"
+                                        ></v-select>
+                                        <v-text-field
+                                          :model-value="filter.value"
+                                          @update:model-value="updateFilterValue(filter.id, $event)"
+                                          :label="filter.column + ' 검색'"
+                                          prepend-inner-icon="mdi-magnify"
+                                          clearable
+                                          variant="outlined"
+                                          density="compact"
+                                          style="flex: 2; min-width: 200px;"
+                                        ></v-text-field>
+                                        <v-btn
+                                          icon="mdi-close"
+                                          size="small"
+                                          variant="text"
+                                          color="error"
+                                          @click="removeFilter(filter.id)"
+                                        ></v-btn>
+                                      </div>
+                                    </v-col>
+                                  </v-row>
+                                </v-col>
+                              </v-row>
+
+                              <!-- Data Table -->
+                              <v-data-table
+                                :headers="tableHeaders"
+                                :items="filteredData"
+                                :items-per-page="itemsPerPage"
+                                :loading="dataLoading"
+                                item-value="rowIndex"
+                                class="elevation-1"
+                              >
+                              </v-data-table>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
+
+                      <!-- No Data Message -->
+                      <v-row v-else-if="selectedDateString && !dataLoading">
+                        <v-col cols="12">
+                          <v-card variant="outlined">
+                            <v-card-text class="text-center py-8">
+                              <v-icon size="64" color="grey-lighten-2" class="mb-4">mdi-calendar-remove</v-icon>
+                              <p class="text-h6 mb-2">{{ selectedDateString }} 시트를 찾을 수 없습니다</p>
+                              <p class="text-body-2 text-grey">해당 날짜의 배달 데이터가 없거나 시트가 생성되지 않았습니다.</p>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
+
                       <v-btn
                         color="error"
                         variant="outlined"
                         @click="disconnectGoogleSheets"
+                        class="mt-4"
                       >
                         Google 연결 해제
                       </v-btn>
@@ -198,7 +341,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useRoute } from 'vue-router';
 
@@ -221,10 +364,109 @@ const solapiBalance = ref<string>('');
 const newStaffName = ref('');
 const staffList = ref<{ name: string }[]>([]);
 
+// Calendar and data management
+const selectedDate = ref<Date | null>(null);
+const selectedDateString = ref<string>('');
+const sheetData = ref<any[]>([]);
+const sheetDataByStaff = ref<{ [staffName: string]: any[] }>({});
+const dynamicHeaders = ref<string[]>([]);
+const dataLoading = ref(false);
+const itemsPerPage = ref(10);
+const selectedStaff = ref<string>('전체');
+
+// Dynamic Filters system
+const activeFilters = ref<Array<{id: string, column: string, value: string}>>([]);
+
+const tableHeaders = computed(() => {
+  const baseHeaders = [
+    { title: '행', key: 'rowIndex', width: '80px' },
+  ];
+  
+  // Use dynamic headers from the actual sheet only
+  if (dynamicHeaders.value.length > 0) {
+    dynamicHeaders.value.forEach(header => {
+      if (header !== 'rowIndex' && header !== 'staffName') {
+        baseHeaders.push({ 
+          title: header, 
+          key: header, 
+          sortable: true 
+        });
+      }
+    });
+  }
+  
+  return baseHeaders;
+});
+
 // Form validation rules
 const rules = {
   required: (value: string): boolean | string => !!value || '필수 입력 항목입니다.',
 };
+
+// Computed
+const availableStaff = computed(() => {
+  const staffNames = Object.keys(sheetDataByStaff.value);
+  return ['전체', ...staffNames];
+});
+
+const currentDisplayData = computed(() => {
+  if (selectedStaff.value === '전체') {
+    return sheetData.value;
+  } else {
+    return sheetDataByStaff.value[selectedStaff.value] || [];
+  }
+});
+
+const filteredData = computed(() => {
+  return currentDisplayData.value.filter(item => {
+    // Check each active filter
+    return activeFilters.value.every(filter => {
+      if (!filter.value || !item[filter.column]) return true;
+      
+      const itemValue = String(item[filter.column]).toLowerCase();
+      const filterValue = filter.value.toLowerCase();
+      
+      return itemValue.includes(filterValue);
+    });
+  });
+});
+
+// Filter management methods
+const addFilter = (): void => {
+  const newId = `filter_${Date.now()}`;
+  activeFilters.value.push({
+    id: newId,
+    column: availableColumns.value[0] || '',
+    value: ''
+  });
+};
+
+const removeFilter = (filterId: string): void => {
+  activeFilters.value = activeFilters.value.filter(f => f.id !== filterId);
+};
+
+const updateFilterColumn = (filterId: string, column: string): void => {
+  const filter = activeFilters.value.find(f => f.id === filterId);
+  if (filter) {
+    filter.column = column;
+  }
+};
+
+const updateFilterValue = (filterId: string, value: string): void => {
+  const filter = activeFilters.value.find(f => f.id === filterId);
+  if (filter) {
+    filter.value = value;
+  }
+};
+
+const clearAllFilters = (): void => {
+  activeFilters.value = [];
+};
+
+// Available columns for filters (exclude rowIndex)
+const availableColumns = computed(() => {
+  return dynamicHeaders.value.filter(header => header !== 'rowIndex' && header !== 'staffName');
+});
 
 // Google Sheets integration methods
 const connectGoogleSheets = async (): Promise<void> => {
@@ -299,37 +541,101 @@ const generateQR = (staffName: string): void => {
   console.log('Generating QR for:', staffName);
 };
 
-// Spreadsheet connection
-const connectToSheet = async (sheet: any): Promise<void> => {
-  try {
-    console.log('Connecting to sheet:', sheet);
-    
-    const response = await fetch('http://localhost:5001/api/sheets/connect', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        spreadsheetId: sheet.id,
-      }),
-    });
-
-    const result = await response.json();
-    
-    if (result.success) {
-      connectedSheetId.value = sheet.id;
-      connectedSheetName.value = sheet.name;
-      // Refresh auth status to update connected spreadsheet state
-      await authStore.checkAuthStatus();
-      console.log('Successfully connected to spreadsheet:', result);
-    } else {
-      console.error('Failed to connect:', result.message);
-    }
-  } catch (error) {
-    console.error('Failed to connect to sheet:', error);
+// Calendar and data methods
+const onDateSelected = (date: Date): void => {
+  if (date) {
+    selectedDate.value = date;
+    selectedDateString.value = formatDateToYYYYMMDD(date);
+    loadSheetData(selectedDateString.value);
   }
 };
+
+const formatDateToYYYYMMDD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+};
+
+const formatDateDisplay = (dateString: string): string => {
+  if (dateString.length === 8) {
+    const year = dateString.slice(0, 4);
+    const month = dateString.slice(4, 6);
+    const day = dateString.slice(6, 8);
+    return `${year}년 ${month}월 ${day}일`;
+  }
+  return dateString;
+};
+
+const loadSheetData = async (dateString: string): Promise<void> => {
+  if (!dateString) return;
+  
+  dataLoading.value = true;
+  try {
+    // Load data grouped by staff
+    const staffResponse = await fetch(`http://localhost:5001/api/sheets/date/${dateString}/by-staff`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    
+    const staffResult = await staffResponse.json();
+    
+    if (staffResult.success) {
+      sheetDataByStaff.value = staffResult.data || {};
+      dynamicHeaders.value = staffResult.headers || [];
+      // Clear existing filters when loading new data
+      activeFilters.value = [];
+      
+      // Flatten all staff data for "전체" view
+      const allData = Object.values(sheetDataByStaff.value).flat();
+      sheetData.value = allData;
+      console.log('Sheet data by staff loaded:', staffResult.data);
+      console.log('Headers:', dynamicHeaders.value);
+      console.log('Total items:', allData.length);
+    } else {
+      // Fallback to original API for backwards compatibility
+      const response = await fetch(`http://localhost:5001/api/sheets/date/${dateString}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        sheetData.value = result.data || [];
+        dynamicHeaders.value = result.headers || [];
+        // Clear existing filters when loading new data
+        activeFilters.value = [];
+        
+        sheetDataByStaff.value = {};
+        console.log('Sheet data loaded (fallback):', result.data);
+        console.log('Headers (fallback):', dynamicHeaders.value);
+      } else {
+        sheetData.value = [];
+        sheetDataByStaff.value = {};
+        dynamicHeaders.value = [];
+        console.warn('No data found for date:', dateString, result.message);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load sheet data:', error);
+    sheetData.value = [];
+    sheetDataByStaff.value = {};
+    dynamicHeaders.value = [];
+  } finally {
+    dataLoading.value = false;
+  }
+};
+
+const refreshData = (): void => {
+  if (selectedDateString.value) {
+    loadSheetData(selectedDateString.value);
+  }
+};
+
+
+
+// Removed unused functions for simplified workflow
 
 // Initialize and check auth status
 onMounted(async () => {

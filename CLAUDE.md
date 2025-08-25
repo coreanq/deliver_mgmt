@@ -150,5 +150,5 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 4. **QR Codes**: 24-hour expiration for security
 5. **Environment**: Backend port changes require CORS_ORIGIN updates
 6. **Todo Updates**: Update tasks.md when todos are completed (as per .claude.json)
-- 서버 포트 번호 설정을 건드리지 말아야 함
+- frontend, backend 포트 번호 설정을 건드리지 말아야 함
 - 기능 추가 변경 요청 인 경우 tasks.md 파일 같이 업데이트
