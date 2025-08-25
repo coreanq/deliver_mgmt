@@ -42,8 +42,11 @@ router.get('/google/callback', async (req, res) => {
   try {
     const tokens = await googleAuthService.getTokens(code);
     
-    // Store tokens in session (in production, use secure storage)
-    req.session.googleTokens = tokens;
+    // Store tokens in session with connection timestamp (in production, use secure storage)
+    req.session.googleTokens = {
+      ...tokens,
+      connectedAt: new Date().toISOString(),
+    };
     
     logger.info('Google OAuth completed successfully');
     res.redirect(`${config.frontendUrl}/admin?google_auth=success`);
@@ -114,13 +117,43 @@ router.get('/solapi/callback', async (req, res) => {
 /**
  * Get authentication status
  */
-router.get('/status', (req, res) => {
+router.get('/status', async (req, res) => {
+  const isGoogleAuth = !!req.session.googleTokens;
+  const isSolapiAuth = !!req.session.solapiTokens;
+  
+  const responseData: any = {
+    google: isGoogleAuth,
+    solapi: isSolapiAuth,
+    connectedSpreadsheet: req.session.connectedSpreadsheet || null,
+  };
+
+  // If Google is authenticated, try to get additional info
+  if (isGoogleAuth) {
+    try {
+      const { GoogleSheetsService } = await import('../services/googleSheets');
+      const sheetsService = new GoogleSheetsService();
+      sheetsService.init(
+        req.session.googleTokens!.accessToken,
+        req.session.googleTokens!.refreshToken
+      );
+
+      const spreadsheets = await sheetsService.getSpreadsheets();
+      responseData.googleData = {
+        spreadsheets: spreadsheets || [],
+        connectedAt: req.session.googleTokens!.connectedAt || new Date().toISOString(),
+      };
+    } catch (error) {
+      logger.error('Failed to get Google data in status check:', error);
+      responseData.googleData = {
+        spreadsheets: [],
+        error: 'Failed to fetch spreadsheets',
+      };
+    }
+  }
+
   res.json({
     success: true,
-    data: {
-      google: !!req.session.googleTokens,
-      solapi: !!req.session.solapiTokens,
-    },
+    data: responseData,
   } as ApiResponse);
 });
 

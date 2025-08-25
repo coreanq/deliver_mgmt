@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(npm install)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "Bash(PORT=5001 npm run dev)",
+      "mcp__playwright__browser_wait_for",
+      "Bash(NODE_ENV=development PORT=5001 npm run dev)",
+      "Bash(NODE_ENV=development PORT=3001 npm run dev)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "playwright"
+  ]
+}

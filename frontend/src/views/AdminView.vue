@@ -40,14 +40,44 @@
                     </div>
                     
                     <div v-else>
-                      <p class="mb-2">연결된 스프레드시트:</p>
-                      <p class="text-body-2 mb-4">{{ connectedSheetName || '로딩 중...' }}</p>
+                      <p class="mb-2">사용 가능한 스프레드시트:</p>
+                      <div v-if="authStore.googleSpreadsheets.length > 0" class="mb-4">
+                        <v-list>
+                          <v-list-item
+                            v-for="sheet in authStore.googleSpreadsheets"
+                            :key="sheet.id"
+                            class="border mb-2"
+                          >
+                            <template #prepend>
+                              <v-icon>mdi-file-spreadsheet</v-icon>
+                            </template>
+                            
+                            <v-list-item-title>{{ sheet.name }}</v-list-item-title>
+                            <v-list-item-subtitle>{{ sheet.createdTime }}</v-list-item-subtitle>
+                            
+                            <template #append>
+                              <v-btn
+                                size="small"
+                                variant="outlined"
+                                @click="connectToSheet(sheet)"
+                                :disabled="authStore.connectedSpreadsheet?.id === sheet.id"
+                                :color="authStore.connectedSpreadsheet?.id === sheet.id ? 'success' : 'primary'"
+                              >
+                                {{ authStore.connectedSpreadsheet?.id === sheet.id ? '연결됨' : '연결' }}
+                              </v-btn>
+                            </template>
+                          </v-list-item>
+                        </v-list>
+                      </div>
+                      <div v-else class="mb-4">
+                        <p class="text-body-2">스프레드시트를 불러오는 중...</p>
+                      </div>
                       <v-btn
                         color="error"
                         variant="outlined"
                         @click="disconnectGoogleSheets"
                       >
-                        연결 해제
+                        Google 연결 해제
                       </v-btn>
                     </div>
                   </v-card-text>
@@ -168,10 +198,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { useRoute } from 'vue-router';
 
 const authStore = useAuthStore();
+const route = useRoute();
 
 // Loading states
 const googleLoading = ref(false);
@@ -179,6 +211,7 @@ const solapiLoading = ref(false);
 
 // Google Sheets data
 const connectedSheetName = ref<string>('');
+const connectedSheetId = ref<string>('');
 
 // SOLAPI data
 const solapiSenderId = ref<string>('');
@@ -208,10 +241,14 @@ const connectGoogleSheets = async (): Promise<void> => {
   }
 };
 
-const disconnectGoogleSheets = (): void => {
-  authStore.clearGoogleAuth();
-  connectedSheetName.value = '';
-  staffList.value = [];
+const disconnectGoogleSheets = async (): Promise<void> => {
+  try {
+    await authStore.logoutGoogle();
+    connectedSheetName.value = '';
+    staffList.value = [];
+  } catch (error) {
+    console.error('Failed to disconnect Google Sheets:', error);
+  }
 };
 
 // SOLAPI integration methods
@@ -229,10 +266,14 @@ const connectSolapi = async (): Promise<void> => {
   }
 };
 
-const disconnectSolapi = (): void => {
-  authStore.clearSolapiAuth();
-  solapiSenderId.value = '';
-  solapiBalance.value = '';
+const disconnectSolapi = async (): Promise<void> => {
+  try {
+    await authStore.logoutSolapi();
+    solapiSenderId.value = '';
+    solapiBalance.value = '';
+  } catch (error) {
+    console.error('Failed to disconnect SOLAPI:', error);
+  }
 };
 
 // Staff management methods
@@ -257,4 +298,78 @@ const generateQR = (staffName: string): void => {
   // TODO: Implement QR code generation and download
   console.log('Generating QR for:', staffName);
 };
+
+// Spreadsheet connection
+const connectToSheet = async (sheet: any): Promise<void> => {
+  try {
+    console.log('Connecting to sheet:', sheet);
+    
+    const response = await fetch('http://localhost:5001/api/sheets/connect', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        spreadsheetId: sheet.id,
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      connectedSheetId.value = sheet.id;
+      connectedSheetName.value = sheet.name;
+      // Refresh auth status to update connected spreadsheet state
+      await authStore.checkAuthStatus();
+      console.log('Successfully connected to spreadsheet:', result);
+    } else {
+      console.error('Failed to connect:', result.message);
+    }
+  } catch (error) {
+    console.error('Failed to connect to sheet:', error);
+  }
+};
+
+// Initialize and check auth status
+onMounted(async () => {
+  await authStore.checkAuthStatus();
+  
+  // Check URL parameters for OAuth callbacks
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('google_auth') === 'success') {
+    console.log('Google authentication successful');
+    await authStore.checkAuthStatus(); // Refresh status
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+  if (urlParams.get('solapi_auth') === 'success') {
+    console.log('SOLAPI authentication successful');  
+    await authStore.checkAuthStatus(); // Refresh status
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+});
+
+// Watch for auth status changes to update UI data
+watch(() => authStore.isGoogleAuthenticated, (newValue) => {
+  if (newValue) {
+    // Load Google Sheets data
+    connectedSheetName.value = 'Connected Spreadsheet';
+  } else {
+    connectedSheetName.value = '';
+    staffList.value = [];
+  }
+});
+
+watch(() => authStore.isSolapiAuthenticated, (newValue) => {
+  if (newValue) {
+    // Load SOLAPI data
+    solapiSenderId.value = 'Loading...';
+    solapiBalance.value = 'Loading...';
+  } else {
+    solapiSenderId.value = '';
+    solapiBalance.value = '';
+  }
+});
 </script>

@@ -39,6 +39,13 @@
 - [x] 스프레드시트 연결 상태 표시
 - [x] 배달담당자 시트 관리 인터페이스
 - [x] 관리자 설정 UI Playwright E2E 테스트 구현
+- [x] Google/SOLAPI 연동 상태 실시간 업데이트 기능 (백엔드 API)
+- [x] 백엔드 인증 상태 확인 API 구현 (/api/auth/status)
+- [x] 백엔드 통합 로그아웃 API 구현 (/api/auth/logout)
+- [x] Pinia auth store에 상태 확인 및 로그아웃 메서드 추가
+- [x] 프론트엔드 UI에 로그아웃 버튼 및 상태 자동 업데이트 구현
+- [x] OAuth 콜백 후 상태 자동 새로고침 기능 구현
+- [x] URL 파라미터 감지 및 정리 기능 구현
 
 ### 6. SOLAPI OAuth2 연동 시스템 (OAuth2 방식, SDK 아님)
 - [ ] SOLAPI 개발자 계정 및 앱 등록

@@ -6,6 +6,7 @@ declare module 'express-session' {
     googleTokens?: {
       accessToken: string;
       refreshToken: string;
+      connectedAt?: string;
     };
     solapiTokens?: SolapiTokens;
     solapiAccountInfo?: SolapiAccountInfo;

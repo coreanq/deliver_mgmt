@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import axios from 'axios';
 import type { GoogleSheetsConfig, SolapiConfig } from '../types';
+
+const API_BASE_URL = 'http://localhost:5001';
 
 export const useAuthStore = defineStore('auth', () => {
   // Google OAuth state
@@ -27,6 +30,9 @@ export const useAuthStore = defineStore('auth', () => {
   const clearGoogleAuth = (): void => {
     googleConfig.value = null;
     isGoogleAuthenticated.value = false;
+    googleSpreadsheets.value = [];
+    googleConnectedAt.value = '';
+    connectedSpreadsheet.value = null;
   };
 
   // SOLAPI OAuth actions
@@ -56,6 +62,89 @@ export const useAuthStore = defineStore('auth', () => {
     isDeliveryAuthenticated.value = false;
   };
 
+  // Google data state  
+  const googleSpreadsheets = ref<any[]>([]);
+  const googleConnectedAt = ref<string>('');
+  const connectedSpreadsheet = ref<{ id: string; name: string } | null>(null);
+
+  // Check authentication status from backend
+  const checkAuthStatus = async (): Promise<void> => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/auth/status`, {
+        withCredentials: true,
+      });
+      if (response.data.success) {
+        isGoogleAuthenticated.value = response.data.data.google;
+        isSolapiAuthenticated.value = response.data.data.solapi;
+        
+        // Update Google data if available
+        if (response.data.data.googleData) {
+          googleSpreadsheets.value = response.data.data.googleData.spreadsheets || [];
+          googleConnectedAt.value = response.data.data.googleData.connectedAt || '';
+        } else {
+          googleSpreadsheets.value = [];
+          googleConnectedAt.value = '';
+        }
+        
+        // Update connected spreadsheet if available
+        if (response.data.data.connectedSpreadsheet) {
+          connectedSpreadsheet.value = response.data.data.connectedSpreadsheet;
+        } else {
+          connectedSpreadsheet.value = null;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check auth status:', error);
+      isGoogleAuthenticated.value = false;
+      isSolapiAuthenticated.value = false;
+      googleSpreadsheets.value = [];
+      googleConnectedAt.value = '';
+      connectedSpreadsheet.value = null;
+    }
+  };
+
+  // Logout from all services
+  const logoutAll = async (): Promise<void> => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/auth/logout`, {}, {
+        withCredentials: true,
+      });
+      clearGoogleAuth();
+      clearSolapiAuth();
+      setAdminAuth(false);
+      clearDeliveryAuth();
+    } catch (error) {
+      console.error('Failed to logout:', error);
+      throw error;
+    }
+  };
+
+  // Logout from Google only
+  const logoutGoogle = async (): Promise<void> => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/auth/logout`, {}, {
+        withCredentials: true,
+      });
+      clearGoogleAuth();
+    } catch (error) {
+      console.error('Failed to logout from Google:', error);
+      throw error;
+    }
+  };
+
+  // Logout from SOLAPI only
+  const logoutSolapi = async (): Promise<void> => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/auth/logout`, {}, {
+        withCredentials: true,
+      });
+      clearSolapiAuth();
+    } catch (error) {
+      console.error('Failed to logout from SOLAPI:', error);
+      throw error;
+    }
+  };
+
   return {
     // State
     isGoogleAuthenticated,
@@ -65,6 +154,9 @@ export const useAuthStore = defineStore('auth', () => {
     isAdminAuthenticated,
     isDeliveryAuthenticated,
     currentStaffName,
+    googleSpreadsheets,
+    googleConnectedAt,
+    connectedSpreadsheet,
     
     // Actions
     setGoogleAuth,
@@ -74,5 +166,11 @@ export const useAuthStore = defineStore('auth', () => {
     setAdminAuth,
     setDeliveryAuth,
     clearDeliveryAuth,
+    
+    // New methods
+    checkAuthStatus,
+    logoutAll,
+    logoutGoogle,
+    logoutSolapi,
   };
 });
