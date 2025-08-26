@@ -190,26 +190,26 @@
 - [x] 환경 변수 관리 (dotenv)
 
 ### 프론트엔드 (Vue.js 3)
-- [ ] Vue 3 Composition API
-- [ ] Vite 빌드 도구 설정
-- [ ] Vue Router 4 라우팅
-- [ ] Pinia 상태 관리
-- [ ] Vuetify 3 UI 프레임워크
-- [ ] Axios HTTP 클라이언트
-- [ ] PWA 플러그인 설정
-- [ ] TypeScript 지원
+- [x] Vue 3 Composition API
+- [x] Vite 빌드 도구 설정
+- [x] Vue Router 4 라우팅
+- [x] Pinia 상태 관리
+- [x] Vuetify 3 UI 프레임워크
+- [x] Axios HTTP 클라이언트
+- [x] PWA 플러그인 설정
+- [x] TypeScript 지원
 
 ### 데이터베이스 및 저장소
-- [ ] Google Sheets를 메인 데이터 저장소로 활용
-- [ ] 세션 스토리지 (메모리 또는 Redis)
-- [ ] 로그 파일 저장소
-- [ ] 토큰 관리 (JWT stateless)
+- [x] Google Sheets를 메인 데이터 저장소로 활용
+- [x] 세션 스토리지 (메모리 또는 Redis)
+- [x] 로그 파일 저장소
+- [x] 토큰 관리 (JWT stateless)
 
 ### DevOps 및 배포
-- [ ] Git 버전 관리
-- [ ] npm/yarn 패키지 관리
-- [ ] ESLint + Prettier 코드 품질
-- [ ] Jest 테스트 프레임워크
+- [x] Git 버전 관리
+- [x] npm/yarn 패키지 관리
+- [x] ESLint + Prettier 코드 품질
+- [x] Jest 테스트 프레임워크
 - [ ] PM2 프로세스 관리
 - [ ] Nginx 웹서버 설정
 - [ ] 도메인 및 SSL 설정
