@@ -1,26 +1,29 @@
 import { GoogleAuthService } from './googleAuth';
+import { handleGoogleApiError } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import type { DeliveryOrder, DeliveryStatus } from '../types/index.js';
 
 export class GoogleSheetsService {
   private googleAuth: GoogleAuthService;
+  private req: any; // Store request object for error handling
 
   constructor() {
     this.googleAuth = new GoogleAuthService();
   }
 
   /**
-   * Initialize with tokens
+   * Initialize with tokens and request object
    */
-  init(accessToken: string, refreshToken: string): void {
+  init(accessToken: string, refreshToken: string, req?: any): void {
     this.googleAuth.setCredentials(accessToken, refreshToken);
+    this.req = req;
   }
 
   /**
    * Get list of available spreadsheets
    */
   async getSpreadsheets(): Promise<Array<{ id: string; name: string; url: string }>> {
-    try {
+    const makeApiCall = async () => {
       const drive = this.googleAuth.getDriveClient();
       const response = await drive.files.list({
         q: "mimeType='application/vnd.google-apps.spreadsheet'",
@@ -36,7 +39,19 @@ export class GoogleSheetsService {
 
       logger.info(`Found ${spreadsheets.length} spreadsheets`);
       return spreadsheets;
+    };
+
+    try {
+      return await makeApiCall();
     } catch (error) {
+      if (this.req) {
+        try {
+          return await handleGoogleApiError(error, this.req, makeApiCall);
+        } catch (retryError) {
+          logger.error('Failed to get spreadsheets after retry:', retryError);
+          throw new Error('스프레드시트 목록을 가져오는데 실패했습니다.');
+        }
+      }
       logger.error('Failed to get spreadsheets:', error);
       throw new Error('스프레드시트 목록을 가져오는데 실패했습니다.');
     }

@@ -1,23 +1,10 @@
 import express from 'express';
 import { GoogleSheetsService } from '../services/googleSheets';
+import { requireGoogleAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import type { ApiResponse } from '../types/index.js';
 
 const router = express.Router();
-
-/**
- * Middleware to check Google authentication
- */
-const requireGoogleAuth = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
-  if (!req.session.googleTokens) {
-    res.status(401).json({
-      success: false,
-      message: 'Google 인증이 필요합니다.',
-    } as ApiResponse);
-    return;
-  }
-  next();
-};
 
 /**
  * Get list of available spreadsheets
@@ -27,7 +14,8 @@ router.get('/list', requireGoogleAuth, async (req, res) => {
     const sheetsService = new GoogleSheetsService();
     sheetsService.init(
       req.session.googleTokens!.accessToken,
-      req.session.googleTokens!.refreshToken
+      req.session.googleTokens!.refreshToken,
+      req
     );
 
     const spreadsheets = await sheetsService.getSpreadsheets();
@@ -62,7 +50,8 @@ router.post('/connect', requireGoogleAuth, async (req, res) => {
     const sheetsService = new GoogleSheetsService();
     sheetsService.init(
       req.session.googleTokens!.accessToken,
-      req.session.googleTokens!.refreshToken
+      req.session.googleTokens!.refreshToken,
+      req
     );
 
     const sheets = await sheetsService.getSheets(spreadsheetId);
@@ -105,7 +94,8 @@ router.get('/date/:date', requireGoogleAuth, async (req, res) => {
     const sheetsService = new GoogleSheetsService();
     sheetsService.init(
       req.session.googleTokens!.accessToken,
-      req.session.googleTokens!.refreshToken
+      req.session.googleTokens!.refreshToken,
+      req
     );
 
     // First, try to find a spreadsheet with the date name
@@ -200,7 +190,8 @@ router.get('/date/:date/by-staff', requireGoogleAuth, async (req, res) => {
     const sheetsService = new GoogleSheetsService();
     sheetsService.init(
       req.session.googleTokens!.accessToken,
-      req.session.googleTokens!.refreshToken
+      req.session.googleTokens!.refreshToken,
+      req
     );
 
     let spreadsheetId = '';
@@ -280,7 +271,8 @@ router.get('/data/:sheetName', requireGoogleAuth, async (req, res) => {
     const sheetsService = new GoogleSheetsService();
     sheetsService.init(
       req.session.googleTokens!.accessToken,
-      req.session.googleTokens!.refreshToken
+      req.session.googleTokens!.refreshToken,
+      req
     );
 
     const orders = await sheetsService.getDeliveryOrders(
@@ -326,7 +318,8 @@ router.put('/data/:sheetName/status', requireGoogleAuth, async (req, res) => {
     const sheetsService = new GoogleSheetsService();
     sheetsService.init(
       req.session.googleTokens!.accessToken,
-      req.session.googleTokens!.refreshToken
+      req.session.googleTokens!.refreshToken,
+      req
     );
 
     await sheetsService.updateDeliveryStatus(
@@ -418,7 +411,8 @@ router.post('/staff', requireGoogleAuth, async (req, res) => {
     const sheetsService = new GoogleSheetsService();
     sheetsService.init(
       req.session.googleTokens!.accessToken,
-      req.session.googleTokens!.refreshToken
+      req.session.googleTokens!.refreshToken,
+      req
     );
 
     await sheetsService.createStaffSheet(

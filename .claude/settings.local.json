@@ -16,7 +16,10 @@
       "Bash(wmic process where:*)",
       "Bash(npx kill-port:*)",
       "mcp__playwright__browser_navigate_back",
-      "mcp__playwright__browser_evaluate"
+      "mcp__playwright__browser_evaluate",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run lint)",
+      "Bash(npm install:*)"
     ]
   },
   "enabledMcpjsonServers": [

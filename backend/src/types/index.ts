@@ -20,6 +20,13 @@ export interface GoogleSheetsConfig {
   refreshToken: string;
 }
 
+export interface GoogleTokens {
+  accessToken: string;
+  refreshToken: string;
+  connectedAt?: string;
+  expiryDate?: number;
+}
+
 export interface SolapiConfig {
   accessToken: string;
   refreshToken: string;

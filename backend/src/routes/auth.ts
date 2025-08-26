@@ -2,7 +2,7 @@ import express from 'express';
 import { GoogleAuthService } from '../services/googleAuth';
 import { logger } from '../utils/logger';
 import { config } from '../config/index';
-import type { ApiResponse } from '../types/index.js';
+import type { ApiResponse, GoogleTokens } from '../types/index.js';
 
 const router = express.Router();
 const googleAuthService = new GoogleAuthService();
@@ -42,11 +42,12 @@ router.get('/google/callback', async (req, res) => {
   try {
     const tokens = await googleAuthService.getTokens(code);
     
-    // Store tokens in session with connection timestamp (in production, use secure storage)
+    // Store tokens in session with connection timestamp and expiry (in production, use secure storage)
     req.session.googleTokens = {
       ...tokens,
       connectedAt: new Date().toISOString(),
-    };
+      expiryDate: Date.now() + 3600 * 1000, // 1 hour from now
+    } as GoogleTokens;
     
     logger.info('Google OAuth completed successfully');
     res.redirect(`${config.frontendUrl}/admin?google_auth=success`);
@@ -191,6 +192,39 @@ router.post('/logout', (req, res) => {
       message: '로그아웃되었습니다.',
     } as ApiResponse);
   });
+});
+
+/**
+ * TEST ONLY: Force token expiry for testing auto-refresh
+ * WARNING: Only for development testing
+ */
+router.post('/force-token-expiry', (req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(403).json({
+      success: false,
+      message: '개발 환경에서만 사용 가능합니다.',
+    } as ApiResponse);
+  }
+
+  if (!req.session.googleTokens) {
+    return res.status(400).json({
+      success: false,
+      message: 'Google 토큰이 없습니다.',
+    } as ApiResponse);
+  }
+
+  // Set expiry to 1 second ago to force immediate expiry
+  (req.session.googleTokens as GoogleTokens).expiryDate = Date.now() - 1000;
+  
+  logger.info('Google token expiry forced for testing');
+  res.json({
+    success: true,
+    message: '토큰 만료가 강제로 설정되었습니다. 다음 API 호출 시 자동 갱신됩니다.',
+    data: {
+      expiryDate: (req.session.googleTokens as GoogleTokens).expiryDate,
+      currentTime: Date.now(),
+    },
+  } as ApiResponse);
 });
 
 export default router;

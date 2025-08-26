@@ -147,6 +147,22 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 - Real-time synchronization improvements
 - Production deployment configuration
 
+## Token Management & Security
+
+### Automatic Token Refresh System
+- **Auto-refresh middleware**: `backend/src/middleware/auth.ts` with `requireGoogleAuth`
+- **Pre-emptive refresh**: Tokens refresh 5 minutes before expiry
+- **Retry mechanism**: `handleGoogleApiError` function retries API calls after token refresh
+- **Session tracking**: Google tokens stored with `expiryDate` for lifecycle management
+- **Development testing**: `POST /api/auth/force-token-expiry` for testing token refresh (dev only)
+
+### Token Lifecycle
+1. **Initial auth**: 1-hour expiry set during OAuth callback
+2. **Middleware check**: Every API call checks token expiry status  
+3. **Auto-refresh**: Transparent refresh when tokens near expiry
+4. **Retry on 401**: Failed API calls automatically retry after token refresh
+5. **Session update**: Refreshed tokens immediately saved to session
+
 ## Important Notes
 
 1. **SOLAPI**: Always use OAuth2 flow, never the SDK
@@ -159,6 +175,7 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 8. **Filter System**: Dynamic filter system allows users to filter by any sheet column
 9. **Korean Guidelines**: 한글로 답변, 영어로 주석 작성 (per .claude.json)
 10. **SOLID Principles**: Follow SOLID design principles for all code modifications
+11. **Token Security**: Automatic token refresh prevents service interruption during long sessions
 
 ## Critical Implementation Details
 
