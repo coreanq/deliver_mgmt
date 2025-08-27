@@ -22,7 +22,11 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "mcp__playwright__browser_tabs",
-      "mcp__playwright__browser_console_messages"
+      "mcp__playwright__browser_console_messages",
+      "Bash(git push:*)",
+      "Bash(npm init:*)",
+      "Bash(npm run local:*)",
+      "mcp__playwright__browser_type"
     ]
   },
   "enabledMcpjsonServers": [

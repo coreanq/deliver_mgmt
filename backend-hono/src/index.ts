@@ -1,0 +1,69 @@
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
+import { prettyJSON } from 'hono/pretty-json';
+import type { Env, Variables } from './types';
+
+// Import routes
+import authRoutes from './routes/auth';
+import sheetsRoutes from './routes/sheets';
+import solapiRoutes from './routes/solapi';
+import deliveryRoutes from './routes/delivery';
+
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Middleware
+app.use('*', logger());
+app.use('*', prettyJSON());
+app.use('*', cors({
+  origin: (origin, c) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://your-frontend-domain.pages.dev',
+      c.env?.FRONTEND_URL
+    ].filter(Boolean);
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      return origin || '*';
+    }
+    return null;
+  },
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Session-ID'],
+  credentials: true,
+}));
+
+// Health check endpoint
+app.get('/health', (c) => {
+  return c.json({
+    success: true,
+    message: '서버가 정상 작동 중입니다.',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// API routes
+app.route('/api/auth', authRoutes);
+app.route('/api/sheets', sheetsRoutes);
+app.route('/api/solapi', solapiRoutes);
+app.route('/api/delivery', deliveryRoutes);
+
+// 404 handler
+app.notFound((c) => {
+  return c.json({
+    success: false,
+    message: '요청한 경로를 찾을 수 없습니다.',
+  }, 404);
+});
+
+// Error handler
+app.onError((err, c) => {
+  console.error('Error:', err);
+  return c.json({
+    success: false,
+    message: '서버 내부 오류가 발생했습니다.',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  }, 500);
+});
+
+export default app;

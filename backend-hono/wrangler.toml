@@ -1,0 +1,21 @@
+name = "delivery-management-backend"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NODE_ENV = "production"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "your-kv-namespace-id"
+preview_id = "your-preview-kv-namespace-id"
+
+# Environment variables will be set via Cloudflare dashboard
+# GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET  
+# GOOGLE_REDIRECT_URL
+# SOLAPI_CLIENT_ID
+# SOLAPI_CLIENT_SECRET
+# SOLAPI_REDIRECT_URL
+# FRONTEND_URL
