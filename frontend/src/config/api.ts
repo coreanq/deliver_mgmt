@@ -12,7 +12,7 @@ export const getApiBaseUrl = (): string => {
   
   // Default production API URL (Cloudflare Workers)
   // Replace 'your-worker-name' with your actual worker name
-  return 'https://delivery-management-backend.your-username.workers.dev';
+  return 'deliver-mgmt-backend.coreanq.workers.dev';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

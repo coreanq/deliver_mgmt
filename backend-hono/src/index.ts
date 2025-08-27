@@ -17,11 +17,26 @@ app.use('*', logger());
 app.use('*', prettyJSON());
 app.use('*', cors({
   origin: (origin, c) => {
-    const allowedOrigins = [
+    // Allow development origins
+    const devOrigins = [
       'http://localhost:5173',
-      'https://your-frontend-domain.pages.dev',
-      c.env?.FRONTEND_URL
+      'http://127.0.0.1:5173',
+    ];
+    
+    // Allow production origins from environment
+    const prodOrigins = [
+      c.env?.FRONTEND_URL,
+      // Add your actual Cloudflare Pages domain here
+      'https://deliver-mgmt.pages.dev',
+      // Allow any *.pages.dev domain for Cloudflare Pages
     ].filter(Boolean);
+    
+    const allowedOrigins = [...devOrigins, ...prodOrigins];
+    
+    // Allow Cloudflare Pages domains
+    if (origin && origin.includes('.pages.dev')) {
+      return origin;
+    }
     
     if (!origin || allowedOrigins.includes(origin)) {
       return origin || '*';

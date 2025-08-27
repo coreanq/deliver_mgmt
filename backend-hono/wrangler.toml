@@ -8,8 +8,8 @@ NODE_ENV = "production"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+id = "1a0532ef0ad74209b2b50fded1ce81d4"  # Replace with actual KV namespace ID from: wrangler kv:namespace create "SESSIONS"
+preview_id = "c9bfc114990f4dae94195f588aa4248c"  # Replace with preview ID from: wrangler kv:namespace create "SESSIONS" --preview
 
 # Environment variables will be set via Cloudflare dashboard
 # GOOGLE_CLIENT_ID

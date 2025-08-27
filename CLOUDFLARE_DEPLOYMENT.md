@@ -42,12 +42,12 @@ Cloudflare Dashboard → Workers & Pages → [워커 이름] → Settings → Va
 
 **필수 환경 변수:**
 - `GOOGLE_CLIENT_ID`: Google OAuth2 클라이언트 ID
-- `GOOGLE_CLIENT_SECRET`: Google OAuth2 클라이언트 시크릿
-- `GOOGLE_REDIRECT_URL`: `https://your-worker-name.your-subdomain.workers.dev/api/auth/google/callback`
+- ``: Google OAuth2 클라이언트 시크릿
+- `GOOGLE_REDIRECT_URL`: `https://ydeliver-mgmt-backend.coreanq.workers.dev/api/auth/google/callback`
 - `SOLAPI_CLIENT_ID`: SOLAPI 클라이언트 ID
 - `SOLAPI_CLIENT_SECRET`: SOLAPI 클라이언트 시크릿
-- `SOLAPI_REDIRECT_URL`: `https://your-worker-name.your-subdomain.workers.dev/api/solapi/auth/callback`
-- `FRONTEND_URL`: `https://your-pages-domain.pages.dev`
+- `SOLAPI_REDIRECT_URL`: `https://deliver-mgmt-backend.coreanq.workers.dev/api/solapi/auth/callback`
+- `FRONTEND_URL`: `https://ydeliver-mgmt.pages.dev`
 - `JWT_SECRET`: JWT 토큰 생성용 시크릿 키
 - `QR_SECRET_KEY`: QR 코드 보안용 시크릿 키
 
@@ -74,7 +74,7 @@ npm run deploy
 
 ### 3.2 환경 변수 설정
 Pages 설정에서 환경 변수 추가:
-- `VITE_API_BASE_URL`: `https://your-worker-name.your-subdomain.workers.dev`
+- `VITE_API_BASE_URL`: `https://deliver-mgmt-backend.coreanq.workers.dev`
 
 ### 3.3 배포
 Pages는 GitHub 푸시 시 자동으로 배포됩니다.
@@ -84,31 +84,31 @@ Pages는 GitHub 푸시 시 자동으로 배포됩니다.
 배포된 Workers 도메인으로 `frontend/src/config/api.ts` 파일의 기본값을 수정:
 ```typescript
 // Default production API URL (Cloudflare Workers)
-return 'https://your-actual-worker-domain.workers.dev';
+return 'https://deliver-mgmt-backend.coreanq.workers.dev';
 ```
 
 ### 4.2 CORS 설정 업데이트
 `backend-hono/src/index.ts`에서 실제 Pages 도메인으로 수정:
 ```typescript
 // Add your actual Cloudflare Pages domain here
-'https://your-actual-pages-domain.pages.dev',
+'https://deliver-mgmt.pages.dev',
 ```
 
 ## 5. Google OAuth2 설정 업데이트
 
 Google Cloud Console에서 OAuth2 설정 업데이트:
-1. **Authorized JavaScript origins**: `https://your-pages-domain.pages.dev`
-2. **Authorized redirect URIs**: `https://your-worker-domain.workers.dev/api/auth/google/callback`
+1. **Authorized JavaScript origins**: `https://deliver-mgmt.pages.dev`
+2. **Authorized redirect URIs**: `https://deliver-mgmt-backend.coreanq.workers.dev/api/auth/google/callback`
 
 ## 6. SOLAPI OAuth2 설정 업데이트
 
 SOLAPI 콘솔에서 리다이렉트 URL 업데이트:
-- **리다이렉트 URL**: `https://your-worker-domain.workers.dev/api/solapi/auth/callback`
+- **리다이렉트 URL**: `https://deliver-mgmt-backend.coreanq.workers.dev/api/solapi/auth/callback`
 
 ## 7. 테스트
 
-1. **헬스체크**: `https://your-worker-domain.workers.dev/health`
-2. **프론트엔드 접속**: `https://your-pages-domain.pages.dev`
+1. **헬스체크**: `https://deliver-mgmt-backend.coreanq.workers.dev/health`
+2. **프론트엔드 접속**: `https://deliver-mgmt.pages.dev`
 3. **Google 로그인** 테스트
 4. **QR 코드 생성/인증** 테스트
 
