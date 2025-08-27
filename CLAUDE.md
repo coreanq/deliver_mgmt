@@ -6,30 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Google Sheets-based delivery management system with Vue.js frontend and dual backend architecture. Uses Google Sheets as primary database, QR code staff authentication, and SOLAPI OAuth2 for KakaoTalk messaging. **MVP status: Core features implemented and tested.**
 
-### Dual Backend Architecture
-- **Express Backend** (`backend/`): Traditional Node.js/Express server for local development
-- **Hono Backend** (`backend-hono/`): Modern Cloudflare Workers-compatible backend for production deployment
+### Backend Architecture
+- **Hono Backend** (`backend-hono/`): Modern Cloudflare Workers-compatible backend for both local development and production deployment
+- **Note**: Previous Express backend (`backend/`) has been migrated to Hono architecture
 
 ## Development Commands
 
 ### Root Level (runs both servers concurrently)
 ```bash
 npm run dev              # Start both backend (5001) and frontend (5173)
-npm run build           # Build both projects
-npm run test            # Run all tests
-npm run test:e2e        # Run Playwright E2E tests (use MCP tools instead)
-npm run test:e2e:ui     # Playwright UI mode
-npm run lint            # Lint both projects
-npm run typecheck       # Type check both projects
+npm run build            # Conditional build based on BUILD_TARGET env var
+npm run build:full       # Build both backend and frontend
+npm run build:frontend   # Build frontend only
+npm run build:backend    # Build backend only
+npm run test             # Run all tests
+npm run test:e2e         # Run Playwright E2E tests (use MCP tools instead)
+npm run test:e2e:ui      # Playwright UI mode
+npm run lint             # Lint both projects
+npm run typecheck        # Type check both projects
+npm run deploy:backend   # Deploy backend to Cloudflare Workers
 ```
 
-### Express Backend (`backend/`)
-```bash
-cd backend && npm run dev        # nodemon + ts-node (port 5001)
-cd backend && npm run build      # TypeScript compilation
-cd backend && npm run typecheck  # Type checking only
-cd backend && npm run lint       # ESLint
-```
 
 ### Hono Backend (`backend-hono/`)
 ```bash
@@ -55,27 +52,25 @@ cd frontend && npm run preview   # Preview production build
 ## Architecture
 
 ### Tech Stack
-- **Express Backend**: Node.js 22+, Express.js, TypeScript 5.1+, Express sessions
-- **Hono Backend**: Hono 4.x, Cloudflare Workers, TypeScript 5.x, KV storage
-- **Frontend**: Vue.js 3 Composition API, Vuetify 3, Vite
-- **Database**: Google Sheets (primary), Sessions (Express/KV)
+- **Backend**: Hono 4.x, Cloudflare Workers, TypeScript 5.x, KV storage
+- **Frontend**: Vue.js 3 Composition API, Vuetify 3, Vite, PWA support
+- **Database**: Google Sheets (primary), Sessions (KV storage)
 - **Authentication**: Google OAuth2, SOLAPI OAuth2, JWT QR tokens
-- **Deployment**: Cloudflare Workers (Hono), Traditional hosting (Express)
+- **Testing**: Playwright E2E tests, Vitest unit tests
+- **Deployment**: Cloudflare Workers (backend) + Cloudflare Pages (frontend)
 
 ### Key Services (Both Backends)
 - **GoogleSheetsService**: Spreadsheet CRUD operations with dynamic header system
 - **GoogleAuthService**: Google OAuth2 token management with auto-refresh
 - **SolapiAuthService**: SOLAPI OAuth2 integration (**HTTP API, not SDK**)
 
-### Backend Differences
-| Feature | Express Backend | Hono Backend |
-|---------|----------------|-------------|
-| **Session Storage** | Express sessions (memory) | Cloudflare KV (persistent) |
+### Development vs Production Environments
+| Feature | Local Development | Cloudflare Workers Production |
+|---------|----------------|-------------||
+| **Session Storage** | In-memory storage | Cloudflare KV (persistent) |
 | **Environment** | Node.js runtime | Cloudflare Workers |
-| **Middleware** | Express middleware | Hono middleware |
-| **Development** | `npm run dev` (port 5001) | `npm run local` (port 5001) |
-| **Production** | Traditional hosting | Cloudflare Workers |
-| **Logging** | Winston file logging | console.log (Cloudflare logs) |
+| **Development** | `npm run local` (port 5001) | `npm run deploy` |
+| **Logging** | console.log | Cloudflare Workers logs |
 
 ### Authentication Flows
 1. **Google OAuth2**: Spreadsheet access (`/api/auth/google`)
@@ -94,25 +89,6 @@ cd frontend && npm run preview   # Preview production build
 
 Both backends require similar environment variables:
 
-**Express Backend** (`.env` in `backend/`):
-```bash
-NODE_ENV=development
-PORT=5001
-CORS_ORIGIN=http://localhost:5173
-FRONTEND_URL=http://localhost:5173
-SESSION_SECRET=your-session-secret-key
-JWT_SECRET=your-jwt-secret-key
-
-# Google OAuth2
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URL=http://localhost:5001/api/auth/google/callback
-
-# SOLAPI OAuth2
-SOLAPI_CLIENT_ID=your-solapi-client-id
-SOLAPI_CLIENT_SECRET=your-solapi-client-secret
-SOLAPI_REDIRECT_URL=http://localhost:5001/api/solapi/auth/callback
-```
 
 **Hono Backend** (`.env` in `backend-hono/`):
 ```bash
@@ -167,12 +143,11 @@ FRONTEND_URL=http://localhost:5173
 
 ### Important Development Rules
 - **Port Configuration**: Never modify frontend (5173) or backend (5001) port settings (다른 포트 사용 금지)
-- **Backend Selection**: Use either Express OR Hono backend, never both simultaneously on same port
 - **Data Integrity**: After status updates, always refresh data from server to maintain sync with Google Sheets
 - **Status Synchronization**: Use proper helper functions for status access to avoid undefined values
-- **Task Management**: Update tasks.md when todos are completed (from .claude.json)
+- **Task Management**: Update tasks.md when todos are completed
 - **Dynamic System**: Never assume specific column names - always use actual sheet data
-- **Session Management**: Hono backend uses KV storage; Express uses in-memory sessions
+- **Session Management**: Local development uses in-memory storage; production uses Cloudflare KV
 
 ## Common Patterns
 
@@ -223,12 +198,32 @@ Set these in the Cloudflare Workers dashboard:
 - `SOLAPI_REDIRECT_URL` (with your Workers domain)
 - `FRONTEND_URL` (your frontend domain)
 
-## Backend Migration Guide
+## Testing
 
-### From Express to Hono
-- **Session management**: Express sessions → Cloudflare KV
-- **Middleware**: Express-style → Hono-style with proper typing
-- **Authentication**: Same OAuth flows, different session storage
-- **API compatibility**: Same endpoints and response formats
-- **Environment**: Local development vs Cloudflare Workers runtime
-- 다른 포트 사용 금지
+### E2E Testing with Playwright
+- **Critical**: Use Playwright MCP tools for browser automation, NOT `npx playwright test`
+- **Test Directory**: `/tests/` contains E2E test specifications
+- **Base URL**: Tests run against `http://localhost:5173`
+- **Available Tests**:
+  - `admin-settings.spec.ts`: Admin dashboard functionality
+  - `delivery-auth.spec.ts`: QR authentication flow
+  - `delivery-dashboard.spec.ts`: Staff delivery interface
+  - `example.spec.ts`: Basic functionality tests
+
+### Unit Testing
+- **Frontend**: Vitest framework for Vue.js components
+- **Commands**: `cd frontend && npm run test`
+
+## Project Files
+
+### Configuration Files
+- `playwright.config.ts`: E2E test configuration
+- `frontend/vite.config.ts`: Vite build configuration
+- `backend-hono/wrangler.toml`: Cloudflare Workers configuration
+- `backend-hono/tsconfig.json`: TypeScript configuration
+- `.gitignore`: Git ignore rules including MCP config
+
+### Documentation Files
+- `CLOUDFLARE_DEPLOYMENT.md`: Detailed Cloudflare deployment guide
+- `prd.md`: Product Requirements Document (MVP specifications)
+- `tasks.md`: Development task tracking and checklist

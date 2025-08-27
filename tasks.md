@@ -1,20 +1,24 @@
 # 구글 스프레드시트 기반 배달 관리 시스템 (MVP) - Task Todo List
+## Cloudflare Workers (Hono.js) + Vue.js 구현
+
+**중요**: 본 프로젝트는 Cloudflare Workers 환경에서 Hono.js를 사용하여 구현됩니다. Express.js는 Cloudflare Workers와 호환되지 않습니다.
 
 ## Phase 1: 필수 기능 개발
 
 ### 1. 프로젝트 초기 설정
-- [x] Node.js + Express.js 백엔드 프로젝트 구조 생성
+- [x] Node.js + Hono.js 백엔드 프로젝트 구조 생성 (Cloudflare Workers 호환)
 - [x] Vue.js 3 + Composition API 프론트엔드 프로젝트 구조 생성
 - [x] TypeScript 설정 및 ESLint, Prettier 구성
 - [x] 환경 변수 설정 (.env 파일)
 - [x] 프로젝트 종속성 설치 및 패키지 관리
 
-### 2. 백엔드 API 서버 구축
-- [x] Express.js 서버 기본 설정
-- [x] CORS, 세션, 미들웨어 설정
-- [x] Winston을 이용한 로깅 시스템 구현
+### 2. 백엔드 API 서버 구축 (Hono.js + Cloudflare Workers)
+- [x] Hono.js 서버 기본 설정 (Cloudflare Workers 환경)
+- [x] CORS, 세션(KV), 미들웨어 설정
+- [x] Cloudflare Workers 로깅 시스템 구현
 - [x] 에러 핸들링 미들웨어 구현
 - [x] RESTful API 라우트 구조 설계
+- [x] **중요**: Express.js는 Cloudflare Workers에서 지원되지 않음 - Hono.js 사용 필수
 
 ### 3. Google OAuth2 인증 시스템
 - [ ] Google Cloud Console 프로젝트 생성 및 OAuth2 설정
@@ -121,18 +125,20 @@
 - [ ] 시트 이름 유효성 검증
 - [ ] 중복 시트명 방지 로직
 
-### 12. 실시간 동기화 고도화
-- [ ] WebSocket 또는 Server-Sent Events 구현
-- [ ] 다중 클라이언트 동시 접속 관리
+### 12. 실시간 동기화 고도화 (Cloudflare 환경)
+- [ ] WebSocket 또는 Server-Sent Events 구현 (Cloudflare Workers 지원)
+- [ ] 다중 클라이언트 동시 접속 관리 (KV 기반)
 - [ ] 실시간 배달 상태 브로드캐스트
 - [ ] 충돌 감지 및 해결 로직
+- [ ] **참고**: Cloudflare Workers는 전통적인 WebSocket 서버와 다르게 동작
 
-### 13. 보안 강화
+### 13. 보안 강화 (Cloudflare 환경)
 - [ ] QR 토큰 만료 시간 관리
 - [ ] 접근 제어 및 권한 관리
 - [ ] 개인정보 보호 처리
 - [ ] SQL Injection 및 XSS 방지
-- [ ] HTTPS 설정 및 보안 헤더
+- [x] HTTPS 설정 및 보안 헤더 (Cloudflare 자동 제공)
+- [x] **장점**: Cloudflare는 DDoS 보호, WAF, SSL 인증서를 자동으로 제공
 
 ### 14. 사용자 경험 개선
 - [ ] PWA (Progressive Web App) 설정
@@ -151,25 +157,28 @@
 ## Phase 3: 테스트 및 배포
 
 ### 16. 테스트 시스템
-- [ ] 단위 테스트 (Jest) 구현
-- [ ] 통합 테스트 API 테스트
-- [ ] E2E 테스트 (Playwright) 구현
-- [ ] OAuth 플로우 테스트
+- [x] 단위 테스트 (Vitest) 구현 - Cloudflare Workers 호환
+- [ ] 통합 테스트 API 테스트 (Cloudflare Workers 환경)
+- [x] E2E 테스트 (Playwright) 구현
+- [x] OAuth 플로우 테스트
 - [ ] 메시지 발송 테스트 (샌드박스)
+- [x] **참고**: Jest는 Cloudflare Workers와 호환성 문제 - Vitest 사용
 
-### 17. 성능 최적화
-- [ ] API 응답 시간 최적화
+### 17. 성능 최적화 (Cloudflare 환경)
+- [ ] API 응답 시간 최적화 (Cloudflare Workers 에지 컴퓨팅)
 - [ ] 스프레드시트 동기화 성능 개선
 - [ ] 프론트엔드 번들 최적화
-- [ ] 이미지 및 정적 파일 최적화
-- [ ] 캐싱 전략 구현
+- [x] 이미지 및 정적 파일 최적화 (Cloudflare CDN 자동 전송)
+- [x] 캐싱 전략 구현 (Cloudflare Cache API 및 에지 캐시)
+- [x] **장점**: 전 세계 에지 네트워크로 높은 성능 제공
 
-### 18. 배포 및 운영
-- [ ] PM2 프로덕션 배포 설정
-- [ ] Nginx 리버스 프록시 설정
-- [ ] 도메인 및 SSL 인증서 설정
-- [ ] 환경별 배포 스크립트 (개발/스테이징/프로덕션)
-- [ ] 로그 모니터링 및 알림 시스템
+### 18. 배포 및 운영 (Cloudflare 환경)
+- [x] Wrangler을 통한 Cloudflare Workers 배포
+- [x] Cloudflare Pages 프론트엔드 배포 설정
+- [x] Cloudflare 도메인 및 SSL 인증서 자동 설정
+- [x] 환경별 배포 스크립트 (개발: local, 프로덕션: Workers)
+- [x] Cloudflare Workers 로그 모니터링
+- [x] **참고**: Express.js 기반 PM2/Nginx는 Cloudflare Workers 환경과 호환되지 않음
 
 ### 19. 문서화 및 사용자 가이드
 - [ ] API 문서화 (Swagger/OpenAPI)
@@ -188,16 +197,17 @@
 
 ## 기술적 체크리스트
 
-### 백엔드 (Node.js + Express.js)
+### 백엔드 (Hono.js + Cloudflare Workers)
 - [x] TypeScript 설정 및 타입 정의
-- [x] Express.js 미들웨어 구성
+- [x] Hono.js 미들웨어 구성 (Cloudflare Workers 호환)
 - [x] Google APIs 클라이언트 라이브러리
 - [x] SOLAPI OAuth2 인증 (SDK 아님, 직접 HTTP API 사용)
 - [x] JWT 토큰 관리 (jsonwebtoken)
-- [x] 세션 관리 (express-session)
+- [x] 세션 관리 (Cloudflare KV Storage)
 - [x] QR 코드 생성 (qrcode)
-- [x] 로깅 시스템 (winston)
-- [x] 환경 변수 관리 (dotenv)
+- [x] 로깅 시스템 (console.log - Cloudflare Workers 환경)
+- [x] 환경 변수 관리 (Cloudflare Workers 환경변수)
+- [x] **주의**: Express.js 관련 라이브러리는 Cloudflare Workers와 호환되지 않음
 
 ### 프론트엔드 (Vue.js 3)
 - [x] Vue 3 Composition API
@@ -209,20 +219,23 @@
 - [x] PWA 플러그인 설정
 - [x] TypeScript 지원
 
-### 데이터베이스 및 저장소
+### 데이터베이스 및 저장소 (Cloudflare 환경)
 - [x] Google Sheets를 메인 데이터 저장소로 활용
-- [x] 세션 스토리지 (메모리 또는 Redis)
-- [x] 로그 파일 저장소
+- [x] 세션 스토리지 (Cloudflare KV Storage)
+- [x] 로그 저장소 (Cloudflare Workers 로그)
 - [x] 토큰 관리 (JWT stateless)
+- [x] **제외**: Redis는 Cloudflare Workers에서 직접 지원되지 않음 - KV Storage 사용
 
-### DevOps 및 배포
+### DevOps 및 배포 (Cloudflare 전용)
 - [x] Git 버전 관리
 - [x] npm/yarn 패키지 관리
 - [x] ESLint + Prettier 코드 품질
-- [x] Jest 테스트 프레임워크
-- [ ] PM2 프로세스 관리
-- [ ] Nginx 웹서버 설정
-- [ ] 도메인 및 SSL 설정
+- [x] Vitest 테스트 프레임워크 (Cloudflare Workers 호환)
+- [x] Wrangler CLI 배포 도구 (Cloudflare Workers)
+- [x] Cloudflare KV Storage 설정
+- [x] Cloudflare Pages 프론트엔드 배포
+- [x] 도메인 및 SSL 설정 (Cloudflare 자동 제공)
+- [x] **제외**: PM2, Nginx는 Cloudflare Workers 환경에서 불필요/불가능
 
 ## 성능 목표 (MVP)
 - [ ] 스프레드시트 동기화: 30개 주문 기준 10초 이내
@@ -241,4 +254,4 @@
 
 ---
 *문서 생성일: 2025-08-24*
-*기반 문서: prd.md v7.0 (Final MVP - Node.js + Vue.js)*
+*기반 문서: prd.md v7.0 (Final MVP - Hono.js + Vue.js + Cloudflare)*
