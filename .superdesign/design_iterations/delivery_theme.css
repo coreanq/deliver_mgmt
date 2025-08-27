@@ -1,0 +1,60 @@
+:root {
+  --background: oklch(0.9900 0.0050 240);
+  --foreground: oklch(0.1500 0.0200 240);
+  --card: oklch(1.0000 0 0);
+  --card-foreground: oklch(0.1500 0.0200 240);
+  --popover: oklch(1.0000 0 0);
+  --popover-foreground: oklch(0.1500 0.0200 240);
+  --primary: oklch(0.5800 0.2200 250);
+  --primary-foreground: oklch(0.9900 0.0050 240);
+  --secondary: oklch(0.9600 0.0200 240);
+  --secondary-foreground: oklch(0.2000 0.0300 240);
+  --muted: oklch(0.9600 0.0200 240);
+  --muted-foreground: oklch(0.5000 0.0300 240);
+  --accent: oklch(0.6500 0.2500 35);
+  --accent-foreground: oklch(0.9900 0.0050 240);
+  --destructive: oklch(0.6200 0.2800 15);
+  --destructive-foreground: oklch(0.9900 0.0050 240);
+  --border: oklch(0.9200 0.0200 240);
+  --input: oklch(0.9200 0.0200 240);
+  --ring: oklch(0.5800 0.2200 250);
+  --chart-1: oklch(0.5800 0.2200 250);
+  --chart-2: oklch(0.6500 0.2500 35);
+  --chart-3: oklch(0.5500 0.2800 120);
+  --chart-4: oklch(0.6200 0.2800 15);
+  --chart-5: oklch(0.5000 0.2500 280);
+  --sidebar: oklch(0.9900 0.0050 240);
+  --sidebar-foreground: oklch(0.1500 0.0200 240);
+  --sidebar-primary: oklch(0.5800 0.2200 250);
+  --sidebar-primary-foreground: oklch(0.9900 0.0050 240);
+  --sidebar-accent: oklch(0.9600 0.0200 240);
+  --sidebar-accent-foreground: oklch(0.2000 0.0300 240);
+  --sidebar-border: oklch(0.9200 0.0200 240);
+  --sidebar-ring: oklch(0.5800 0.2200 250);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --radius: 0.75rem;
+  --shadow-2xs: 0 1px 2px 0px hsl(240 10% 3% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(240 10% 3% / 0.08);
+  --shadow-sm: 0 1px 3px 0px hsl(240 10% 3% / 0.10), 0 1px 2px -1px hsl(240 10% 3% / 0.10);
+  --shadow: 0 4px 6px -1px hsl(240 10% 3% / 0.10), 0 2px 4px -2px hsl(240 10% 3% / 0.10);
+  --shadow-md: 0 10px 15px -3px hsl(240 10% 3% / 0.10), 0 4px 6px -4px hsl(240 10% 3% / 0.10);
+  --shadow-lg: 0 20px 25px -5px hsl(240 10% 3% / 0.10), 0 8px 10px -6px hsl(240 10% 3% / 0.10);
+  --shadow-xl: 0 25px 50px -12px hsl(240 10% 3% / 0.25);
+  --shadow-2xl: 0 25px 50px -12px hsl(240 10% 3% / 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* 배달 상태별 색상 */
+  --status-pending: oklch(0.6500 0.2500 35);
+  --status-preparing: oklch(0.6000 0.2200 60);
+  --status-shipping: oklch(0.5800 0.2200 250);
+  --status-delivered: oklch(0.5500 0.2800 120);
+  --status-cancelled: oklch(0.6200 0.2800 15);
+}

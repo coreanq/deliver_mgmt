@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>배달 관리 현황</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="delivery_theme.css">
+    
+    <style>
+        * {
+            font-family: var(--font-sans) !important;
+        }
+        
+        body {
+            background: var(--background) !important;
+            color: var(--foreground) !important;
+            padding: 1rem !important;
+        }
+        
+        .delivery-card {
+            background: var(--card) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: var(--shadow) !important;
+            transition: all 0.2s ease-out !important;
+            animation: cardEnter 0.3s ease-out !important;
+        }
+        
+        .delivery-card:hover {
+            transform: translateY(-4px) scale(1.01) !important;
+            box-shadow: var(--shadow-lg) !important;
+        }
+        
+        .status-badge {
+            border-radius: var(--radius-sm) !important;
+            font-weight: 500 !important;
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.75rem !important;
+            transition: all 0.4s ease-out !important;
+        }
+        
+        .status-preparing {
+            background: var(--status-preparing) !important;
+            color: white !important;
+        }
+        
+        .copy-btn {
+            background: var(--secondary) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: var(--radius-sm) !important;
+            padding: 0.25rem 0.5rem !important;
+            transition: all 0.2s ease-out !important;
+            font-size: 0.75rem !important;
+        }
+        
+        .copy-btn:hover {
+            background: var(--accent) !important;
+            color: var(--accent-foreground) !important;
+            transform: scale(1.05) !important;
+        }
+        
+        .copy-btn:active {
+            transform: scale(0.95) rotate(360deg) !important;
+        }
+        
+        .delivery-btn {
+            background: var(--primary) !important;
+            color: var(--primary-foreground) !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 0.875rem 1.5rem !important;
+            font-weight: 600 !important;
+            transition: all 0.15s ease-out !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        
+        .delivery-btn:hover {
+            background: var(--primary) !important;
+            transform: scale(1.02) !important;
+            box-shadow: var(--shadow-md) !important;
+        }
+        
+        .delivery-btn:active {
+            transform: scale(0.98) !important;
+        }
+        
+        .icon-wrapper {
+            background: var(--muted) !important;
+            border-radius: var(--radius-sm) !important;
+            padding: 0.5rem !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .section-divider {
+            border-top: 1px solid var(--border) !important;
+            margin: 1rem 0 !important;
+        }
+        
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(0);
+            animation: ripple 0.4s ease-out;
+        }
+        
+        @keyframes cardEnter {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        @keyframes ripple {
+            to {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes success {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .success-animation {
+            animation: success 0.3s ease-out !important;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--accent);
+            color: var(--accent-foreground);
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-100px);
+            opacity: 0;
+            transition: all 0.3s ease-out;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="max-w-md mx-auto">
+        <!-- 배달 카드 -->
+        <div class="delivery-card p-6 mb-4">
+            <!-- 헤더 -->
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">1번 고객</h2>
+                </div>
+                <span class="status-badge status-preparing">박금철</span>
+            </div>
+            
+            <!-- 배송지 정보 -->
+            <div class="mb-4">
+                <div class="flex items-start gap-3 mb-2">
+                    <div class="icon-wrapper">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-gray-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-sm font-medium text-gray-700">배송지:</p>
+                            <button class="copy-btn" onclick="copyAddress()">
+                                <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                복사
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-600 leading-relaxed" id="delivery-address">
+                            경기도 수원시 장안구 수성로 157번길 60<br>
+                            브리시엘 202동 2003호
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 고객 연락처 -->
+            <div class="mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="icon-wrapper">
+                        <i data-lucide="phone" class="w-4 h-4 text-gray-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-700 mb-1">고객 연락처:</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-900 font-mono">01030917062</span>
+                            <button class="copy-btn" onclick="copyPhone()">
+                                <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                복사
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 배송 상태 -->
+            <div class="mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="icon-wrapper">
+                        <i data-lucide="truck" class="w-4 h-4 text-gray-600"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-700 mb-1">배송상태:</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-900">배송 준비중</span>
+                            <span class="status-badge status-preparing">준비중</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 구분선 -->
+            <div class="section-divider"></div>
+            
+            <!-- 배송 출발 버튼 -->
+            <button class="delivery-btn w-full flex items-center justify-center gap-2" onclick="startDelivery(this)">
+                <i data-lucide="truck" class="w-5 h-5"></i>
+                배송 출발
+            </button>
+        </div>
+    </div>
+    
+    <!-- 토스트 알림 -->
+    <div id="toast" class="toast">
+        <div class="flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span id="toast-message">복사되었습니다!</span>
+        </div>
+    </div>
+
+    <script>
+        // Lucide 아이콘 초기화
+        lucide.createIcons();
+        
+        // 전화번호 복사 기능
+        function copyPhone() {
+            const phoneNumber = '01030917062';
+            navigator.clipboard.writeText(phoneNumber).then(() => {
+                showToast('전화번호가 복사되었습니다!');
+                
+                // 복사 버튼 애니메이션
+                const copyBtn = event.target.closest('.copy-btn');
+                copyBtn.classList.add('success-animation');
+                setTimeout(() => {
+                    copyBtn.classList.remove('success-animation');
+                }, 300);
+            }).catch(() => {
+                showToast('복사에 실패했습니다.', 'error');
+            });
+        }
+        
+        // 배송지 복사 기능
+        function copyAddress() {
+            const address = '경기도 수원시 장안구 수성로 157번길 60 브리시엘 202동 2003호';
+            navigator.clipboard.writeText(address).then(() => {
+                showToast('배송지가 복사되었습니다!');
+                
+                // 복사 버튼 애니메이션
+                const copyBtn = event.target.closest('.copy-btn');
+                copyBtn.classList.add('success-animation');
+                setTimeout(() => {
+                    copyBtn.classList.remove('success-animation');
+                }, 300);
+            }).catch(() => {
+                showToast('복사에 실패했습니다.', 'error');
+            });
+        }
+        
+        // 배송 출발 기능
+        function startDelivery(button) {
+            // 리플 효과
+            createRipple(button, event);
+            
+            // 버튼 상태 변경
+            setTimeout(() => {
+                button.innerHTML = `
+                    <i data-lucide="check-circle" class="w-5 h-5"></i>
+                    배송 시작됨
+                `;
+                button.style.background = 'var(--chart-3)';
+                button.disabled = true;
+                lucide.createIcons();
+                
+                // 상태 배지 업데이트
+                const statusBadges = document.querySelectorAll('.status-preparing');
+                statusBadges.forEach(badge => {
+                    if (badge.textContent === '준비중') {
+                        badge.textContent = '배송중';
+                        badge.style.background = 'var(--status-shipping)';
+                    }
+                });
+                
+                showToast('배송이 시작되었습니다!');
+            }, 200);
+        }
+        
+        // 리플 효과 생성
+        function createRipple(button, event) {
+            const rect = button.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = event.clientX - rect.left - size / 2;
+            const y = event.clientY - rect.top - size / 2;
+            
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            
+            button.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 400);
+        }
+        
+        // 토스트 알림 표시
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            
+            toastMessage.textContent = message;
+            
+            if (type === 'error') {
+                toast.style.background = 'var(--destructive)';
+                toast.style.color = 'var(--destructive-foreground)';
+            } else {
+                toast.style.background = 'var(--accent)';
+                toast.style.color = 'var(--accent-foreground)';
+            }
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 카드 호버 효과 개선
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.delivery-card');
+            cards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 100}ms`;
+            });
+        });
+    </script>
+</body>
+</html>
