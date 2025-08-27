@@ -29,9 +29,28 @@ function generateSessionId(): string {
  */
 auth.get('/google', async (c) => {
   try {
+    // Debug: 환경변수 확인
+    console.log('Environment variables check:');
+    console.log('GOOGLE_CLIENT_ID:', c.env.GOOGLE_CLIENT_ID ? 'SET' : 'MISSING');
+    console.log('GOOGLE_CLIENT_SECRET:', c.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING');
+    console.log('GOOGLE_REDIRECT_URL:', c.env.GOOGLE_REDIRECT_URL || 'MISSING');
+    
+    if (!c.env.GOOGLE_CLIENT_ID || !c.env.GOOGLE_CLIENT_SECRET || !c.env.GOOGLE_REDIRECT_URL) {
+      return c.json({
+        success: false,
+        message: '환경변수가 설정되지 않았습니다.',
+        debug: {
+          GOOGLE_CLIENT_ID: !!c.env.GOOGLE_CLIENT_ID,
+          GOOGLE_CLIENT_SECRET: !!c.env.GOOGLE_CLIENT_SECRET,
+          GOOGLE_REDIRECT_URL: !!c.env.GOOGLE_REDIRECT_URL
+        }
+      }, 500);
+    }
+
     const googleAuth = new GoogleAuthService(c.env);
     const authUrl = googleAuth.getAuthUrl();
-
+    
+    console.log('Generated auth URL:', authUrl);
     return c.redirect(authUrl);
   } catch (error: any) {
     console.error('Google auth error:', error);
