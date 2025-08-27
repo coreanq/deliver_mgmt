@@ -43,11 +43,11 @@ Cloudflare Dashboard → Workers & Pages → [워커 이름] → Settings → Va
 **필수 환경 변수:**
 - `GOOGLE_CLIENT_ID`: Google OAuth2 클라이언트 ID
 - ``: Google OAuth2 클라이언트 시크릿
-- `GOOGLE_REDIRECT_URL`: `https://ydeliver-mgmt-backend.coreanq.workers.dev/api/auth/google/callback`
+- `GOOGLE_REDIRECT_URL`: `https://deliver-mgmt-backend.coreanq.workers.dev/api/auth/google/callback`
 - `SOLAPI_CLIENT_ID`: SOLAPI 클라이언트 ID
 - `SOLAPI_CLIENT_SECRET`: SOLAPI 클라이언트 시크릿
 - `SOLAPI_REDIRECT_URL`: `https://deliver-mgmt-backend.coreanq.workers.dev/api/solapi/auth/callback`
-- `FRONTEND_URL`: `https://ydeliver-mgmt.pages.dev`
+- `FRONTEND_URL`: `https://deliver-mgmt.pages.dev`
 - `JWT_SECRET`: JWT 토큰 생성용 시크릿 키
 - `QR_SECRET_KEY`: QR 코드 보안용 시크릿 키
 
