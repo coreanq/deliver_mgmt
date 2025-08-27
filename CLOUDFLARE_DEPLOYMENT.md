@@ -40,16 +40,35 @@ preview_id = "실제_프리뷰_ID"  # 위에서 얻은 preview ID로 교체
 ### 2.4 환경 변수 설정
 Cloudflare Dashboard → Workers & Pages → [워커 이름] → Settings → Variables에서 환경 변수 설정:
 
-**필수 환경 변수:**
+#### **중요: Runtime Variables vs Build-time Variables**
+
+**Runtime Variables** (코드 실행 시 사용 - 여기에 설정):
+- 코드에서 `c.env.VARIABLE_NAME`으로 접근하는 모든 변수
+- API 키, 시크릿, 데이터베이스 연결 정보 등
+- 보안이 중요한 정보는 반드시 **"Encrypt"** 옵션 선택
+
+**Build-time Variables** (빌드 시에만 사용):
+- 빌드 설정, 환경 플래그 등
+- `process.env.VARIABLE_NAME`으로 접근 (빌드 시 치환됨)
+
+#### **필수 Runtime Variables 설정:**
+다음 변수들을 **Runtime Variables** 섹션에 추가:
+
 - `GOOGLE_CLIENT_ID`: Google OAuth2 클라이언트 ID
-- ``: Google OAuth2 클라이언트 시크릿
+- `GOOGLE_CLIENT_SECRET`: Google OAuth2 클라이언트 시크릿 (**Encrypt 체크**)
 - `GOOGLE_REDIRECT_URL`: `https://deliver-mgmt-backend.coreanq.workers.dev/api/auth/google/callback`
 - `SOLAPI_CLIENT_ID`: SOLAPI 클라이언트 ID
-- `SOLAPI_CLIENT_SECRET`: SOLAPI 클라이언트 시크릿
+- `SOLAPI_CLIENT_SECRET`: SOLAPI 클라이언트 시크릿 (**Encrypt 체크**)
 - `SOLAPI_REDIRECT_URL`: `https://deliver-mgmt-backend.coreanq.workers.dev/api/solapi/auth/callback`
 - `FRONTEND_URL`: `https://deliver-mgmt.pages.dev`
-- `JWT_SECRET`: JWT 토큰 생성용 시크릿 키
-- `QR_SECRET_KEY`: QR 코드 보안용 시크릿 키
+- `JWT_SECRET`: JWT 토큰 생성용 시크릿 키 (**Encrypt 체크**)
+- `QR_SECRET_KEY`: QR 코드 보안용 시크릿 키 (**Encrypt 체크**)
+
+#### **주의사항:**
+- **변수명**은 코드와 정확히 일치해야 함
+- **시크릿 정보**는 반드시 "Encrypt" 옵션 선택
+- 설정 후 반드시 **"Save"** 버튼 클릭
+- 변경 사항은 즉시 적용됨 (재배포 불필요)
 
 ### 2.5 Workers 배포
 ```bash
