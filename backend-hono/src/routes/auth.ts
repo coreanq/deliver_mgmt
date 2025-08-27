@@ -92,24 +92,29 @@ auth.get('/google/callback', async (c) => {
     await setSession(sessionId, sessionData, c.env);
 
     // Set session cookie with cross-site compatibility
-    console.log('Setting session cookie:', { sessionId, domain: 'N/A', sameSite: 'None' });
+    console.log('Setting session cookie:', { sessionId, sameSite: 'None', secure: true, httpOnly: false });
     
+    // Try multiple Set-Cookie approaches
     setCookie(c, 'sessionId', sessionId, {
-      httpOnly: false, // Allow JavaScript access for testing
-      secure: true, // Always secure in production
-      maxAge: 86400, // 24 hours
-      sameSite: 'None', // Allow cross-site cookies
-      path: '/' // Explicit path
+      httpOnly: false,
+      secure: true,
+      maxAge: 86400,
+      sameSite: 'None',
+      path: '/'
     });
     
-    // Also manually set the Set-Cookie header to ensure it's sent
+    // Also set manual header as fallback
     const cookieValue = `sessionId=${sessionId}; Max-Age=86400; Path=/; SameSite=None; Secure`;
     c.header('Set-Cookie', cookieValue);
+    
+    console.log('Cookie header set:', cookieValue);
 
-    // Redirect to frontend
+    // Redirect to frontend with sessionId in URL as fallback
     const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
     redirectUrl.searchParams.set('auth', 'success');
+    redirectUrl.searchParams.set('sessionId', sessionId); // Fallback for cross-site cookie issues
 
+    console.log('Redirecting to:', redirectUrl.toString());
     return c.redirect(redirectUrl.toString());
   } catch (error: any) {
     console.error('Google OAuth callback error:', error);
@@ -143,9 +148,22 @@ auth.get('/google/callback', async (c) => {
  */
 auth.get('/status', async (c) => {
   try {
-    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
+    const cookieSessionId = getCookie(c, 'sessionId');
+    const headerSessionId = c.req.header('X-Session-ID');
+    const querySessionId = c.req.query('sessionId');
+    
+    console.log('Session ID check:', {
+      cookie: cookieSessionId,
+      header: headerSessionId,
+      query: querySessionId,
+      allCookies: c.req.header('Cookie'),
+      allHeaders: Object.fromEntries(c.req.raw.headers.entries())
+    });
+    
+    const sessionId = cookieSessionId || headerSessionId || querySessionId;
     
     if (!sessionId) {
+      console.log('No session ID found, returning unauthenticated status');
       return c.json({
         success: true,
         data: {

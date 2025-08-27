@@ -26,26 +26,51 @@ app.use('*', cors({
     // Allow production origins from environment
     const prodOrigins = [
       c.env?.FRONTEND_URL,
-      // Add your actual Cloudflare Pages domain here
       'https://deliver-mgmt.pages.dev',
-      // Allow any *.pages.dev domain for Cloudflare Pages
     ].filter(Boolean);
     
     const allowedOrigins = [...devOrigins, ...prodOrigins];
     
     // Debug CORS
-    console.log('CORS origin check:', { origin, allowedOrigins });
+    console.log('CORS origin check:', { 
+      origin, 
+      allowedOrigins,
+      userAgent: c.req.header('user-agent')?.substring(0, 50) + '...',
+      referer: c.req.header('referer') 
+    });
     
-    // Allow Cloudflare Pages domains
+    // Allow Cloudflare Pages domains (.pages.dev)
     if (origin && origin.includes('.pages.dev')) {
       console.log('Allowing .pages.dev origin:', origin);
       return origin;
     }
     
-    if (!origin || allowedOrigins.includes(origin)) {
-      console.log('Allowing origin:', origin);
-      return origin || allowedOrigins[0]; // Return specific origin instead of '*'
+    // Allow specific origins
+    if (origin && allowedOrigins.includes(origin)) {
+      console.log('Allowing specific origin:', origin);
+      return origin;
     }
+    
+    // For OAuth redirects without origin header, check referer
+    const referer = c.req.header('referer');
+    if (!origin && referer) {
+      try {
+        const refererOrigin = new URL(referer).origin;
+        if (allowedOrigins.includes(refererOrigin) || refererOrigin.includes('.pages.dev')) {
+          console.log('Allowing based on referer:', refererOrigin);
+          return refererOrigin;
+        }
+      } catch (e) {
+        console.log('Invalid referer URL:', referer);
+      }
+    }
+    
+    // Default to production frontend for OAuth callbacks
+    if (!origin && c.env?.FRONTEND_URL) {
+      console.log('No origin, defaulting to FRONTEND_URL:', c.env.FRONTEND_URL);
+      return c.env.FRONTEND_URL;
+    }
+    
     console.log('Rejecting origin:', origin);
     return null;
   },
