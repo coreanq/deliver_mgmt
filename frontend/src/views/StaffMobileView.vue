@@ -314,6 +314,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
+import { API_BASE_URL } from '@/config/api';
 
 const route = useRoute();
 
@@ -329,7 +330,6 @@ const loading = ref(false);
 const error = ref<string>('');
 const updatingOrders = ref<{ [key: string]: boolean }>({});
 const selectedStatusTab = ref<string>('all');
-const expandedAddresses = ref<{ [key: string]: boolean }>({});
 
 // Pull to refresh
 const pullToRefreshActive = ref(false);
@@ -338,10 +338,6 @@ const pullThreshold = 80;
 let startY = 0;
 let currentY = 0;
 
-// Status workflow - 전체 5단계 상태
-const allStatuses = ['주문 완료', '상품 준비중', '배송 준비중', '배송 출발', '배송 완료'];
-// 배달담당자가 변경 가능한 상태들
-const deliveryStaffStatuses = ['배송 준비중', '배송 출발', '배송 완료'];
 
 // Computed properties
 const statusColumn = computed(() => {
@@ -353,13 +349,6 @@ const statusColumn = computed(() => {
   return foundColumn;
 });
 
-const displayHeaders = computed(() => {
-  // Show important headers including status
-  return headers.value.filter(header => 
-    header !== 'rowIndex' && 
-    header !== 'staffName'
-  );
-});
 
 const completedCount = computed(() => {
   return deliveryOrders.value.filter(order => order[statusColumn.value] === '배송 완료').length;
@@ -411,16 +400,6 @@ const getOrderTitle = (order: any): string => {
   return firstHeader ? (order[firstHeader] || `배달 #${order.rowIndex}`) : `배달 #${order.rowIndex}`;
 };
 
-const getStatusColor = (status: string): string => {
-  switch (status) {
-    case '주문 완료': return 'blue-grey';
-    case '상품 준비중': return 'orange';
-    case '배송 준비중': return 'warning';
-    case '배송 출발': return 'info';
-    case '배송 완료': return 'success';
-    default: return 'grey';
-  }
-};
 
 const getStatusIcon = (status: string): string => {
   switch (status) {
@@ -433,13 +412,7 @@ const getStatusIcon = (status: string): string => {
   }
 };
 
-const isAddressLong = (address: string): boolean => {
-  return (address && address.length > 30) || false;
-};
 
-const toggleAddressExpansion = (rowIndex: number): void => {
-  expandedAddresses.value[rowIndex] = !expandedAddresses.value[rowIndex];
-};
 
 const getAvailableStatuses = (currentStatus: string): string[] => {
   // 배달담당자는 배송 준비중 상태에서만 버튼 활성화
@@ -537,7 +510,7 @@ const loadDeliveryData = async (): Promise<void> => {
       
       // Verify QR token first
       const verifyResponse = await fetch(
-        `http://localhost:5001/api/delivery/qr/verify/${token}`,
+        `${API_BASE_URL}/api/delivery/qr/verify/${token}`,
         {
           method: 'GET',
           credentials: 'include',
@@ -555,7 +528,7 @@ const loadDeliveryData = async (): Promise<void> => {
     }
     
     const response = await fetch(
-      `http://localhost:5001/api/sheets/date/${dateString.value}/staff/${staffName.value}`,
+      `${API_BASE_URL}/api/sheets/date/${dateString.value}/staff/${staffName.value}`,
       {
         method: 'GET',
         credentials: 'include',
@@ -603,7 +576,7 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
     }
     
     const response = await fetch(
-      `http://localhost:5001/api/sheets/data/${dateString.value}/status`,
+      `${API_BASE_URL}/api/sheets/data/${dateString.value}/status`,
       {
         method: 'PUT',
         headers,

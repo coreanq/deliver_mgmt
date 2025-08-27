@@ -2,8 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import axios from 'axios';
 import type { GoogleSheetsConfig, SolapiConfig } from '../types';
-
-const API_BASE_URL = 'http://localhost:5001';
+import { API_BASE_URL } from '../config/api';
 
 export const useAuthStore = defineStore('auth', () => {
   // Google OAuth state

@@ -516,6 +516,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { API_BASE_URL } from '@/config/api';
 
 const authStore = useAuthStore();
 
@@ -531,7 +532,6 @@ const solapiSenderId = ref<string>('');
 const solapiBalance = ref<string>('');
 
 // Staff management
-const staffFilter = ref('');
 const staffList = ref<{ name: string }[]>([
   { name: '김배달' },
   { name: '박운송' },
@@ -562,30 +562,31 @@ const qrLoading = ref(false);
 const qrImageData = ref<string>('');
 const qrStaffName = ref<string>('');
 
-const tableHeaders = computed(() => {
-  const baseHeaders: Array<{ title: string; key: string; width?: string }> = [
-    { title: '행', key: 'rowIndex', width: '80px' },
-  ];
-  
-  // Use dynamic headers from the actual sheet only
-  if (dynamicHeaders.value.length > 0) {
-    dynamicHeaders.value.forEach(header => {
-      if (header !== 'rowIndex' && header !== 'staffName') {
-        baseHeaders.push({ 
-          title: header, 
-          key: header
-        });
-      }
-    });
-  }
-  
-  return baseHeaders;
-});
+// Future use: table headers for data display
+// const tableHeaders = computed(() => {
+//   const baseHeaders: Array<{ title: string; key: string; width?: string }> = [
+//     { title: '행', key: 'rowIndex', width: '80px' },
+//   ];
+//   
+//   // Use dynamic headers from the actual sheet only
+//   if (dynamicHeaders.value.length > 0) {
+//     dynamicHeaders.value.forEach(header => {
+//       if (header !== 'rowIndex' && header !== 'staffName') {
+//         baseHeaders.push({ 
+//           title: header, 
+//           key: header
+//         });
+//       }
+//     });
+//   }
+//   
+//   return baseHeaders;
+// });
 
-// Form validation rules
-const rules = {
-  required: (value: string): boolean | string => !!value || '필수 입력 항목입니다.',
-};
+// Future use: form validation rules
+// const rules = {
+//   required: (value: string): boolean | string => !!value || '필수 입력 항목입니다.',
+// };
 
 // Computed
 const availableStaff = computed(() => {
@@ -663,15 +664,6 @@ const totalPages = computed(() => {
   return Math.ceil(filteredData.value.length / itemsPerPage.value);
 });
 
-// Staff filtering
-const filteredStaffList = computed(() => {
-  if (!staffFilter.value) {
-    return staffList.value;
-  }
-  return staffList.value.filter(staff => 
-    staff.name.toLowerCase().includes(staffFilter.value.toLowerCase())
-  );
-});
 
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value;
@@ -803,7 +795,7 @@ const connectGoogleSheets = async (): Promise<void> => {
     // TODO: Implement Google OAuth2 flow
     console.log('Connecting to Google Sheets...');
     // Redirect to backend OAuth endpoint
-    window.location.href = 'http://localhost:5001/api/auth/google';
+    window.location.href = `${API_BASE_URL}/api/auth/google`;
   } catch (error) {
     console.error('Google Sheets connection failed:', error);
   } finally {
@@ -848,19 +840,7 @@ const disconnectSolapi = async (): Promise<void> => {
 
 // Staff management methods - removed addStaff as input field is now used for filtering
 
-const removeStaff = (staffName: string): void => {
-  staffList.value = staffList.value.filter(staff => staff.name !== staffName);
-};
 
-const openStaffMobilePage = (staffName: string): void => {
-  if (!selectedDateString.value) {
-    console.warn('No date selected');
-    return;
-  }
-  
-  const mobileUrl = `/delivery/${selectedDateString.value}/${encodeURIComponent(staffName)}`;
-  window.open(mobileUrl, '_blank');
-};
 
 const generateQR = async (staffName: string): Promise<void> => {
   if (!selectedDateString.value) {
@@ -875,7 +855,7 @@ const generateQR = async (staffName: string): Promise<void> => {
   
   try {
     const response = await fetch(
-      `http://localhost:5001/api/delivery/qr/generate-mobile/${encodeURIComponent(staffName)}/${selectedDateString.value}`,
+      `${API_BASE_URL}/api/delivery/qr/generate-mobile/${encodeURIComponent(staffName)}/${selectedDateString.value}`,
       {
         method: 'POST',
         credentials: 'include',
@@ -920,30 +900,8 @@ const downloadQRCode = (): void => {
 };
 
 // Calendar and data methods
-const onDateSelected = (date: Date | null): void => {
-  if (date) {
-    selectedDate.value = date;
-    selectedDateString.value = formatDateToYYYYMMDD(date);
-    loadSheetData(selectedDateString.value);
-  }
-};
 
-const onNativeDateSelected = (dateString: string): void => {
-  if (dateString) {
-    selectedDateString.value = dateString.replace(/-/g, '');
-    const [year, month, day] = dateString.split('-');
-    selectedDate.value = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    loadSheetData(selectedDateString.value);
-  }
-};
 
-const onNativeDateChanged = (event: Event): void => {
-  const target = event.target as HTMLInputElement;
-  const dateString = target.value;
-  if (dateString) {
-    onNativeDateSelected(dateString);
-  }
-};
 
 // Calendar computed properties
 const currentMonthDisplay = computed(() => {
@@ -953,7 +911,7 @@ const currentMonthDisplay = computed(() => {
 
 const calendarDays = computed(() => {
   const firstDay = new Date(currentYear.value, currentMonth.value, 1);
-  const lastDay = new Date(currentYear.value, currentMonth.value + 1, 0);
+  new Date(currentYear.value, currentMonth.value + 1, 0);
   const startDate = new Date(firstDay);
   startDate.setDate(startDate.getDate() - firstDay.getDay());
   
@@ -1034,7 +992,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
   dataLoading.value = true;
   try {
     // Load data grouped by staff
-    const staffResponse = await fetch(`http://localhost:5001/api/sheets/date/${dateString}/by-staff`, {
+    const staffResponse = await fetch(`${API_BASE_URL}/api/sheets/date/${dateString}/by-staff`, {
       method: 'GET',
       credentials: 'include',
     });
@@ -1061,7 +1019,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       console.log('Detected staff:', detectedStaff);
     } else {
       // Fallback to original API for backwards compatibility
-      const response = await fetch(`http://localhost:5001/api/sheets/date/${dateString}`, {
+      const response = await fetch(`${API_BASE_URL}/api/sheets/date/${dateString}`, {
         method: 'GET',
         credentials: 'include',
       });
