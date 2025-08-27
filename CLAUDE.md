@@ -48,8 +48,8 @@ cd frontend && npm run preview   # Preview production build
 - **Authentication**: Google OAuth2, SOLAPI OAuth2, JWT QR tokens
 
 ### Key Services (`backend/src/services/`)
-- **GoogleSheetsService**: Spreadsheet CRUD operations
-- **GoogleAuthService**: Google OAuth2 token management
+- **GoogleSheetsService**: Spreadsheet CRUD operations with dynamic header system
+- **GoogleAuthService**: Google OAuth2 token management with auto-refresh
 - **SolapiAuthService**: SOLAPI OAuth2 integration (**HTTP API, not SDK**)
 
 ### Authentication Flows
@@ -57,17 +57,10 @@ cd frontend && npm run preview   # Preview production build
 2. **SOLAPI OAuth2**: KakaoTalk messaging (`/api/solapi/auth/login`)
 3. **QR Authentication**: JWT tokens for staff (`/api/delivery/qr/`)
 
-### API Routes
-- **Authentication**: `/api/auth/*` - OAuth flows
-- **Sheets**: `/api/sheets/*` - Spreadsheet operations
-- **Delivery**: `/api/delivery/*` - QR codes, status updates
-- **SOLAPI**: `/api/solapi/*` - Messaging, account management
-- **Test**: `GET /api/sheets/test` - Development mock data
-
 ### Frontend Views (`frontend/src/views/`)
 - **AdminView.vue**: Main admin configuration and data management
-- **StaffMobileView.vue**: Mobile-optimized staff delivery interface
-- **DeliveryAuthView.vue**: QR authentication
+- **StaffMobileView.vue**: Mobile-optimized staff delivery interface with progressive status workflow
+- **DeliveryAuthView.vue**: QR authentication flow
 - **TestView.vue**: Development testing interface
 
 ## Configuration
@@ -92,130 +85,65 @@ CORS_ORIGIN=http://localhost:5173
 FRONTEND_URL=http://localhost:5173
 ```
 
-## SOLAPI Implementation
-
-**CRITICAL**: Uses **SOLAPI OAuth2 flow**, NOT SDK. Follow https://developers.solapi.com/references/authentication/oauth2-3/oauth2
-
-Implementation in `backend/src/services/solapiAuth.ts`:
-- Direct HTTP API calls to SOLAPI endpoints
-- OAuth2 token exchange and refresh
-- KakaoTalk message sending
-- Account and sender management
-
-## Data Model
-
-### Google Sheets Structure
-- **Dynamic header system**: Uses actual sheet headers without hardcoding
-- **DeliveryOrder interface**: `[key: string]: any` for dynamic properties from sheet headers
-- **Date-based sheets**: YYYYMMDD format sheets for daily orders
-- **Staff grouping**: Automatic detection of Korean staff names (2-4 characters) in headers
-- **Status column detection**: Flexible status column identification
-- **Status Flow**: 5-stage system: `주문 완료` → `상품 준비중` → `배송 준비중` → `배송 출발` → `배송 완료`
-
-### QR Code Security (`backend/src/utils/qrGenerator.ts`)
-- **JWT tokens** with SHA256 hash verification
-- **Hash**: SHA256(staffName + timestamp + secretKey)
-- **Expiration**: 24-hour lifecycle
-- **Two-step auth**: QR scan + name verification
-
-## Testing Approach
-
-### Playwright MCP (E2E)
-- **Use Playwright MCP tools** instead of `npx playwright test`
-- Test files in `/tests/` directory
-- Critical flows: admin setup, staff authentication, delivery management
-
-### Development Testing
-- **Test page**: `http://localhost:5173/test`
-- **API testing**: `curl http://localhost:5001/api/sheets/test`
-- **Mock endpoints**: Available in development mode
-
-## Implementation Status
-
-✅ **Completed Features**:
-- Google OAuth2 authentication system
-- SOLAPI OAuth2 integration (OAuth2 method)
-- QR code generation and verification
-- Google Sheets API connectivity
-- Admin configuration UI with dynamic data filtering
-- Mobile-optimized staff delivery interface
-- Copy-to-clipboard functionality for delivery data
-- 5-stage delivery status workflow
-- Real-time spreadsheet synchronization
-- Basic Playwright E2E tests
-- TypeScript configuration and build system
-
-⏳ **Remaining MVP Tasks**:
-- Automatic message sending on delivery completion
-- Production deployment configuration
-
-## Token Management & Security
-
-### Automatic Token Refresh System
-- **Auto-refresh middleware**: `backend/src/middleware/auth.ts` with `requireGoogleAuth`
-- **Pre-emptive refresh**: Tokens refresh 5 minutes before expiry
-- **Retry mechanism**: `handleGoogleApiError` function retries API calls after token refresh
-- **Session tracking**: Google tokens stored with `expiryDate` for lifecycle management
-- **Development testing**: `POST /api/auth/force-token-expiry` for testing token refresh (dev only)
-
-### Token Lifecycle
-1. **Initial auth**: 1-hour expiry set during OAuth callback
-2. **Middleware check**: Every API call checks token expiry status  
-3. **Auto-refresh**: Transparent refresh when tokens near expiry
-4. **Retry on 401**: Failed API calls automatically retry after token refresh
-5. **Session update**: Refreshed tokens immediately saved to session
-
-## Important Notes
-
-1. **SOLAPI**: Always use OAuth2 flow, never the SDK
-2. **Testing**: Use Playwright MCP tools for browser automation
-3. **Google Sheets**: Primary database - handle with care
-4. **QR Codes**: 24-hour expiration for security
-5. **Environment**: Backend port changes require CORS_ORIGIN updates
-6. **Todo Updates**: Update tasks.md when todos are completed (as per .claude.json)
-7. **Dynamic Data System**: Never hardcode column names - use actual sheet headers
-8. **Filter System**: Dynamic filter system allows users to filter by any sheet column
-9. **Korean Guidelines**: 한글로 답변, 영어로 주석 작성 (per .claude.json)
-10. **SOLID Principles**: Follow SOLID design principles for all code modifications
-11. **Token Security**: Automatic token refresh prevents service interruption during long sessions
-12. **Status Synchronization**: After status updates, always refresh data from server to maintain sync with Google Sheets
-
 ## Critical Implementation Details
 
-### Dynamic Headers System
-- `GoogleSheetsService.getDeliveryOrders()` maps sheet headers directly to order objects
-- `DeliveryOrder` interface uses `[key: string]: any` for flexible properties
-- Filter system in AdminView allows selecting any column for filtering
-- Never assume specific column names - always use actual sheet data
+### Dynamic Google Sheets System
+- **Never hardcode column names** - uses actual sheet headers dynamically
+- **DeliveryOrder interface**: `[key: string]: any` for flexible properties
+- **Date-based sheets**: YYYYMMDD format for daily orders
+- **Staff detection**: Korean names 2-4 characters (`/^[가-힣]{2,4}$/`)
+- **Status Flow**: 5-stage system: `주문 완료` → `상품 준비중` → `배송 준비중` → `배송 출발` → `배송 완료`
 
-### Staff Detection Logic
-- `isLikelyStaffName()`: Korean names 2-4 characters (`/^[가-힣]{2,4}$/`)
-- `isStandardHeader()`: Recognizes standard headers to avoid treating them as staff names
-- `getDeliveryOrdersByStaff()`: Groups orders by detected staff names or data values
+### Staff Mobile Interface Logic
+- **Access Pattern**: `/delivery/:date/:staffName` with optional QR token
+- **Status Button Logic**: Only enabled in `배송 준비중` and `배송 출발` states
+- **Progressive Flow**: One-step progression: `배송 준비중` → `배송 출발` → `배송 완료`
+- **Helper Function**: Use `getOrderStatus(order)` for reliable status access, not direct `order[statusColumn.value]`
+
+### Token Management & Security
+- **Auto-refresh middleware**: `requireGoogleAuth` refreshes tokens 5 minutes before expiry
+- **QR Code Security**: JWT tokens with SHA256 hash, 24-hour expiration
+- **Session tracking**: Google tokens stored with `expiryDate` for lifecycle management
+
+### SOLAPI Implementation
+**CRITICAL**: Uses **SOLAPI OAuth2 flow**, NOT SDK. Direct HTTP API calls to SOLAPI endpoints for token exchange, refresh, and KakaoTalk messaging.
 
 ### API Route Patterns
 - Date-based sheets: `/api/sheets/date/:date` (YYYYMMDD format)
 - Staff-grouped data: `/api/sheets/date/:date/by-staff`
 - Individual staff data: `/api/sheets/date/:date/staff/:staffName`
 - Status updates: `PUT /api/sheets/data/:date/status`
-- Session-based authentication with `requireGoogleAuth` middleware
-- Mock endpoints available in development mode (`NODE_ENV=development`)
+- Mock endpoints available in development mode
 
-### Mobile Staff Interface (`StaffMobileView.vue`)
-- **Access Pattern**: `/delivery/:date/:staffName` with optional QR token
-- **Status Filters**: Simplified 2-tab system ("배송 미완료", "배송 완료")
-- **Copy Functionality**: One-click clipboard copy for addresses, names, phone numbers
-- **Visual Design**: Enhanced address display with larger fonts and background highlighting
-- **Status Updates**: Real-time synchronization with Google Sheets after status changes
-- **Staff Permissions**: Can only modify delivery-related statuses (배송 준비중, 배송 출발, 배송 완료)
+## Development Guidelines
 
-### Dependencies Note
-- **Backend**: Uses `solapi` package (v4.0.0) but implements OAuth2 flow directly via HTTP API, NOT SDK
-- **Frontend**: Includes QR code libraries (`qrcode-reader`, `html5-qrcode`) for staff authentication
-- **Testing**: Vitest (frontend) and Jest (backend) frameworks configured
+### Language & Communication (from .claude.json)
+- **Response Language**: 한글로 답변
+- **Comment Language**: 영어로 주석 작성
+- **Design Principles**: Follow SOLID principles for all modifications
+
+### Testing Approach
+- **Critical**: Use Playwright MCP tools for browser automation, never `npx playwright test`
+- **Analysis**: 반드시 신중하게 분석하고 검토 (hard think)
+- Always refresh data from server after status updates to maintain sync
 
 ### Important Development Rules
 - **Port Configuration**: Never modify frontend (5173) or backend (5001) port settings
-- **Task Management**: When adding/changing features, update tasks.md file accordingly
-- **Language Guidelines**: 한글로 답변, 영어로 주석 작성 (as per .claude.json)
-- **SOLID Principles**: Follow SOLID design principles for all code modifications
+- **Data Integrity**: After status updates, always refresh data from server to maintain sync with Google Sheets
+- **Status Synchronization**: Use proper helper functions for status access to avoid undefined values
+- **Task Management**: Update tasks.md when todos are completed
+- **Dynamic System**: Never assume specific column names - always use actual sheet data
+
+## Common Patterns
+
+### Status Update Flow
+1. User clicks status button in StaffMobileView
+2. `updateOrderStatus()` sends PUT request to `/api/sheets/data/:date/status`
+3. Backend updates Google Sheets via GoogleSheetsService
+4. Frontend calls `loadDeliveryData()` to refresh from server
+5. UI updates with new status and appropriate button states
+
+### Error Handling
+- Google API errors trigger automatic token refresh and retry
+- QR token verification includes expiry and staff name validation
+- Dynamic header detection falls back to column index if header matching fails

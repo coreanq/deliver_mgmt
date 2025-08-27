@@ -109,7 +109,7 @@
                             <v-card-text>
                               <!-- Filter Controls -->
                               <v-row class="mb-4">
-                                <v-col cols="12" md="2">
+                                <v-col cols="12" md="4">
                                   <v-select
                                     v-model="selectedStaff"
                                     label="담당자"
@@ -186,16 +186,176 @@
                                 </v-col>
                               </v-row>
 
-                              <!-- Data Table -->
-                              <v-data-table
-                                :headers="tableHeaders"
-                                :items="filteredData"
-                                :items-per-page="itemsPerPage"
-                                :loading="dataLoading"
-                                item-value="rowIndex"
-                                class="elevation-1"
-                              >
-                              </v-data-table>
+                              <!-- Unified Card View for All Devices -->
+                              <div class="unified-card-container">
+                                <div v-if="dataLoading" class="text-center py-8">
+                                  <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+                                  <p class="mt-4">데이터 로딩 중...</p>
+                                </div>
+                                
+                                <div v-else>
+                                  <!-- Summary Info -->
+                                  <v-row class="mb-4">
+                                    <v-col cols="12" md="3">
+                                      <v-card variant="tonal" color="primary" class="text-center summary-card">
+                                        <v-card-text class="py-4">
+                                          <v-icon size="32" color="primary" class="mb-2">mdi-format-list-numbered</v-icon>
+                                          <h3 class="text-h4 font-weight-bold">{{ filteredData.length }}</h3>
+                                          <p class="text-body-2">총 배달 건수</p>
+                                        </v-card-text>
+                                      </v-card>
+                                    </v-col>
+                                    <v-col cols="12" md="3">
+                                      <v-card variant="tonal" color="success" class="text-center summary-card">
+                                        <v-card-text class="py-4">
+                                          <v-icon size="32" color="success" class="mb-2">mdi-check-circle</v-icon>
+                                          <h3 class="text-h4 font-weight-bold">{{ getCompletedOrdersCount() }}</h3>
+                                          <p class="text-body-2">배송 완료</p>
+                                        </v-card-text>
+                                      </v-card>
+                                    </v-col>
+                                    <v-col cols="12" md="3">
+                                      <v-card variant="tonal" color="warning" class="text-center summary-card">
+                                        <v-card-text class="py-4">
+                                          <v-icon size="32" color="warning" class="mb-2">mdi-clock-outline</v-icon>
+                                          <h3 class="text-h4 font-weight-bold">{{ getPendingOrdersCount() }}</h3>
+                                          <p class="text-body-2">배송 미완료</p>
+                                        </v-card-text>
+                                      </v-card>
+                                    </v-col>
+                                    <v-col cols="12" md="3">
+                                      <v-card variant="tonal" color="info" class="text-center summary-card">
+                                        <v-card-text class="py-4">
+                                          <v-icon size="32" color="info" class="mb-2">mdi-percent</v-icon>
+                                          <h3 class="text-h4 font-weight-bold">{{ getCompletionRate() }}%</h3>
+                                          <p class="text-body-2">완료율</p>
+                                        </v-card-text>
+                                      </v-card>
+                                    </v-col>
+                                  </v-row>
+                                  
+                                  <!-- Card Grid -->
+                                  <v-row>
+                                    
+                                    <v-col 
+                                      v-for="(item, index) in paginatedData" 
+                                      :key="item.rowIndex || index"
+                                      cols="12"
+                                      class="pb-3"
+                                    >
+                                      <v-card 
+                                        variant="outlined" 
+                                        class="unified-data-card"
+                                        :class="{ 'completed-order': isOrderCompleted(item) }"
+                                        elevation="2"
+                                      >
+                                        <v-card-text class="pa-4">
+                                          <!-- Order Header -->
+                                          <div class="unified-card-header">
+                                            <div class="order-info">
+                                              <h3 class="order-title-unified">{{ getOrderTitle(item) }}</h3>
+                                              <p class="order-row-info">행 #{{ item.rowIndex }}</p>
+                                            </div>
+                                            <v-chip 
+                                              :color="getOrderStatusColor(item)"
+                                              size="small" 
+                                              variant="elevated"
+                                              class="status-chip-unified"
+                                            >
+                                              {{ getOrderStatus(item) }}
+                                            </v-chip>
+                                          </div>
+                                          
+                                          <!-- Order Details -->
+                                          <div class="unified-card-content">
+                                            <div 
+                                              v-for="header in displayableHeaders" 
+                                              :key="header"
+                                              class="detail-row-unified"
+                                            >
+                                              <div v-if="header.includes('배송지') || header.includes('주소')" class="address-section-unified">
+                                                <div class="field-header">
+                                                  <v-icon size="18" color="primary">mdi-map-marker</v-icon>
+                                                  <span class="field-label-unified">{{ header }}</span>
+                                                </div>
+                                                <div class="address-text-unified">
+                                                  {{ item[header] || '-' }}
+                                                </div>
+                                              </div>
+                                              
+                                              <div v-else-if="header.includes('연락처') || header.includes('전화')" class="phone-section-unified">
+                                                <div class="field-header">
+                                                  <v-icon size="18" color="success">mdi-phone</v-icon>
+                                                  <span class="field-label-unified">{{ header }}</span>
+                                                </div>
+                                                <a :href="'tel:' + (item[header] || '')" class="phone-link-unified">
+                                                  {{ item[header] || '-' }}
+                                                </a>
+                                              </div>
+                                              
+                                              <div v-else-if="header.includes('담당자') && getStaffName(item)" class="staff-section-unified">
+                                                <div class="field-header">
+                                                  <v-icon size="18" color="green">mdi-account-tie</v-icon>
+                                                  <span class="field-label-unified">배달 담당자</span>
+                                                </div>
+                                                <div class="staff-name-unified">
+                                                  {{ getStaffName(item) || '-' }}
+                                                </div>
+                                              </div>
+                                              
+                                              <div v-else-if="!header.includes('상태') && !header.includes('담당자') && !header.includes('고객명') && !header.includes('이름') && !header.includes('고객') && !header.includes('성명') && item[header]" class="other-field-unified">
+                                                <div class="field-header">
+                                                  <v-icon size="16" color="grey">mdi-information-outline</v-icon>
+                                                  <span class="field-label-unified">{{ header }}</span>
+                                                </div>
+                                                <span class="field-value-unified">{{ item[header] }}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          
+                                          <!-- Card Actions -->
+                                          <div class="unified-card-actions">
+                                            <v-btn
+                                              v-if="getStaffName(item)"
+                                              size="small"
+                                              variant="outlined"
+                                              color="secondary"
+                                              @click="openStaffPage(getStaffName(item))"
+                                              class="action-btn"
+                                            >
+                                              <v-icon start size="16">mdi-open-in-new</v-icon>
+                                              담당자
+                                            </v-btn>
+                                            <v-btn
+                                              v-if="getStaffName(item)"
+                                              size="small"
+                                              variant="outlined"
+                                              color="secondary"
+                                              @click="generateQR(getStaffName(item))"
+                                              class="action-btn"
+                                              :disabled="!selectedDateString"
+                                            >
+                                              <v-icon start size="16">mdi-qrcode</v-icon>
+                                              QR 코드
+                                            </v-btn>
+                                          </div>
+                                        </v-card-text>
+                                      </v-card>
+                                    </v-col>
+                                    
+                                    <!-- Pagination -->
+                                    <v-col v-if="filteredData.length > itemsPerPage" cols="12" class="text-center mt-4">
+                                      <v-pagination
+                                        v-model="currentPage"
+                                        :length="totalPages"
+                                        :total-visible="5"
+                                        color="primary"
+                                        class="unified-pagination"
+                                      ></v-pagination>
+                                    </v-col>
+                                  </v-row>
+                                </div>
+                              </div>
                             </v-card-text>
                           </v-card>
                         </v-col>
@@ -272,62 +432,6 @@
               </v-col>
             </v-row>
 
-            <!-- Staff Management -->
-            <v-row v-if="authStore.isGoogleAuthenticated" class="mt-4">
-              <v-col cols="12">
-                <v-card variant="outlined">
-                  <v-card-title class="text-h6">
-                    <v-icon start>mdi-account-group</v-icon>
-                    배달담당자 관리
-                  </v-card-title>
-                  
-                  <v-card-text>
-                    <v-text-field
-                      v-model="newStaffName"
-                      label="배달담당자 이름"
-                      placeholder="예: 김배달"
-                      :rules="[rules.required]"
-                      @keyup.enter="addStaff"
-                    />
-                    
-
-                    <v-list v-if="staffList.length > 0">
-                      <v-list-item
-                        v-for="staff in staffList"
-                        :key="staff.name"
-                        class="border mb-2"
-                      >
-                        <template #prepend>
-                          <v-icon>mdi-account</v-icon>
-                        </template>
-                        
-                        <v-list-item-title>{{ staff.name }}</v-list-item-title>
-                        
-                        <template #append>
-                          <v-btn
-                            icon="mdi-open-in-new"
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                            @click="openStaffMobilePage(staff.name)"
-                            :disabled="!selectedDateString"
-                            title="모바일 페이지 열기"
-                          />
-                          <v-btn
-                            icon="mdi-qrcode"
-                            size="small"
-                            variant="outlined"
-                            @click="generateQR(staff.name)"
-                            :disabled="!selectedDateString"
-                            title="QR 코드 생성"
-                          />
-                        </template>
-                      </v-list-item>
-                    </v-list>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-            </v-row>
           </v-card-text>
         </v-card>
       </v-col>
@@ -396,8 +500,14 @@ const solapiSenderId = ref<string>('');
 const solapiBalance = ref<string>('');
 
 // Staff management
-const newStaffName = ref('');
-const staffList = ref<{ name: string }[]>([]);
+const staffFilter = ref('');
+const staffList = ref<{ name: string }[]>([
+  { name: '김배달' },
+  { name: '박운송' },
+  { name: '이택배' },
+  { name: '정물류' },
+  { name: '최배송' }
+]);
 
 // Calendar and data management
 const selectedDate = ref<Date | null>(null);
@@ -408,6 +518,9 @@ const dynamicHeaders = ref<string[]>([]);
 const dataLoading = ref(false);
 const itemsPerPage = ref(10);
 const selectedStaff = ref<string>('전체');
+
+// Mobile pagination
+const currentPage = ref(1);
 
 // Dynamic Filters system
 const activeFilters = ref<Array<{id: string, column: string, value: string}>>([]);
@@ -508,6 +621,150 @@ const availableColumns = computed(() => {
   return dynamicHeaders.value.filter(header => header !== 'rowIndex' && header !== 'staffName');
 });
 
+// Mobile view computed properties
+const displayableHeaders = computed(() => {
+  return dynamicHeaders.value.filter(header => 
+    header !== 'rowIndex' && header !== 'staffName'
+  );
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredData.value.length / itemsPerPage.value);
+});
+
+// Staff filtering
+const filteredStaffList = computed(() => {
+  if (!staffFilter.value) {
+    return staffList.value;
+  }
+  return staffList.value.filter(staff => 
+    staff.name.toLowerCase().includes(staffFilter.value.toLowerCase())
+  );
+});
+
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredData.value.slice(start, end);
+});
+
+// Mobile utility methods
+const getOrderTitle = (order: any): string => {
+  // Find customer name or use row index
+  const nameHeaders = displayableHeaders.value.filter(header => 
+    header.includes('이름') || header.includes('고객') || header.includes('성명')
+  );
+  
+  if (nameHeaders.length > 0 && order[nameHeaders[0]]) {
+    return order[nameHeaders[0]];
+  }
+  
+  return `배달 #${order.rowIndex || '미상'}`;
+};
+
+const getOrderStatus = (order: any): string => {
+  // More specific status header detection to avoid matching "배송지"
+  const statusHeaders = displayableHeaders.value.filter(header => {
+    const lowerHeader = header.toLowerCase();
+    return (
+      lowerHeader.includes('배송상태') ||
+      lowerHeader.includes('배달상태') ||
+      lowerHeader === '상태' ||
+      lowerHeader === '배달' ||
+      lowerHeader.includes('진행상태') ||
+      lowerHeader.includes('status')
+    ) && !lowerHeader.includes('배송지') && !lowerHeader.includes('주소');
+  });
+  
+  if (statusHeaders.length > 0) {
+    return order[statusHeaders[0]] || '미상';
+  }
+  
+  // Fallback: check if there's a specific "배송상태" header
+  if (order['배송상태']) {
+    return order['배송상태'];
+  }
+  
+  return '미상';
+};
+
+const getOrderStatusColor = (order: any): string => {
+  const status = getOrderStatus(order);
+  
+  switch (status) {
+    case '주문 완료': return 'blue-grey';
+    case '상품 준비중': return 'orange';
+    case '배송 준비중': return 'warning';
+    case '배송 출발': return 'info';
+    case '배송 완료': return 'success';
+    default: return 'grey';
+  }
+};
+
+const isOrderCompleted = (order: any): boolean => {
+  const status = getOrderStatus(order).trim().toLowerCase();
+  
+  // Only consider specific delivery/shipment completion statuses
+  // Exclude generic '완료' to avoid counting '주문 완료' as completed
+  const completedStatuses = [
+    '배송 완료', '배송완료', 
+    '배달 완료', '배달완료',
+    '수령 완료', '수령완료'
+  ];
+  
+  return completedStatuses.some(completedStatus => 
+    status === completedStatus.toLowerCase()
+  );
+};
+
+// Additional methods for unified card view
+const getCompletedOrdersCount = (): number => {
+  return filteredData.value.filter(order => isOrderCompleted(order)).length;
+};
+
+const getPendingOrdersCount = (): number => {
+  return filteredData.value.filter(order => !isOrderCompleted(order)).length;
+};
+
+const getCompletionRate = (): number => {
+  if (filteredData.value.length === 0) return 0;
+  return Math.round((getCompletedOrdersCount() / filteredData.value.length) * 100);
+};
+
+const getStaffName = (order: any): string => {
+  // More specific staff header detection
+  const staffHeaders = displayableHeaders.value.filter(header => {
+    const lowerHeader = header.toLowerCase();
+    return (
+      lowerHeader.includes('담당자') ||
+      lowerHeader.includes('배달담당자') ||
+      lowerHeader.includes('배송담당자') ||
+      lowerHeader.includes('직원') ||
+      (lowerHeader.includes('배달') && lowerHeader.includes('담당'))
+    ) && !lowerHeader.includes('상태') && !lowerHeader.includes('배송지');
+  });
+  
+  if (staffHeaders.length > 0) {
+    return order[staffHeaders[0]] || '';
+  }
+  
+  // Fallback: check specific header names
+  if (order['배달 담당자']) {
+    return order['배달 담당자'];
+  }
+  
+  return '';
+};
+
+// Removed copyOrderInfo function as copy button was removed from card view
+
+const openStaffPage = (staffName: string): void => {
+  if (staffName && selectedDateString.value) {
+    const url = `http://localhost:5173/delivery/${selectedDateString.value}/${encodeURIComponent(staffName)}`;
+    window.open(url, '_blank');
+  }
+};
+
 // Google Sheets integration methods
 const connectGoogleSheets = async (): Promise<void> => {
   googleLoading.value = true;
@@ -558,19 +815,7 @@ const disconnectSolapi = async (): Promise<void> => {
   }
 };
 
-// Staff management methods
-const addStaff = async (): Promise<void> => {
-  if (!newStaffName.value.trim()) return;
-  
-  try {
-    // TODO: Implement staff addition with sheet creation
-    staffList.value.push({ name: newStaffName.value.trim() });
-    newStaffName.value = '';
-    console.log('Staff added:', staffList.value);
-  } catch (error) {
-    console.error('Failed to add staff:', error);
-  }
-};
+// Staff management methods - removed addStaff as input field is now used for filtering
 
 const removeStaff = (staffName: string): void => {
   staffList.value = staffList.value.filter(staff => staff.name !== staffName);
@@ -789,4 +1034,430 @@ watch(() => authStore.isSolapiAuthenticated, (newValue) => {
     solapiBalance.value = '';
   }
 });
+
+watch(selectedDateString, (newDate) => {
+  if (newDate) {
+    loadSheetData(newDate);
+    currentPage.value = 1; // Reset pagination
+  }
+});
+
+watch(filteredData, () => {
+  currentPage.value = 1; // Reset pagination when data changes
+});
 </script>
+
+<style scoped>
+/* Unified Card View Styles */
+.unified-card-container {
+  width: 100%;
+}
+
+/* Summary Cards */
+.summary-card {
+  height: 140px;
+  display: flex;
+  align-items: center;
+}
+
+.summary-card .v-card-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.v-card.v-theme--light.v-card--variant-tonal {
+  border-radius: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.v-card.v-theme--light.v-card--variant-tonal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Unified Data Cards */
+.unified-data-card {
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  position: relative;
+  height: 100%;
+  background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+}
+
+.unified-data-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15) !important;
+}
+
+.unified-data-card.completed-order {
+  border-left: 6px solid #4caf50;
+  background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 50%, #ffffff 100%);
+}
+
+.unified-data-card.completed-order::before {
+  content: '✓';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #4caf50;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Unified card header */
+.unified-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.order-info {
+  flex: 1;
+}
+
+.order-title-unified {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1565c0;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.order-row-info {
+  font-size: 12px;
+  color: #666;
+  margin: 4px 0 0 0;
+  font-weight: 500;
+}
+
+.status-chip-unified {
+  font-size: 13px;
+  font-weight: 700;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+}
+
+/* Unified card content */
+.unified-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.detail-row-unified {
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.detail-row-unified:hover {
+  transform: translateX(4px);
+}
+
+.field-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.field-label-unified {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+}
+
+/* Unified address section */
+.address-section-unified {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  padding: 16px 20px;
+  border-radius: 12px;
+  border-left: 6px solid #1976d2;
+  position: relative;
+}
+
+.address-text-unified {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1565c0;
+  line-height: 1.5;
+  word-break: break-word;
+  padding-left: 26px;
+}
+
+/* Unified phone section */
+.phone-section-unified {
+  background-color: #e8f5e8;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border-left: 6px solid #4caf50;
+}
+
+.phone-link-unified {
+  color: #2e7d32;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 16px;
+  display: block;
+  padding-left: 26px;
+  transition: all 0.2s ease;
+}
+
+.phone-link-unified:hover {
+  text-decoration: underline;
+  color: #1b5e20;
+  transform: scale(1.02);
+}
+
+/* Unified customer section */
+.customer-section-unified {
+  background-color: #fff3e0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border-left: 6px solid #ff9800;
+}
+
+.customer-name-unified {
+  font-size: 17px;
+  font-weight: 800;
+  color: #f57c00;
+  padding-left: 26px;
+}
+
+.staff-section-unified {
+  background-color: #f5f5f5;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border-left: 6px solid #757575;
+}
+
+.staff-name-unified {
+  font-size: 17px;
+  font-weight: 800;
+  color: #424242;
+  padding-left: 26px;
+}
+
+/* Unified other fields */
+.other-field-unified {
+  background-color: #f8f9fa;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border-left: 3px solid #e0e0e0;
+}
+
+.field-value-unified {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  padding-left: 26px;
+  display: block;
+  margin-top: 4px;
+}
+
+/* Card actions */
+.unified-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+}
+
+.action-btn {
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  border-radius: 16px;
+  min-width: 80px;
+}
+
+/* Pagination */
+.unified-pagination {
+  margin-top: 24px;
+}
+
+/* Field labels and values */
+.field-label-mobile {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.field-value-mobile {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Mobile pagination */
+.mobile-pagination {
+  margin-top: 16px;
+}
+
+/* Mobile filter enhancements */
+.mobile-filter-section {
+  margin-bottom: 20px;
+}
+
+.filter-card {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.mobile-filter-btn {
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.mobile-filters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-filter-item {
+  border-radius: 12px;
+}
+
+/* Mobile staff management */
+/* Removed staff management styles as section was removed */
+
+.staff-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.staff-info {
+  display: flex;
+  align-items: center;
+}
+
+.staff-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1565c0;
+  margin: 0;
+}
+
+.staff-subtitle {
+  font-size: 13px;
+  color: #666;
+  margin: 2px 0 0 0;
+}
+
+.staff-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mobile-action-btn {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 100px;
+  height: 36px;
+  border-radius: 18px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  /* Show mobile layouts */
+  .d-block.d-md-none {
+    display: block !important;
+  }
+  
+  .d-none.d-md-block {
+    display: none !important;
+  }
+  
+  /* Simplify filter layout on mobile */
+  .mobile-filter-btn {
+    min-width: 100px;
+    flex: 1;
+  }
+  
+  /* Adjust card spacing */
+  .mobile-data-card {
+    margin-bottom: 8px;
+  }
+  
+  .mobile-card-content {
+    gap: 8px;
+  }
+  
+  /* Smaller text on very small screens */
+  .order-title {
+    font-size: 16px;
+  }
+  
+  .address-text-mobile,
+  .phone-link-mobile,
+  .customer-name-mobile {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .status-chip {
+    align-self: flex-end;
+  }
+  
+  .other-field-mobile {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  /* Removed staff management mobile adjustments */
+  
+  .staff-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .staff-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .mobile-action-btn {
+    flex: 1;
+    min-width: auto;
+  }
+  
+  /* Filter adjustments for small screens */
+  .mobile-filter-btn {
+    min-width: 80px;
+    font-size: 12px;
+  }
+}
+</style>
