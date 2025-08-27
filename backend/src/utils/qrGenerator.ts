@@ -70,6 +70,14 @@ export class QRGenerator {
   }
 
   /**
+   * Generate QR code URL for staff mobile page with specific date
+   */
+  generateStaffMobileUrl(staffName: string, date: string): string {
+    const token = this.generateToken(staffName);
+    return `${config.frontendUrl}/delivery/${date}/${encodeURIComponent(staffName)}?token=${token}`;
+  }
+
+  /**
    * Generate QR code image as base64 data URL
    */
   async generateQRImage(staffName: string): Promise<string> {
@@ -89,6 +97,30 @@ export class QRGenerator {
       return qrCodeDataURL;
     } catch (error) {
       logger.error('Failed to generate QR code image:', error);
+      throw new Error('QR 코드 생성에 실패했습니다.');
+    }
+  }
+
+  /**
+   * Generate QR code image for staff mobile page with date
+   */
+  async generateStaffMobileQRImage(staffName: string, date: string): Promise<string> {
+    try {
+      const qrUrl = this.generateStaffMobileUrl(staffName, date);
+      const qrCodeDataURL = await QRCode.toDataURL(qrUrl, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+        width: 256,
+      });
+
+      logger.info(`Staff mobile QR code generated for: ${staffName} on ${date}`);
+      return qrCodeDataURL;
+    } catch (error) {
+      logger.error('Failed to generate staff mobile QR code image:', error);
       throw new Error('QR 코드 생성에 실패했습니다.');
     }
   }

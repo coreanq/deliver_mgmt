@@ -296,16 +296,9 @@ router.get('/data/:sheetName', requireGoogleAuth, async (req, res) => {
 /**
  * Update delivery status
  */
-router.put('/data/:sheetName/status', requireGoogleAuth, async (req, res) => {
-  const { sheetName } = req.params;
+router.put('/data/:date/status', requireGoogleAuth, async (req, res) => {
+  const { date } = req.params;
   const { rowIndex, status } = req.body;
-
-  if (!req.session.connectedSpreadsheet) {
-    return res.status(400).json({
-      success: false,
-      message: '연결된 스프레드시트가 없습니다.',
-    } as ApiResponse);
-  }
 
   if (!rowIndex || !status) {
     return res.status(400).json({
@@ -322,9 +315,40 @@ router.put('/data/:sheetName/status', requireGoogleAuth, async (req, res) => {
       req
     );
 
+    // Find the correct spreadsheet and sheet name
+    let spreadsheetId = '';
+    let actualSheetName = '';
+
+    // First, try to find a spreadsheet with the date name
+    const spreadsheets = await sheetsService.getSpreadsheets();
+    const dateSpreadsheet = spreadsheets.find(sheet => sheet.name === date);
+
+    if (dateSpreadsheet) {
+      // Found spreadsheet with date name, get its first sheet's data
+      logger.info(`Using spreadsheet with date name: ${date}`);
+      const sheets = await sheetsService.getSheets(dateSpreadsheet.id);
+      
+      if (sheets && sheets.length > 0) {
+        spreadsheetId = dateSpreadsheet.id;
+        actualSheetName = sheets[0].title;
+      }
+    } else if (req.session.connectedSpreadsheet) {
+      // Try connected spreadsheet with date sheet name
+      logger.info(`Looking for sheet named ${date} in connected spreadsheet`);
+      spreadsheetId = req.session.connectedSpreadsheet.id;
+      actualSheetName = date;
+    }
+
+    if (!spreadsheetId || !actualSheetName) {
+      return res.status(400).json({
+        success: false,
+        message: '해당 날짜의 스프레드시트를 찾을 수 없습니다.',
+      } as ApiResponse);
+    }
+
     await sheetsService.updateDeliveryStatus(
-      req.session.connectedSpreadsheet!.id,
-      sheetName,
+      spreadsheetId,
+      actualSheetName,
       rowIndex,
       status
     );
@@ -383,6 +407,106 @@ router.get('/test', async (req, res) => {
     res.status(500).json({
       success: false,
       message: '테스트에 실패했습니다.',
+    } as ApiResponse);
+  }
+});
+
+/**
+ * Get delivery orders for specific staff member from a date-based sheet (public access for mobile)
+ */
+router.get('/date/:date/staff/:staffName', async (req, res) => {
+  const { date, staffName } = req.params;
+
+  // Validate date format (YYYYMMDD)
+  if (!/^\d{8}$/.test(date)) {
+    return res.status(400).json({
+      success: false,
+      message: '날짜 형식이 올바르지 않습니다. YYYYMMDD 형식으로 입력해주세요.',
+    } as ApiResponse);
+  }
+
+  if (!staffName) {
+    return res.status(400).json({
+      success: false,
+      message: '배달담당자 이름이 필요합니다.',
+    } as ApiResponse);
+  }
+
+  try {
+    // For mobile access, check if admin session has Google tokens
+    if (!req.session.googleTokens) {
+      return res.status(401).json({
+        success: false,
+        message: 'Google 인증이 필요합니다.',
+      } as ApiResponse);
+    }
+
+    const sheetsService = new GoogleSheetsService();
+    sheetsService.init(
+      req.session.googleTokens.accessToken,
+      req.session.googleTokens.refreshToken,
+      req
+    );
+
+    let spreadsheetId = '';
+    let sheetName = '';
+
+    // First, try to find a spreadsheet with the date name
+    const spreadsheets = await sheetsService.getSpreadsheets();
+    const dateSpreadsheet = spreadsheets.find(sheet => sheet.name === date);
+
+    if (dateSpreadsheet) {
+      // Found spreadsheet with date name, get its first sheet's data
+      logger.info(`Found spreadsheet with date name: ${date}`);
+      const sheets = await sheetsService.getSheets(dateSpreadsheet.id);
+      
+      if (sheets && sheets.length > 0) {
+        spreadsheetId = dateSpreadsheet.id;
+        sheetName = sheets[0].title;
+      }
+    } else if (req.session.connectedSpreadsheet) {
+      // Try connected spreadsheet with date sheet name
+      logger.info(`Looking for sheet named ${date} in connected spreadsheet`);
+      spreadsheetId = req.session.connectedSpreadsheet.id;
+      sheetName = date;
+    }
+
+    if (spreadsheetId && sheetName) {
+      const ordersByStaff = await sheetsService.getDeliveryOrdersByStaff(spreadsheetId, sheetName);
+      const staffOrders = ordersByStaff[staffName] || [];
+      
+      // Get headers for UI display
+      const allOrders = await sheetsService.getDeliveryOrders(spreadsheetId, sheetName);
+      const headers = allOrders.length > 0 ? Object.keys(allOrders[0]).filter(key => 
+        key !== 'rowIndex' && key !== 'staffName' && 
+        typeof allOrders[0][key as keyof typeof allOrders[0]] === 'string'
+      ) : [];
+      
+      res.json({
+        success: true,
+        data: staffOrders,
+        headers: headers,
+        staffName: staffName,
+        sheetInfo: {
+          spreadsheetId,
+          sheetName,
+          date
+        }
+      } as ApiResponse);
+      return;
+    }
+
+    // No date sheet found anywhere
+    res.status(404).json({
+      success: false,
+      message: `${date} 날짜 시트를 찾을 수 없습니다.`,
+    } as ApiResponse);
+
+  } catch (error) {
+    logger.error('Failed to get staff delivery data:', error);
+    res.status(404).json({
+      success: false,
+      message: `${staffName} 담당자의 ${date} 날짜 데이터를 찾을 수 없습니다.`,
     } as ApiResponse);
   }
 });

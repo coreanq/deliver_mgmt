@@ -65,8 +65,8 @@ cd frontend && npm run preview   # Preview production build
 - **Test**: `GET /api/sheets/test` - Development mock data
 
 ### Frontend Views (`frontend/src/views/`)
-- **AdminView.vue**: Main admin configuration
-- **DeliveryView.vue**: Staff delivery dashboard
+- **AdminView.vue**: Main admin configuration and data management
+- **StaffMobileView.vue**: Mobile-optimized staff delivery interface
 - **DeliveryAuthView.vue**: QR authentication
 - **TestView.vue**: Development testing interface
 
@@ -110,7 +110,7 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 - **Date-based sheets**: YYYYMMDD format sheets for daily orders
 - **Staff grouping**: Automatic detection of Korean staff names (2-4 characters) in headers
 - **Status column detection**: Flexible status column identification
-- **Status Flow**: `대기` → `준비중` → `출발` → `완료`
+- **Status Flow**: 5-stage system: `주문 완료` → `상품 준비중` → `배송 준비중` → `배송 출발` → `배송 완료`
 
 ### QR Code Security (`backend/src/utils/qrGenerator.ts`)
 - **JWT tokens** with SHA256 hash verification
@@ -137,14 +137,16 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 - SOLAPI OAuth2 integration (OAuth2 method)
 - QR code generation and verification
 - Google Sheets API connectivity
-- Admin configuration UI
-- Delivery staff interface
+- Admin configuration UI with dynamic data filtering
+- Mobile-optimized staff delivery interface
+- Copy-to-clipboard functionality for delivery data
+- 5-stage delivery status workflow
+- Real-time spreadsheet synchronization
 - Basic Playwright E2E tests
 - TypeScript configuration and build system
 
 ⏳ **Remaining MVP Tasks**:
 - Automatic message sending on delivery completion
-- Real-time synchronization improvements
 - Production deployment configuration
 
 ## Token Management & Security
@@ -176,6 +178,7 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 9. **Korean Guidelines**: 한글로 답변, 영어로 주석 작성 (per .claude.json)
 10. **SOLID Principles**: Follow SOLID design principles for all code modifications
 11. **Token Security**: Automatic token refresh prevents service interruption during long sessions
+12. **Status Synchronization**: After status updates, always refresh data from server to maintain sync with Google Sheets
 
 ## Critical Implementation Details
 
@@ -193,8 +196,18 @@ Implementation in `backend/src/services/solapiAuth.ts`:
 ### API Route Patterns
 - Date-based sheets: `/api/sheets/date/:date` (YYYYMMDD format)
 - Staff-grouped data: `/api/sheets/date/:date/by-staff`
+- Individual staff data: `/api/sheets/date/:date/staff/:staffName`
+- Status updates: `PUT /api/sheets/data/:date/status`
 - Session-based authentication with `requireGoogleAuth` middleware
 - Mock endpoints available in development mode (`NODE_ENV=development`)
+
+### Mobile Staff Interface (`StaffMobileView.vue`)
+- **Access Pattern**: `/delivery/:date/:staffName` with optional QR token
+- **Status Filters**: Simplified 2-tab system ("배송 미완료", "배송 완료")
+- **Copy Functionality**: One-click clipboard copy for addresses, names, phone numbers
+- **Visual Design**: Enhanced address display with larger fonts and background highlighting
+- **Status Updates**: Real-time synchronization with Google Sheets after status changes
+- **Staff Permissions**: Can only modify delivery-related statuses (배송 준비중, 배송 출발, 배송 완료)
 
 ### Dependencies Note
 - **Backend**: Uses `solapi` package (v4.0.0) but implements OAuth2 flow directly via HTTP API, NOT SDK

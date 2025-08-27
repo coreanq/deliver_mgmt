@@ -64,6 +64,50 @@ router.get('/qr/download/:staffName', async (req, res) => {
 });
 
 /**
+ * Generate QR code for staff mobile page with date
+ */
+router.post('/qr/generate-mobile/:staffName/:date', async (req, res) => {
+  const { staffName, date } = req.params;
+
+  if (!staffName || !date) {
+    return res.status(400).json({
+      success: false,
+      message: '배달담당자 이름과 날짜가 필요합니다.',
+    } as ApiResponse);
+  }
+
+  // Validate date format (YYYYMMDD)
+  if (!/^\d{8}$/.test(date)) {
+    return res.status(400).json({
+      success: false,
+      message: '날짜 형식이 올바르지 않습니다. YYYYMMDD 형식으로 입력해주세요.',
+    } as ApiResponse);
+  }
+
+  try {
+    const qrImageData = await qrGenerator.generateStaffMobileQRImage(staffName, date);
+    const qrUrl = qrGenerator.generateStaffMobileUrl(staffName, date);
+
+    res.json({
+      success: true,
+      data: {
+        qrImage: qrImageData,
+        qrUrl,
+        staffName,
+        date,
+      },
+      message: '담당자별 모바일 QR 코드가 생성되었습니다.',
+    } as ApiResponse);
+  } catch (error) {
+    logger.error('Staff mobile QR code generation failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'QR 코드 생성에 실패했습니다.',
+    } as ApiResponse);
+  }
+});
+
+/**
  * Verify QR token
  */
 router.get('/qr/verify/:token', (req, res) => {

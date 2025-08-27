@@ -290,15 +290,6 @@
                       @keyup.enter="addStaff"
                     />
                     
-                    <v-btn
-                      color="primary"
-                      @click="addStaff"
-                      :disabled="!newStaffName.trim()"
-                      class="mb-4"
-                    >
-                      <v-icon start>mdi-plus</v-icon>
-                      배달담당자 추가
-                    </v-btn>
 
                     <v-list v-if="staffList.length > 0">
                       <v-list-item
@@ -314,17 +305,21 @@
                         
                         <template #append>
                           <v-btn
+                            icon="mdi-open-in-new"
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            @click="openStaffMobilePage(staff.name)"
+                            :disabled="!selectedDateString"
+                            title="모바일 페이지 열기"
+                          />
+                          <v-btn
                             icon="mdi-qrcode"
                             size="small"
                             variant="outlined"
                             @click="generateQR(staff.name)"
-                          />
-                          <v-btn
-                            icon="mdi-delete"
-                            size="small"
-                            color="error"
-                            variant="outlined"
-                            @click="removeStaff(staff.name)"
+                            :disabled="!selectedDateString"
+                            title="QR 코드 생성"
                           />
                         </template>
                       </v-list-item>
@@ -337,16 +332,57 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <!-- QR Code Modal -->
+    <v-dialog v-model="qrDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-center">
+          <v-icon start color="primary">mdi-qrcode</v-icon>
+          QR 코드
+        </v-card-title>
+        <v-card-text class="text-center">
+          <div v-if="qrLoading" class="py-8">
+            <v-progress-circular indeterminate color="primary"></v-progress-circular>
+            <p class="mt-4">QR 코드 생성 중...</p>
+          </div>
+          <div v-else-if="qrImageData" class="py-4">
+            <img :src="qrImageData" alt="QR Code" style="max-width: 100%; height: auto;" />
+            <v-chip color="primary" size="small" class="mt-4">
+              {{ qrStaffName }}
+            </v-chip>
+            <br>
+            <small class="text-grey">{{ formatDateDisplay(selectedDateString) }}</small>
+            <v-alert type="info" variant="tonal" class="mt-4 text-left">
+              <strong>사용법:</strong><br>
+              1. 카메라로 QR 코드를 스캔하세요<br>
+              2. 자동으로 배달 관리 페이지가 열립니다<br>
+              3. 배달 현황을 확인하고 상태를 업데이트하세요
+            </v-alert>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="grey" variant="text" @click="closeQRDialog">닫기</v-btn>
+          <v-btn 
+            v-if="qrImageData" 
+            color="primary" 
+            variant="elevated" 
+            @click="downloadQRCode"
+          >
+            <v-icon start>mdi-download</v-icon>
+            다운로드
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
-import { useRoute } from 'vue-router';
 
 const authStore = useAuthStore();
-const route = useRoute();
 
 // Loading states
 const googleLoading = ref(false);
@@ -354,7 +390,6 @@ const solapiLoading = ref(false);
 
 // Google Sheets data
 const connectedSheetName = ref<string>('');
-const connectedSheetId = ref<string>('');
 
 // SOLAPI data
 const solapiSenderId = ref<string>('');
@@ -377,8 +412,14 @@ const selectedStaff = ref<string>('전체');
 // Dynamic Filters system
 const activeFilters = ref<Array<{id: string, column: string, value: string}>>([]);
 
+// QR Code modal
+const qrDialog = ref(false);
+const qrLoading = ref(false);
+const qrImageData = ref<string>('');
+const qrStaffName = ref<string>('');
+
 const tableHeaders = computed(() => {
-  const baseHeaders = [
+  const baseHeaders: Array<{ title: string; key: string; width?: string }> = [
     { title: '행', key: 'rowIndex', width: '80px' },
   ];
   
@@ -388,8 +429,7 @@ const tableHeaders = computed(() => {
       if (header !== 'rowIndex' && header !== 'staffName') {
         baseHeaders.push({ 
           title: header, 
-          key: header, 
-          sortable: true 
+          key: header
         });
       }
     });
@@ -536,13 +576,75 @@ const removeStaff = (staffName: string): void => {
   staffList.value = staffList.value.filter(staff => staff.name !== staffName);
 };
 
-const generateQR = (staffName: string): void => {
-  // TODO: Implement QR code generation and download
-  console.log('Generating QR for:', staffName);
+const openStaffMobilePage = (staffName: string): void => {
+  if (!selectedDateString.value) {
+    console.warn('No date selected');
+    return;
+  }
+  
+  const mobileUrl = `/delivery/${selectedDateString.value}/${encodeURIComponent(staffName)}`;
+  window.open(mobileUrl, '_blank');
+};
+
+const generateQR = async (staffName: string): Promise<void> => {
+  if (!selectedDateString.value) {
+    console.warn('No date selected for QR generation');
+    return;
+  }
+  
+  qrStaffName.value = staffName;
+  qrDialog.value = true;
+  qrLoading.value = true;
+  qrImageData.value = '';
+  
+  try {
+    const response = await fetch(
+      `http://localhost:5001/api/delivery/qr/generate-mobile/${encodeURIComponent(staffName)}/${selectedDateString.value}`,
+      {
+        method: 'POST',
+        credentials: 'include',
+      }
+    );
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      qrImageData.value = result.data.qrImage;
+      console.log('QR code generated for:', staffName);
+      console.log('Mobile URL:', result.data.qrUrl);
+    } else {
+      console.error('QR generation failed:', result.message);
+      // Close modal on error
+      qrDialog.value = false;
+    }
+  } catch (error) {
+    console.error('Failed to generate QR code:', error);
+    // Close modal on error
+    qrDialog.value = false;
+  } finally {
+    qrLoading.value = false;
+  }
+};
+
+const closeQRDialog = (): void => {
+  qrDialog.value = false;
+  qrImageData.value = '';
+  qrStaffName.value = '';
+};
+
+const downloadQRCode = (): void => {
+  if (qrImageData.value && qrStaffName.value && selectedDateString.value) {
+    const link = document.createElement('a');
+    link.href = qrImageData.value;
+    link.download = `qr-${qrStaffName.value}-${selectedDateString.value}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 };
 
 // Calendar and data methods
-const onDateSelected = (date: Date): void => {
+const onDateSelected = (date: Date | null): void => {
   if (date) {
     selectedDate.value = date;
     selectedDateString.value = formatDateToYYYYMMDD(date);
@@ -589,9 +691,15 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       // Flatten all staff data for "전체" view
       const allData = Object.values(sheetDataByStaff.value).flat();
       sheetData.value = allData;
+      
+      // Update staff list from actual sheet data
+      const detectedStaff = Object.keys(sheetDataByStaff.value).map(name => ({ name }));
+      staffList.value = detectedStaff;
+      
       console.log('Sheet data by staff loaded:', staffResult.data);
       console.log('Headers:', dynamicHeaders.value);
       console.log('Total items:', allData.length);
+      console.log('Detected staff:', detectedStaff);
     } else {
       // Fallback to original API for backwards compatibility
       const response = await fetch(`http://localhost:5001/api/sheets/date/${dateString}`, {
@@ -608,12 +716,14 @@ const loadSheetData = async (dateString: string): Promise<void> => {
         activeFilters.value = [];
         
         sheetDataByStaff.value = {};
+        staffList.value = [];
         console.log('Sheet data loaded (fallback):', result.data);
         console.log('Headers (fallback):', dynamicHeaders.value);
       } else {
         sheetData.value = [];
         sheetDataByStaff.value = {};
         dynamicHeaders.value = [];
+        staffList.value = [];
         console.warn('No data found for date:', dateString, result.message);
       }
     }
@@ -622,6 +732,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
     sheetData.value = [];
     sheetDataByStaff.value = {};
     dynamicHeaders.value = [];
+    staffList.value = [];
   } finally {
     dataLoading.value = false;
   }

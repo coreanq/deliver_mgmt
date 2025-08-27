@@ -164,31 +164,58 @@ export class GoogleSheetsService {
         }
       });
 
-      // Strategy 2: If no staff columns found, group by actual data values
+      // Strategy 2: If no staff columns found, group by data values in delivery staff column
       if (staffColumns.size === 0) {
-        // Group by unique values in the first meaningful column
-        allOrders.forEach(order => {
-          // Find the most likely grouping field (look for Korean names or locations)
-          let groupKey = '미분류';
-          
-          // Check all properties of the order to find the best grouping key
-          Object.keys(order).forEach(key => {
-            const value = (order as any)[key];
-            if (typeof value === 'string' && value.trim() && 
-                (this.isLikelyStaffName(value) || this.isLocationName(value))) {
-              groupKey = value.trim();
+        // Find the delivery staff column
+        const staffColumnNames = ['배달 담당자', '담당자', '배달담당자', '배송담당자'];
+        let staffColumnName = '';
+        
+        for (const colName of staffColumnNames) {
+          if (headers.includes(colName)) {
+            staffColumnName = colName;
+            break;
+          }
+        }
+        
+        if (staffColumnName) {
+          // Group by actual staff names from the staff column
+          allOrders.forEach(order => {
+            const staffName = (order as any)[staffColumnName];
+            if (staffName && typeof staffName === 'string' && staffName.trim()) {
+              const groupKey = staffName.trim();
+              
+              if (!groupedOrders[groupKey]) {
+                groupedOrders[groupKey] = [];
+              }
+              
+              groupedOrders[groupKey].push({
+                ...order,
+                staffName: groupKey,
+              });
             }
           });
+        } else {
+          // Fallback: group by any Korean name found in data
+          allOrders.forEach(order => {
+            let groupKey = '미분류';
+            
+            Object.keys(order).forEach(key => {
+              const value = (order as any)[key];
+              if (typeof value === 'string' && value.trim() && this.isLikelyStaffName(value)) {
+                groupKey = value.trim();
+              }
+            });
 
-          if (!groupedOrders[groupKey]) {
-            groupedOrders[groupKey] = [];
-          }
-          
-          groupedOrders[groupKey].push({
-            ...order,
-            staffName: groupKey,
+            if (!groupedOrders[groupKey]) {
+              groupedOrders[groupKey] = [];
+            }
+            
+            groupedOrders[groupKey].push({
+              ...order,
+              staffName: groupKey,
+            });
           });
-        });
+        }
       } else {
         // Use column-based grouping
         staffColumns.forEach(staffName => {
@@ -223,6 +250,10 @@ export class GoogleSheetsService {
       });
 
       logger.info(`Loaded orders for ${Object.keys(groupedOrders).length} groups from sheet ${sheetName}, headers: ${headers.join(', ')}`);
+      logger.info(`Grouped orders keys: ${Object.keys(groupedOrders).join(', ')}`);
+      Object.keys(groupedOrders).forEach(key => {
+        logger.info(`Group "${key}": ${groupedOrders[key].length} orders`);
+      });
       return groupedOrders;
     } catch (error) {
       logger.error('Failed to get delivery orders by staff:', error);
@@ -262,16 +293,49 @@ export class GoogleSheetsService {
   ): Promise<void> {
     try {
       const sheets = this.googleAuth.getSheetsClient();
+      
+      // First, get the header row to find the status column
+      const headerResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!1:1`,
+      });
+
+      const headers = headerResponse.data.values?.[0] || [];
+      
+      // Find the status column index
+      let statusColumnIndex = -1;
+      const statusColumnNames = ['배송상태', '배달상태', '상태', '배송 상태', '배달 상태'];
+      
+      for (let i = 0; i < headers.length; i++) {
+        const header = headers[i];
+        if (statusColumnNames.some(statusName => 
+          header && header.toString().toLowerCase().includes(statusName.toLowerCase())
+        )) {
+          statusColumnIndex = i;
+          break;
+        }
+      }
+
+      if (statusColumnIndex === -1) {
+        // Fallback to column D (index 3) if status column not found
+        statusColumnIndex = 3;
+        logger.warn(`Status column not found in headers: ${headers.join(', ')}, using default column D`);
+      }
+
+      // Convert column index to letter (A=0, B=1, C=2, D=3, etc.)
+      const statusColumn = String.fromCharCode(65 + statusColumnIndex);
+      const range = `${sheetName}!${statusColumn}${rowIndex}`;
+
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `${sheetName}!D${rowIndex}`,
+        range,
         valueInputOption: 'RAW',
         requestBody: {
           values: [[status]],
         },
       });
 
-      logger.info(`Updated status to ${status} for row ${rowIndex} in sheet ${sheetName}`);
+      logger.info(`Updated status to ${status} for row ${rowIndex} in column ${statusColumn} (${headers[statusColumnIndex]}) in sheet ${sheetName}`);
     } catch (error) {
       logger.error('Failed to update delivery status:', error);
       throw new Error('배달 상태 업데이트에 실패했습니다.');
