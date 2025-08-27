@@ -28,7 +28,12 @@
       "Bash(npm run local:*)",
       "mcp__playwright__browser_type",
       "mcp__playwright__browser_resize",
-      "mcp__playwright__browser_take_screenshot"
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(npx vue-tsc:*)",
+      "Bash(VITE_API_BASE_URL=https://test-worker.workers.dev npm run build)",
+      "Bash(VITE_API_BASE_URL=https://test-worker.workers.dev npx vite build)",
+      "WebSearch",
+      "mcp__playwright__browser_network_requests"
     ]
   },
   "enabledMcpjsonServers": [

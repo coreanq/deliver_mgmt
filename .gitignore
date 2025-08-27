@@ -60,6 +60,7 @@ pids
 .env
 test_results/
 .playwright-mcp/
+dist/
 
 # Task files
 # tasks.json

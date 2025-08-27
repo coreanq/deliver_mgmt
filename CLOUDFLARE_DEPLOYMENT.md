@@ -2,6 +2,8 @@
 
 이 문서는 배달 관리 시스템을 Cloudflare Workers (백엔드) + Cloudflare Pages (프론트엔드)로 배포하는 방법을 설명합니다.
 
+**중요**: 하나의 저장소에서 백엔드와 프론트엔드를 별도로 배포하는 방법을 다룹니다.
+
 ## 1. 사전 요구사항
 
 - Cloudflare 계정
@@ -60,12 +62,13 @@ npm run deploy
 
 ## 3. 프론트엔드 배포 (Cloudflare Pages)
 
-### 3.1 GitHub 연동
+### 3.1 GitHub 연동 (프론트엔드용)
 1. Cloudflare Dashboard → Workers & Pages → Create → Pages 탭 → "Connect to Git"
 2. GitHub 리포지토리 선택
-3. 프로젝트 설정:
+3. **프로젝트명**: `deliver-mgmt-frontend` (구분을 위해)
+4. 프로젝트 설정:
    - **프레임워크 프리셋**: Vue
-   - **빌드 명령어**: `cd frontend && npm run build`
+   - **빌드 명령어**: `npm run build:frontend`
    - **빌드 출력 디렉토리**: `frontend/dist`
    - **루트 디렉토리**: `/` (프로젝트 루트)
 
@@ -75,7 +78,6 @@ Pages 설정에서 환경 변수 추가:
 
 ### 3.3 배포
 Pages는 GitHub 푸시 시 자동으로 배포됩니다.
-
 ## 4. 도메인 설정 업데이트
 
 ### 4.1 프론트엔드 API URL 설정
