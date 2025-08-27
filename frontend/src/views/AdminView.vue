@@ -1087,10 +1087,17 @@ const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
 // Initialize and check auth status
 onMounted(async () => {
+  console.log('AdminView mounted, checking auth status...');
   await authStore.checkAuthStatus();
   
   // Check URL parameters for OAuth callbacks
   const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('auth') === 'success') {
+    console.log('Authentication successful');
+    await authStore.checkAuthStatus(); // Refresh status
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
   if (urlParams.get('google_auth') === 'success') {
     console.log('Google authentication successful');
     await authStore.checkAuthStatus(); // Refresh status

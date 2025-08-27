@@ -69,9 +69,27 @@ export const useAuthStore = defineStore('auth', () => {
   // Check authentication status from backend
   const checkAuthStatus = async (): Promise<void> => {
     try {
+      console.log('Checking auth status...');
+      console.log('API_BASE_URL:', API_BASE_URL);
+      console.log('Document cookies:', document.cookie);
+      
+      // Extract sessionId from cookies
+      const sessionIdMatch = document.cookie.match(/sessionId=([^;]+)/);
+      const sessionId = sessionIdMatch ? sessionIdMatch[1] : null;
+      console.log('Extracted sessionId:', sessionId);
+      
+      const headers: any = {};
+      if (sessionId) {
+        headers['X-Session-ID'] = sessionId;
+      }
+      
       const response = await axios.get(`${API_BASE_URL}/api/auth/status`, {
         withCredentials: true,
+        headers
       });
+      
+      console.log('Auth status response:', response.data);
+      
       if (response.data.success) {
         isGoogleAuthenticated.value = response.data.data.google;
         isSolapiAuthenticated.value = response.data.data.solapi;

@@ -33,18 +33,31 @@ app.use('*', cors({
     
     const allowedOrigins = [...devOrigins, ...prodOrigins];
     
+    // Debug CORS
+    console.log('CORS origin check:', { origin, allowedOrigins });
+    
     // Allow Cloudflare Pages domains
     if (origin && origin.includes('.pages.dev')) {
+      console.log('Allowing .pages.dev origin:', origin);
       return origin;
     }
     
     if (!origin || allowedOrigins.includes(origin)) {
-      return origin || '*';
+      console.log('Allowing origin:', origin);
+      return origin || allowedOrigins[0]; // Return specific origin instead of '*'
     }
+    console.log('Rejecting origin:', origin);
     return null;
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-Session-ID'],
+  allowHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Session-ID', 
+    'Cookie',
+    'Set-Cookie'
+  ],
+  exposeHeaders: ['Set-Cookie'],
   credentials: true,
 }));
 

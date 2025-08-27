@@ -91,14 +91,20 @@ auth.get('/google/callback', async (c) => {
 
     await setSession(sessionId, sessionData, c.env);
 
-    // Set session cookie
+    // Set session cookie with cross-site compatibility
+    console.log('Setting session cookie:', { sessionId, domain: 'N/A', sameSite: 'None' });
+    
     setCookie(c, 'sessionId', sessionId, {
       httpOnly: false, // Allow JavaScript access for testing
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Always secure in production
       maxAge: 86400, // 24 hours
-      sameSite: 'Lax',
-      domain: 'localhost' // Allow cross-port access on localhost
+      sameSite: 'None', // Allow cross-site cookies
+      path: '/' // Explicit path
     });
+    
+    // Also manually set the Set-Cookie header to ensure it's sent
+    const cookieValue = `sessionId=${sessionId}; Max-Age=86400; Path=/; SameSite=None; Secure`;
+    c.header('Set-Cookie', cookieValue);
 
     // Redirect to frontend
     const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
@@ -107,12 +113,28 @@ auth.get('/google/callback', async (c) => {
     return c.redirect(redirectUrl.toString());
   } catch (error: any) {
     console.error('Google OAuth callback error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: c.req.query('code')?.substring(0, 10) + '...' // First 10 chars of code for debugging
+    });
     
-    const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
-    redirectUrl.searchParams.set('auth', 'error');
-    redirectUrl.searchParams.set('message', encodeURIComponent('Google 인증에 실패했습니다.'));
-    
-    return c.redirect(redirectUrl.toString());
+    // For debugging: return JSON error instead of redirect
+    return c.json({
+      success: false,
+      message: '서버 내부 오류가 발생했습니다.',
+      debug: {
+        error: error.message,
+        hasCode: !!c.req.query('code'),
+        hasEnvVars: {
+          GOOGLE_CLIENT_ID: !!c.env.GOOGLE_CLIENT_ID,
+          GOOGLE_CLIENT_SECRET: !!c.env.GOOGLE_CLIENT_SECRET,
+          GOOGLE_REDIRECT_URL: !!c.env.GOOGLE_REDIRECT_URL,
+          FRONTEND_URL: !!c.env.FRONTEND_URL
+        }
+      }
+    }, 500);
   }
 });
 
