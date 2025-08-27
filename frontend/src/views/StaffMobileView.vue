@@ -312,7 +312,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
@@ -587,6 +587,9 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
   const rowIndex = order.rowIndex;
   if (!rowIndex) return;
   
+  // 현재 스크롤 위치 저장
+  const scrollPosition = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  
   updatingOrders.value[rowIndex] = true;
   
   try {
@@ -619,6 +622,13 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
       showToast(`배송 상태가 "${newStatus}"로 변경되었습니다!`);
       // Refresh data from server to sync with spreadsheet
       await loadDeliveryData();
+      
+      // 데이터 로딩 완료 후 스크롤 위치 복원
+      await nextTick();
+      window.scrollTo({
+        top: scrollPosition,
+        behavior: 'smooth'
+      });
     } else {
       error.value = result.message || '상태 업데이트에 실패했습니다.';
       showToast('상태 업데이트에 실패했습니다.', 'error');
