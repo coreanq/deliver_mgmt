@@ -226,44 +226,59 @@
                                 
                                 <div v-else>
                                   <!-- Summary Info -->
-                                  <v-row class="mb-4">
-                                    <v-col cols="12" md="3">
-                                      <v-card variant="tonal" color="primary" class="text-center summary-card">
-                                        <v-card-text class="py-4">
-                                          <v-icon size="32" color="primary" class="mb-2">mdi-format-list-numbered</v-icon>
-                                          <h3 class="text-h4 font-weight-bold">{{ filteredData.length }}</h3>
-                                          <p class="text-body-2">총 배달 건수</p>
-                                        </v-card-text>
-                                      </v-card>
-                                    </v-col>
-                                    <v-col cols="12" md="3">
-                                      <v-card variant="tonal" color="success" class="text-center summary-card">
-                                        <v-card-text class="py-4">
-                                          <v-icon size="32" color="success" class="mb-2">mdi-check-circle</v-icon>
-                                          <h3 class="text-h4 font-weight-bold">{{ getCompletedOrdersCount() }}</h3>
-                                          <p class="text-body-2">배송 완료</p>
-                                        </v-card-text>
-                                      </v-card>
-                                    </v-col>
-                                    <v-col cols="12" md="3">
-                                      <v-card variant="tonal" color="warning" class="text-center summary-card">
-                                        <v-card-text class="py-4">
-                                          <v-icon size="32" color="warning" class="mb-2">mdi-clock-outline</v-icon>
-                                          <h3 class="text-h4 font-weight-bold">{{ getPendingOrdersCount() }}</h3>
-                                          <p class="text-body-2">배송 미완료</p>
-                                        </v-card-text>
-                                      </v-card>
-                                    </v-col>
-                                    <v-col cols="12" md="3">
-                                      <v-card variant="tonal" color="info" class="text-center summary-card">
-                                        <v-card-text class="py-4">
-                                          <v-icon size="32" color="info" class="mb-2">mdi-percent</v-icon>
-                                          <h3 class="text-h4 font-weight-bold">{{ getCompletionRate() }}%</h3>
-                                          <p class="text-body-2">완료율</p>
-                                        </v-card-text>
-                                      </v-card>
-                                    </v-col>
-                                  </v-row>
+                                  <div class="stats-grid mb-8">
+                                    <div class="stat-card total">
+                                      <div class="stat-header">
+                                        <div class="stat-icon">
+                                          <v-icon size="24" color="white">mdi-format-list-numbered</v-icon>
+                                        </div>
+                                      </div>
+                                      <div class="stat-number">{{ filteredData.length }}</div>
+                                      <div class="stat-label">총 배송 건수</div>
+                                      <div class="progress-bar">
+                                        <div class="progress-fill" :style="{ width: '100%' }"></div>
+                                      </div>
+                                    </div>
+
+                                    <div class="stat-card completed">
+                                      <div class="stat-header">
+                                        <div class="stat-icon">
+                                          <v-icon size="24" color="white">mdi-check-circle</v-icon>
+                                        </div>
+                                      </div>
+                                      <div class="stat-number">{{ getCompletedOrdersCount() }}</div>
+                                      <div class="stat-label">배송 완료</div>
+                                      <div class="progress-bar">
+                                        <div class="progress-fill" :style="{ width: getCompletionRate() + '%' }"></div>
+                                      </div>
+                                    </div>
+
+                                    <div class="stat-card pending">
+                                      <div class="stat-header">
+                                        <div class="stat-icon">
+                                          <v-icon size="24" color="white">mdi-clock-outline</v-icon>
+                                        </div>
+                                      </div>
+                                      <div class="stat-number">{{ getPendingOrdersCount() }}</div>
+                                      <div class="stat-label">배송 미완료</div>
+                                      <div class="progress-bar">
+                                        <div class="progress-fill" :style="{ width: (100 - getCompletionRate()) + '%' }"></div>
+                                      </div>
+                                    </div>
+
+                                    <div class="stat-card percentage">
+                                      <div class="stat-header">
+                                        <div class="stat-icon">
+                                          <v-icon size="24" color="white">mdi-percent</v-icon>
+                                        </div>
+                                      </div>
+                                      <div class="stat-number">{{ getCompletionRate() }}%</div>
+                                      <div class="stat-label">완료율</div>
+                                      <div class="progress-bar">
+                                        <div class="progress-fill" :style="{ width: getCompletionRate() + '%' }"></div>
+                                      </div>
+                                    </div>
+                                  </div>
                                   
                                   <!-- Card Grid -->
                                   <v-row>
@@ -1126,6 +1141,158 @@ watch(filteredData, () => {
 </script>
 
 <style scoped>
+/* Modern Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  animation: slideInUp 0.6s ease forwards;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--accent-color);
+}
+
+.stat-card.total {
+  --accent-color: linear-gradient(45deg, #667eea, #764ba2);
+}
+
+.stat-card.completed {
+  --accent-color: linear-gradient(45deg, #56ab2f, #a8e6cf);
+}
+
+.stat-card.pending {
+  --accent-color: linear-gradient(45deg, #f7971e, #ffd200);
+}
+
+.stat-card.percentage {
+  --accent-color: linear-gradient(45deg, #06beb6, #48b1bf);
+}
+
+.stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-color);
+}
+
+.stat-number {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #2d3748;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #718096;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.2s; }
+.stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .stat-card {
+    padding: 1.5rem;
+  }
+  
+  .stat-number {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .stat-card {
+    padding: 1rem;
+  }
+  
+  .stat-number {
+    font-size: 2rem;
+  }
+  
+  .stat-label {
+    font-size: 0.8rem;
+  }
+  
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
+
 /* Unified Card View Styles */
 .unified-card-container {
   width: 100%;

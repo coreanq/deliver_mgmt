@@ -56,7 +56,7 @@
           <v-card-text class="py-3">
             <v-icon size="32" color="primary" class="mb-2">mdi-format-list-numbered</v-icon>
             <h3>{{ deliveryOrders.length }}</h3>
-            <p class="text-caption">총 배달 건수</p>
+            <p class="text-caption">총 배송 건수</p>
           </v-card-text>
         </v-card>
       </v-col>
