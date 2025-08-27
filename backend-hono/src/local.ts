@@ -48,9 +48,9 @@ const port = 5001;
 console.log(`Hono server is running on port ${port}`);
 
 serve({
-  fetch: (req, ...args) => {
+  fetch: (req) => {
     // Add mock env to the request context
-    return app.fetch(req, mockEnv, ...args);
+    return app.fetch(req, mockEnv);
   },
   port,
 });

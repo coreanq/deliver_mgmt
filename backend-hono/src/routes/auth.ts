@@ -152,7 +152,7 @@ auth.get('/status', async (c) => {
     }
 
     // Get spreadsheets list for the response
-    let spreadsheetsList = [];
+    let spreadsheetsList: any[] = [];
     try {
       const { GoogleSheetsService } = await import('../services/googleSheets');
       const sheetsService = new GoogleSheetsService(c.env);
