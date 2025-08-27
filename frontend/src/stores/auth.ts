@@ -73,10 +73,17 @@ export const useAuthStore = defineStore('auth', () => {
       console.log('API_BASE_URL:', API_BASE_URL);
       console.log('Document cookies:', document.cookie);
       
-      // Extract sessionId from cookies
+      // Get sessionId from localStorage (preferred) or cookies (fallback)
+      const localStorageSessionId = localStorage.getItem('sessionId');
       const sessionIdMatch = document.cookie.match(/sessionId=([^;]+)/);
-      const sessionId = sessionIdMatch ? sessionIdMatch[1] : null;
-      console.log('Extracted sessionId:', sessionId);
+      const cookieSessionId = sessionIdMatch ? sessionIdMatch[1] : null;
+      
+      const sessionId = localStorageSessionId || cookieSessionId;
+      console.log('SessionId sources:', { 
+        localStorage: localStorageSessionId, 
+        cookie: cookieSessionId, 
+        final: sessionId 
+      });
       
       const headers: any = {};
       if (sessionId) {
@@ -130,8 +137,12 @@ export const useAuthStore = defineStore('auth', () => {
       clearSolapiAuth();
       setAdminAuth(false);
       clearDeliveryAuth();
+      // Clear localStorage sessionId
+      localStorage.removeItem('sessionId');
     } catch (error) {
       console.error('Failed to logout:', error);
+      // Clear localStorage even if request fails
+      localStorage.removeItem('sessionId');
       throw error;
     }
   };
