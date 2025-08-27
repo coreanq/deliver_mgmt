@@ -45,22 +45,9 @@
                         <v-chip color="success" size="small">{{ authStore.googleSpreadsheets.length }}개 스프레드시트</v-chip>
                       </div>
                       
-                      <!-- Calendar Section -->
-                      <v-row class="mb-4">
-                        <v-col cols="12" md="6">
-                          <v-card variant="outlined">
-                            <v-card-title>날짜 선택</v-card-title>
-                            <v-card-text>
-                              <v-date-picker
-                                v-model="selectedDate"
-                                @update:model-value="onDateSelected"
-                                show-adjacent-months
-                                :max="new Date().toISOString().split('T')[0]"
-                              ></v-date-picker>
-                            </v-card-text>
-                          </v-card>
-                        </v-col>
-                        <v-col cols="12" md="6" v-if="selectedDateString">
+                      <!-- Selected Date Section (moved to top) -->
+                      <v-row v-if="selectedDateString" class="mb-4">
+                        <v-col cols="12">
                           <v-card variant="outlined">
                             <v-card-title>선택된 날짜</v-card-title>
                             <v-card-text>
@@ -69,6 +56,50 @@
                               </v-chip>
                               <br>
                               <small class="text-grey">시트명: {{ selectedDateString }}</small>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
+
+                      <!-- Calendar Section -->
+                      <v-row class="mb-4">
+                        <v-col cols="12">
+                          <v-card variant="outlined">
+                            <v-card-title>날짜 선택</v-card-title>
+                            <v-card-text>
+                              <!-- Embedded Calendar for All Devices -->
+                              <div class="d-flex justify-center">
+                                <div class="calendar-container">
+                                  <div class="calendar-header">
+                                    <button @click="prevMonth" class="calendar-nav-btn">‹</button>
+                                    <h3 class="calendar-title">{{ currentMonthDisplay }}</h3>
+                                    <button @click="nextMonth" class="calendar-nav-btn">›</button>
+                                  </div>
+                                  <div class="embedded-calendar">
+                                    <div class="calendar-weekdays">
+                                      <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
+                                    </div>
+                                    <div class="calendar-days">
+                                      <div 
+                                        v-for="date in calendarDays" 
+                                        :key="date.key"
+                                        @click="selectDate(date)"
+                                        :class="[
+                                          'calendar-day',
+                                          { 
+                                            'other-month': date.isOtherMonth,
+                                            'selected': date.isSelected,
+                                            'today': date.isToday,
+                                            'disabled': date.isDisabled
+                                          }
+                                        ]"
+                                      >
+                                        {{ date.day }}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </v-card-text>
                           </v-card>
                         </v-col>
@@ -109,7 +140,7 @@
                             <v-card-text>
                               <!-- Filter Controls -->
                               <v-row class="mb-4">
-                                <v-col cols="12" md="4">
+                                <v-col cols="12">
                                   <v-select
                                     v-model="selectedStaff"
                                     label="담당자"
@@ -897,6 +928,89 @@ const onDateSelected = (date: Date | null): void => {
   }
 };
 
+const onNativeDateSelected = (dateString: string): void => {
+  if (dateString) {
+    selectedDateString.value = dateString.replace(/-/g, '');
+    const [year, month, day] = dateString.split('-');
+    selectedDate.value = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    loadSheetData(selectedDateString.value);
+  }
+};
+
+const onNativeDateChanged = (event: Event): void => {
+  const target = event.target as HTMLInputElement;
+  const dateString = target.value;
+  if (dateString) {
+    onNativeDateSelected(dateString);
+  }
+};
+
+// Calendar computed properties
+const currentMonthDisplay = computed(() => {
+  const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+  return `${currentYear.value}년 ${monthNames[currentMonth.value]}`;
+});
+
+const calendarDays = computed(() => {
+  const firstDay = new Date(currentYear.value, currentMonth.value, 1);
+  const lastDay = new Date(currentYear.value, currentMonth.value + 1, 0);
+  const startDate = new Date(firstDay);
+  startDate.setDate(startDate.getDate() - firstDay.getDay());
+  
+  const days = [];
+  const today = new Date();
+  const maxDate = new Date();
+  
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    
+    const isCurrentMonth = date.getMonth() === currentMonth.value;
+    const isToday = date.toDateString() === today.toDateString();
+    const isSelected = selectedDateString.value === formatDateToYYYYMMDD(date);
+    const isDisabled = date > maxDate;
+    
+    days.push({
+      key: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+      day: date.getDate(),
+      date: date,
+      isOtherMonth: !isCurrentMonth,
+      isToday: isToday,
+      isSelected: isSelected,
+      isDisabled: isDisabled
+    });
+  }
+  
+  return days;
+});
+
+// Calendar methods
+const prevMonth = (): void => {
+  if (currentMonth.value === 0) {
+    currentMonth.value = 11;
+    currentYear.value--;
+  } else {
+    currentMonth.value--;
+  }
+};
+
+const nextMonth = (): void => {
+  if (currentMonth.value === 11) {
+    currentMonth.value = 0;
+    currentYear.value++;
+  } else {
+    currentMonth.value++;
+  }
+};
+
+const selectDate = (date: any): void => {
+  if (date.isDisabled) return;
+  
+  selectedDate.value = date.date;
+  selectedDateString.value = formatDateToYYYYMMDD(date.date);
+  loadSheetData(selectedDateString.value);
+};
+
 const formatDateToYYYYMMDD = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -928,7 +1042,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
     const staffResult = await staffResponse.json();
     
     if (staffResult.success) {
-      sheetDataByStaff.value = staffResult.data || {};
+      sheetDataByStaff.value = staffResult.data.ordersByStaff || {};
       dynamicHeaders.value = staffResult.headers || [];
       // Clear existing filters when loading new data
       activeFilters.value = [];
@@ -993,6 +1107,11 @@ const refreshData = (): void => {
 
 // Removed unused functions for simplified workflow
 
+// Mobile calendar data
+const currentMonth = ref(new Date().getMonth());
+const currentYear = ref(new Date().getFullYear());
+const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
 // Initialize and check auth status
 onMounted(async () => {
   await authStore.checkAuthStatus();
@@ -1011,6 +1130,7 @@ onMounted(async () => {
     // Clean URL
     window.history.replaceState({}, document.title, window.location.pathname);
   }
+  
 });
 
 // Watch for auth status changes to update UI data
@@ -1379,6 +1499,165 @@ watch(filteredData, () => {
   min-width: 100px;
   height: 36px;
   border-radius: 18px;
+}
+
+/* Desktop Date Picker */
+.compact-date-picker {
+  max-width: 320px !important;
+  width: 100% !important;
+}
+
+.compact-date-picker .v-picker__body {
+  padding: 8px !important;
+}
+
+.compact-date-picker .v-date-picker-controls {
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+}
+
+.compact-date-picker .v-date-picker-month {
+  padding: 8px 12px 12px 12px !important;
+}
+
+.compact-date-picker .v-date-picker-month__day-btn {
+  font-size: 12px !important;
+  min-width: 32px !important;
+  height: 32px !important;
+}
+
+/* Embedded Calendar */
+.calendar-container {
+  width: 100%;
+  max-width: 350px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #1976d2;
+  color: white;
+}
+
+.calendar-nav-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.calendar-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.calendar-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.embedded-calendar {
+  padding: 16px;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  padding: 8px 4px;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
+  background: white;
+}
+
+.calendar-day:hover:not(.disabled) {
+  background: #e3f2fd;
+  transform: scale(1.05);
+}
+
+.calendar-day.other-month {
+  color: #bbb;
+}
+
+.calendar-day.today {
+  background: #bbdefb;
+  color: #1565c0;
+  font-weight: 700;
+}
+
+.calendar-day.selected {
+  background: #1976d2;
+  color: white;
+  font-weight: 700;
+}
+
+.calendar-day.disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.calendar-day.disabled:hover {
+  background: white;
+  transform: none;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .calendar-container {
+    max-width: 300px;
+  }
+  
+  .calendar-header {
+    padding: 12px 16px;
+  }
+  
+  .calendar-title {
+    font-size: 16px;
+  }
+  
+  .embedded-calendar {
+    padding: 12px;
+  }
+  
+  .calendar-day {
+    font-size: 13px;
+  }
 }
 
 /* Responsive adjustments */

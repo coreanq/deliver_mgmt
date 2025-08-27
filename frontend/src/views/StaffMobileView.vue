@@ -320,6 +320,7 @@ const route = useRoute();
 // Route parameters
 const staffName = ref<string>(route.params.staffName as string);
 const dateString = ref<string>(route.params.date as string);
+const qrToken = ref<string>('');
 
 // Data
 const deliveryOrders = ref<any[]>([]);
@@ -528,12 +529,15 @@ const loadDeliveryData = async (): Promise<void> => {
   try {
     // Check if QR token is provided for additional security
     const urlParams = new URLSearchParams(window.location.search);
-    const qrToken = urlParams.get('token');
+    const token = urlParams.get('token');
     
-    if (qrToken) {
+    if (token) {
+      // Store QR token for later use
+      qrToken.value = token;
+      
       // Verify QR token first
       const verifyResponse = await fetch(
-        `http://localhost:5001/api/delivery/qr/verify/${qrToken}`,
+        `http://localhost:5001/api/delivery/qr/verify/${token}`,
         {
           method: 'GET',
           credentials: 'include',
@@ -586,13 +590,20 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
   updatingOrders.value[rowIndex] = true;
   
   try {
+    // Prepare headers with QR token if available
+    const headers: { [key: string]: string } = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (qrToken.value) {
+      headers['Authorization'] = `Bearer ${qrToken.value}`;
+    }
+    
     const response = await fetch(
       `http://localhost:5001/api/sheets/data/${dateString.value}/status`,
       {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           rowIndex: rowIndex,

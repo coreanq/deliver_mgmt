@@ -1,4 +1,5 @@
 import type { Context, Next } from 'hono';
+import { getCookie } from 'hono/cookie';
 import type { Env, GoogleTokens, Variables } from '../types';
 import { GoogleAuthService } from '../services/googleAuth';
 
@@ -21,7 +22,7 @@ async function setSession(sessionId: string, data: GoogleTokens, env: Env): Prom
  */
 export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) {
   try {
-    const sessionId = c.req.header('X-Session-ID') || c.req.query('sessionId');
+    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
     
     if (!sessionId) {
       return c.json({

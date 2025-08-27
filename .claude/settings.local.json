@@ -26,7 +26,9 @@
       "Bash(git push:*)",
       "Bash(npm init:*)",
       "Bash(npm run local:*)",
-      "mcp__playwright__browser_type"
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_take_screenshot"
     ]
   },
   "enabledMcpjsonServers": [

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getCookie, setCookie } from 'hono/cookie';
 import { GoogleAuthService } from '../services/googleAuth';
 import type { Env, GoogleTokens } from '../types';
 
@@ -71,10 +72,18 @@ auth.get('/google/callback', async (c) => {
 
     await setSession(sessionId, sessionData, c.env);
 
-    // Redirect to frontend with session info
+    // Set session cookie
+    setCookie(c, 'sessionId', sessionId, {
+      httpOnly: false, // Allow JavaScript access for testing
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 86400, // 24 hours
+      sameSite: 'Lax',
+      domain: 'localhost' // Allow cross-port access on localhost
+    });
+
+    // Redirect to frontend
     const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
     redirectUrl.searchParams.set('auth', 'success');
-    redirectUrl.searchParams.set('sessionId', sessionId);
 
     return c.redirect(redirectUrl.toString());
   } catch (error: any) {
@@ -93,13 +102,15 @@ auth.get('/google/callback', async (c) => {
  */
 auth.get('/status', async (c) => {
   try {
-    const sessionId = c.req.header('X-Session-ID') || c.req.query('sessionId');
+    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
     
     if (!sessionId) {
       return c.json({
-        success: false,
-        authenticated: false,
-        message: '세션 ID가 제공되지 않았습니다.',
+        success: true,
+        data: {
+          google: false,
+          solapi: false
+        }
       });
     }
 
@@ -107,9 +118,11 @@ auth.get('/status', async (c) => {
     
     if (!sessionData) {
       return c.json({
-        success: false,
-        authenticated: false,
-        message: '유효하지 않은 세션입니다.',
+        success: true,
+        data: {
+          google: false,
+          solapi: false
+        }
       });
     }
 
@@ -129,27 +142,46 @@ auth.get('/status', async (c) => {
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
         return c.json({
-          success: false,
-          authenticated: false,
-          message: '인증 토큰 갱신에 실패했습니다.',
+          success: true,
+          data: {
+            google: false,
+            solapi: false
+          }
         });
       }
     }
 
+    // Get spreadsheets list for the response
+    let spreadsheetsList = [];
+    try {
+      const { GoogleSheetsService } = await import('../services/googleSheets');
+      const sheetsService = new GoogleSheetsService(c.env);
+      sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+      spreadsheetsList = await sheetsService.getSpreadsheets();
+    } catch (error) {
+      console.error('Failed to fetch spreadsheets list:', error);
+    }
+
     return c.json({
       success: true,
-      authenticated: true,
-      connectedAt: sessionData.connectedAt,
-      message: '인증된 상태입니다.',
+      data: {
+        google: true,
+        solapi: false,
+        googleData: {
+          connectedAt: sessionData.connectedAt,
+          spreadsheets: spreadsheetsList
+        }
+      }
     });
   } catch (error: any) {
     console.error('Auth status check error:', error);
     return c.json({
-      success: false,
-      authenticated: false,
-      message: '인증 상태 확인 중 오류가 발생했습니다.',
-      error: error.message,
-    }, 500);
+      success: true,
+      data: {
+        google: false,
+        solapi: false
+      }
+    });
   }
 });
 
@@ -158,11 +190,20 @@ auth.get('/status', async (c) => {
  */
 auth.post('/logout', async (c) => {
   try {
-    const sessionId = c.req.header('X-Session-ID') || c.req.query('sessionId');
+    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
     
     if (sessionId) {
       await c.env.SESSIONS.delete(sessionId);
     }
+
+    // Clear session cookie
+    setCookie(c, 'sessionId', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 0, // Delete cookie
+      sameSite: 'Lax',
+      domain: 'localhost' // Allow cross-port access on localhost
+    });
 
     return c.json({
       success: true,

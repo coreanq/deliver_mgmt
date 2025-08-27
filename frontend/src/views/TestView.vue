@@ -98,7 +98,9 @@ const testGoogleSheets = async (): Promise<void> => {
   try {
     console.log('Testing Google Sheets integration...');
     
-    const response = await fetch('http://localhost:5001/api/sheets/test');
+    const response = await fetch('http://localhost:5001/api/sheets/test', {
+      credentials: 'include' // Include cookies in cross-origin requests
+    });
     const result = await response.json();
     
     testResult.value = result;
