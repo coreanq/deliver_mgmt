@@ -21,57 +21,67 @@
   - 실시간 연결 상태 (연결됨/연결 끊김) 표시
   - "연결 해제" 및 "다른 시트 연결" 옵션 제공
 
-### 2. 구글 스프레드시트 직접 관리 (배달자별 시트)
+### 2. 구글 스프레드시트 직접 관리 (날짜별 시트)
 - **스프레드시트 구조**: 
-  - 각 **배달담당자별로 개별 시트** 생성
-  - 시트명 = 배달담당자 이름 (예: "김배달", "이운송", "박택배")
+  - **날짜별로 개별 스프레드시트** 생성 (YYYYMMDD 형식)
+  - 스프레드시트명 = 날짜 (예: "20250825", "20250826", "20250827")
+  - 각 스프레드시트 내에서 첫 번째 시트 사용
 - **시트 내 데이터 구조**: 
   ```
-  A열: 고객명 | B열: 연락처 | C열: 주소 | D열: 배달상태
+  배송지 | 고객명 | 고객 연락처 | 배달 담당자 | 배송상태
   ```
-- **배달 상태 값**: 
-  - "대기" (초기값)
-  - "준비중" 
-  - "출발"
-  - "완료"
+- **배달 상태 값**: 5단계 시스템
+  - "주문 완료" (초기값)
+  - "상품 준비중" 
+  - "배송 준비중"
+  - "배송 출발"
+  - "배송 완료"
 - **관리자 작업**: 
-  - 배달담당자별 시트에 주문 정보 직접 입력 (A~C열)
-  - D열은 시스템에서 자동 관리 ("대기"로 초기값 설정)
+  - 날짜별 스프레드시트에 주문 정보 직접 입력
+  - 배송상태는 시스템에서 자동 관리 ("주문 완료"로 초기값 설정)
+  - 동적 헤더 시스템으로 컬럼명 유연하게 대응
 - **실시간 동기화**: Google Sheets API로 모든 시트 변경사항 실시간 감지
 
-### 3. 배달담당자 웹사이트 (시트별 접근 + 본인 인증)
+### 3. 배달담당자 웹사이트 (날짜별 접근 + 본인 인증)
 - **QR 코드 접근**: 
-  - 배달담당자별 고유 QR코드 (시트명 기반)
-  - QR 코드 형식: `https://delivery.app/delivery?staff=김배달&token=HASH_TOKEN`
+  - 배달담당자별 고유 QR코드 (JWT 토큰 기반)
+  - QR 코드 형식: `/delivery/:date/:staffName?token=JWT_TOKEN`
+  - 24시간 만료 JWT 토큰으로 보안 강화
 - **본인 인증 절차**:
   - QR 스캔 후 "본인 이름을 입력하세요" 화면 표시
-  - 입력한 이름과 URL의 staff 파라미터(시트명) 일치 검증
+  - 입력한 이름과 URL의 staffName 파라미터 일치 검증
   - 불일치 시 "이름이 일치하지 않습니다. 다시 확인해주세요." 오류 표시
 - **배달 목록 조회**: 
-  - 인증 완료 후 해당 배달담당자 시트의 모든 주문 목록 표시
+  - 인증 완료 후 해당 날짜의 배달담당자 주문 목록 표시
   - 각 주문별로 독립적인 상태 관리
-- **배달 상태 업데이트**: 
-  - **배달 준비중 버튼**: 클릭 시 D열을 "준비중"으로 변경 (알림 발송 안함)
-  - **배달 출발 버튼**: 클릭 시 D열을 "출발"로 변경 (알림 발송 안함)
-  - **배달 완료 버튼**: 클릭 시 D열을 "완료"로 변경 + **고객 알림 발송**
+  - 동적 헤더 시스템으로 다양한 데이터 구조 지원
+- **배달 상태 업데이트**: 5단계 진행형 시스템
+  - **상품 준비중 버튼**: "주문 완료" → "상품 준비중" (알림 발송 안함)
+  - **배송 준비중 버튼**: "상품 준비중" → "배송 준비중" (알림 발송 안함)
+  - **배송 출발 버튼**: "배송 준비중" → "배송 출발" (알림 발송 안함)
+  - **배송 완료 버튼**: "배송 출발" → "배송 완료" + **고객 알림 발송**
   - 상태 변경이 즉시 스프레드시트에 반영
 
-### 4. QR 코드 시스템 (시트명 기반 + 본인 인증)
-- **시트명 기반 QR 생성**: 
-  - 각 배달담당자의 시트명을 기반으로 QR코드 생성
-  - QR코드 내용: `https://delivery.app/delivery?staff=김배달&token=HASH_TOKEN`
+### 4. QR 코드 시스템 (JWT 기반 + 본인 인증)
+- **JWT 기반 QR 생성**: 
+  - 각 배달담당자별로 JWT 토큰 기반 QR코드 생성
+  - QR코드 내용: `/delivery/:date/:staffName?token=JWT_TOKEN`
+  - 날짜와 배달담당자명이 URL에 포함
 - **2단계 인증 시스템**:
-  1. **1단계**: QR코드 스캔으로 초기 접근
+  1. **1단계**: QR코드 스캔으로 초기 접근 (JWT 토큰 검증)
   2. **2단계**: 본인 이름 입력으로 최종 인증
 - **이름 확인 프로세스**:
   - "본인 이름을 입력하세요" 입력 필드 표시
-  - 입력값과 URL의 staff 파라미터(시트명) 정확히 일치해야 접근 허용
+  - 입력값과 URL의 staffName 파라미터 정확히 일치해야 접근 허용
   - 대소문자, 띄어쓰기 정확히 일치 검증
+  - 한국어 이름 2-4자 패턴 검증 (`/^[가-힣]{2,4}$/`)
 - **접근 제어 로직**:
   - 이름 불일치 시: "이름이 일치하지 않습니다. 다시 확인해주세요." 메시지
+  - 토큰 만료 시: 자동 재인증 요구
 - **보안 토큰**: 
-  - 시트명 기반 해시 토큰으로 URL 위변조 방지
-  - 토큰 = HASH(시트명 + 보안키 + 날짜)
+  - JWT 토큰 with SHA256 해시로 URL 위변조 방지
+  - 24시간 만료 정책으로 보안 강화
+  - 토큰 = JWT(staffName + date + secret + expiry)
 
 ### 5. SOLAPI OAuth2 연동 관리 UI
 - **SOLAPI OAuth2 인증 인터페이스**:
@@ -98,17 +108,21 @@
   - 변수 치환 미리보기 제공 (#{고객명} 등)
 
 ### 6. SOLAPI를 통한 카카오톡 메시지 발송 (배달 완료시만)
-- **SOLAPI SDK 연동**: solapi-nodejs 패키지를 사용한 메시지 발송
+- **SOLAPI HTTP API 연동**: OAuth2 기반 직접 HTTP API 호출 (SDK 미사용)
 - **발송 시점**: 
-  - **배달 완료 버튼 클릭시에만** 고객에게 메시지 발송
-  - 준비중, 출발 상태는 알림 발송하지 않음
+  - **배송 완료 버튼 클릭시에만** 고객에게 메시지 발송
+  - 상품 준비중, 배송 준비중, 배송 출발 상태는 알림 발송하지 않음
 - **메시지 템플릿**: 
-  - **배달 완료**: "#{고객명}님, 주문하신 상품이 성공적으로 배달 완료되었습니다. 맛있게 드세요!"
+  - **배송 완료**: "#{고객명}님, 주문하신 상품이 성공적으로 배달 완료되었습니다. 맛있게 드세요!"
 - **개인화 변수**: 
   - #{고객명} 등 기본 정보만 활용
+  - 동적 헤더 시스템으로 다양한 고객 정보 필드 지원
 - **발송 결과 처리**: 
   - 성공 시: "고객에게 완료 알림 발송됨" 메시지 표시
   - 실패 시: "메시지 발송 실패" 알림 및 재발송 버튼 제공
+- **토큰 관리**: 
+  - Access Token 자동 갱신
+  - OAuth2 재인증 플로우 지원
 
 ### 7. 데이터 관리 (스프레드시트 중심)
 - **메인 데이터 저장**: 모든 주문 데이터는 구글 스프레드시트에 저장
@@ -122,21 +136,19 @@
 
 ## S/W 개발 환경 및 기술 스택
 
-### 백엔드 (Node.js)
-- **프레임워크**: Express.js
-- **언어**: JavaScript (ES6+) 또는 TypeScript
+### 백엔드 (Hono + Cloudflare Workers)
+- **프레임워크**: Hono 4.x (Cloudflare Workers 호환)
+- **언어**: TypeScript 5.x
+- **런타임**: Cloudflare Workers (Edge Runtime)
+- **저장소**: Cloudflare KV (세션), Google Sheets (메인 데이터)
 - **주요 라이브러리**:
   ```json
   {
-    "express": "^4.18.0",
-    "solapi": "^4.0.0",
+    "hono": "^4.x.x",
     "googleapis": "^100.0.0",
     "qrcode": "^1.5.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.0",
     "jsonwebtoken": "^9.0.0",
-    "express-session": "^1.17.0",
-    "winston": "^3.8.0"
+    "@cloudflare/workers-types": "^4.x.x"
   }
   ```
 
@@ -166,49 +178,53 @@
 - **린터**: ESLint
 - **버전 관리**: Git
 - **배포**: 
-  - 백엔드: PM2 + Nginx
-  - 프론트엔드: Nginx static files
+  - 백엔드: Cloudflare Workers (Edge deployment)
+  - 프론트엔드: Cloudflare Pages (Static hosting)
 - **환경 변수 관리**: .env 파일
 
 ## 기술적 요구사항 (MVP)
 
-### 1. 시스템 아키텍처 (Node.js + Vue.js)
-- **백엔드**: Node.js/Express 기반 API 서버
-  - SOLAPI SDK (solapi-nodejs) 통합
+### 1. 시스템 아키텍처 (Hono + Vue.js + Cloudflare)
+- **백엔드**: Hono/Cloudflare Workers 기반 Edge API 서버
+  - SOLAPI HTTP API 직접 연동 (SDK 미사용)
   - Google Sheets API 연동
   - OAuth2 인증 처리 (Google + SOLAPI)
   - RESTful API 제공
-  - 세션 기반 인증 관리
-- **프론트엔드**: Vue.js 3 기반 SPA
-  - **관리자 설정 페이지**: 스프레드시트 및 SOLAPI 연동 관리
-  - **배달담당자 웹사이트**: 모바일 최적화된 배달 관리 인터페이스
+  - Cloudflare KV 기반 세션 관리
+- **프론트엔드**: Vue.js 3 기반 SPA (Cloudflare Pages)
+  - **AdminView**: 관리자 설정 및 날짜별 데이터 관리
+  - **StaffMobileView**: 모바일 최적화된 배달 관리 인터페이스
+  - **DeliveryAuthView**: QR 인증 플로우
   - Vue Router를 통한 SPA 라우팅
-  - Vuex/Pinia를 통한 상태 관리
+  - Pinia를 통한 상태 관리
 - **데이터 저장**: 
-  - **메인 데이터**: 구글 스프레드시트
-  - **토큰 관리**: JWT 또는 세션 스토리지
-  - **로그**: 파일 기반 로깅 (winston)
+  - **메인 데이터**: 구글 스프레드시트 (날짜별)
+  - **세션 관리**: Cloudflare KV
+  - **토큰 관리**: JWT (QR 인증), OAuth2 (API 접근)
 - **API 구조**: 
   ```
-  /api/auth          - OAuth2 인증 관련
-  /api/sheets        - 구글 스프레드시트 관리
-  /api/solapi        - SOLAPI 연동 및 메시지 발송
-  /api/delivery      - 배달 관리 (QR, 상태 변경)
+  /api/auth                    - OAuth2 인증 관련
+  /api/sheets/date/:date       - 날짜별 스프레드시트 관리
+  /api/sheets/date/:date/by-staff - 담당자별 그룹화 데이터
+  /api/solapi                  - SOLAPI 연동 및 메시지 발송
+  /api/delivery/qr             - QR 토큰 생성 및 검증
   ```
 
-### 2. 구글 스프레드시트 연동 (Node.js Backend)
+### 2. 구글 스프레드시트 연동 (Hono Backend)
 - **백엔드 Google Sheets 처리**:
-  - Node.js에서 Google Sheets API v4 사용
+  - Cloudflare Workers에서 Google Sheets API v4 사용
   - Google OAuth2 클라이언트 라이브러리 활용
-  - 스프레드시트 읽기/쓰기 로직 구현
+  - 동적 헤더 시스템으로 유연한 데이터 구조 지원
+  - 날짜별 스프레드시트 자동 탐지
 - **API 엔드포인트**:
   ```
-  POST /api/sheets/auth           - Google OAuth2 시작
-  GET  /api/sheets/auth/callback  - OAuth2 콜백 처리
-  GET  /api/sheets/list           - 스프레드시트 목록 조회
-  POST /api/sheets/connect        - 특정 시트 연결
-  GET  /api/sheets/data/:sheetName - 시트별 데이터 조회
-  PUT  /api/sheets/data/:sheetName - 시트 데이터 업데이트
+  GET  /api/auth/google           - Google OAuth2 시작
+  GET  /api/auth/google/callback  - OAuth2 콜백 처리
+  GET  /api/auth/status           - 인증 상태 확인
+  GET  /api/sheets/spreadsheets   - 스프레드시트 목록 조회
+  GET  /api/sheets/date/:date     - 날짜별 데이터 조회 (YYYYMMDD)
+  GET  /api/sheets/date/:date/by-staff - 담당자별 그룹화 데이터
+  PUT  /api/sheets/data/:date/status   - 배송 상태 업데이트
   ```
 - **Vue.js 프론트엔드**:
   - 구글 로그인 버튼으로 OAuth2 시작
@@ -218,42 +234,40 @@
   - 폴링 방식으로 시트 변경사항 감지
   - WebSocket 또는 Server-Sent Events 활용 가능
 
-### 3. QR 코드 시스템 (Node.js + Vue.js)
+### 3. QR 코드 시스템 (Hono + Vue.js)
 - **백엔드 QR 처리**:
-  - Node.js에서 qrcode 라이브러리 사용
-  - QR 코드 생성 및 토큰 관리 로직
-  - 시트명 기반 고유 URL 생성
+  - Cloudflare Workers에서 qrcode 라이브러리 사용
+  - JWT 토큰 기반 QR 코드 생성 및 검증
+  - 날짜 + 배달담당자명 기반 고유 URL 생성
+  - 24시간 만료 정책으로 보안 강화
 - **API 엔드포인트**:
   ```
-  POST /api/qr/generate/:staffName  - 배달자별 QR 코드 생성
-  GET  /api/qr/verify/:token        - QR 토큰 검증
-  POST /api/delivery/auth           - 배달자 이름 확인 인증
-  GET  /api/delivery/orders/:staff  - 배달자별 주문 목록 조회
-  PUT  /api/delivery/status         - 배달 상태 업데이트
+  POST /api/delivery/qr/generate   - 배달자별 QR 코드 생성
+  GET  /api/delivery/qr/verify     - QR JWT 토큰 검증
+  POST /api/delivery/auth          - 배달자 이름 확인 인증
+  GET  /api/delivery/:date/:staff  - 날짜별 배달자 주문 목록
+  PUT  /api/sheets/data/:date/status - 배달 상태 업데이트
   ```
 - **Vue.js 프론트엔드**:
   - **관리자용**: QR 코드 생성 및 다운로드 컴포넌트
-  - **배달담당자용**: 
-    - QR 스캔 페이지 (모바일 카메라 API 활용)
-    - 이름 확인 입력 폼 컴포넌트
-    - 주문 목록 및 상태 변경 인터페이스
+
 - **모바일 최적화**: 
   - Vue.js PWA 설정으로 모바일 앱처럼 사용
   - 터치 친화적인 UI 컴포넌트
 
-### 4. SOLAPI OAuth2 연동 (Node.js Backend)
+### 4. SOLAPI OAuth2 연동 (Hono Backend)
 - **백엔드 SOLAPI 처리**:
-  - Node.js에서 solapi-nodejs SDK 사용
+  - Cloudflare Workers에서 SOLAPI HTTP API 직접 호출 (SDK 미사용)
   - OAuth2 Authorization Code 처리
-  - Access Token 및 Refresh Token 관리
-  - 메시지 발송 API 래핑
+  - Access Token 및 Refresh Token을 Cloudflare KV에 저장
+  - 메시지 발송 HTTP API 직접 호출
 - **프론트엔드 Vue.js 연동**:
   - Vue.js에서 백엔드 API 호출
   - OAuth2 인증 플로우 처리
   - 실시간 연동 상태 표시
 - **API 엔드포인트**:
   ```
-  POST /api/solapi/auth/login     - SOLAPI OAuth2 시작
+  GET  /api/solapi/auth/login     - SOLAPI OAuth2 시작
   GET  /api/solapi/auth/callback  - OAuth2 콜백 처리  
   GET  /api/solapi/account        - 계정 정보 조회
   GET  /api/solapi/senders        - 발신번호 목록 조회
@@ -261,7 +275,7 @@
   GET  /api/solapi/templates      - 템플릿 목록 조회
   ```
 - **토큰 관리**:
-  - 백엔드에서 Access Token 안전하게 저장
+  - Cloudflare KV에서 Access Token 안전하게 저장
   - 토큰 만료 시 자동 갱신 처리
   - 프론트엔드는 세션 기반 인증 상태만 확인
 
@@ -281,25 +295,26 @@
 ## 시스템 흐름도 (MVP)
 
 ### 1. 관리자 워크플로우 (OAuth2 기반 설정)
-1. **관리자 설정 페이지 접속**
+1. **관리자 설정 페이지 접속** (AdminView)
 2. **"구글 스프레드시트 연결하기" 버튼 클릭**
 3. **Google 계정 OAuth 인증 진행**
-4. **연동할 스프레드시트 선택 (또는 새로 생성)**
+4. **날짜별 스프레드시트 자동 탐지 및 연결**
 5. **"SOLAPI로 로그인" 버튼 클릭**
 6. **SOLAPI 로그인 페이지에서 사용자 인증**
 7. **권한 승인 페이지에서 메시지 발송 권한 허용**
 8. **OAuth2 연동 완료 후 발신번호 및 템플릿 자동 설정**
-9. **배달담당자명 입력하여 시트 자동 생성**
-10. **각 시트에 배달 정보 입력**: 고객명(A), 연락처(B), 주소(C)
-11. **시스템이 QR코드 자동 생성 및 제공**
+9. **날짜별 스프레드시트에 배달 정보 입력**: 배송지, 고객명, 연락처, 배달담당자
+10. **달력에서 날짜 선택하여 해당일 주문 데이터 확인**
+11. **배달담당자별로 QR코드 자동 생성 및 제공**
 
 ### 2. 배달담당자 워크플로우 (2단계 인증)
-1. 자신의 QR 코드 스캔으로 웹사이트 접속
-2. **본인 이름 입력하여 인증** (시트명과 일치 확인)
-3. 인증 성공 후 자신의 시트에 있는 모든 배달 목록 확인
-4. 각 주문별로 상태 변경: 대기 → 준비중 → 출발 → 완료
-5. **배달 완료시에만** 고객에게 알림 발송
-6. 변경사항이 스프레드시트 D열에 실시간 반영
+1. 자신의 QR 코드 스캔으로 웹사이트 접속 (`/delivery/:date/:staffName`)
+2. **JWT 토큰 자동 검증** (24시간 만료, 위변조 방지)
+3. **본인 이름 입력하여 인증** (staffName 파라미터와 일치 확인)
+4. 인증 성공 후 해당 날짜의 자신 담당 배달 목록 확인 (StaffMobileView)
+5. 각 주문별로 5단계 상태 변경: 주문완료 → 상품준비중 → 배송준비중 → 배송출발 → 배송완료
+6. **배송 완료시에만** 고객에게 SOLAPI 카카오톡 알림 발송
+7. 변경사항이 Google Sheets 배송상태 컬럼에 실시간 반영
 
 ## 사용자 경험 요구사항 (MVP)
 
@@ -372,5 +387,5 @@
 - **확장 계획**: MVP 검증 후 추가 기능 개발
 
 ---
-*문서 버전: 7.0 (Final MVP - Node.js + Vue.js)*
-*최종 수정: 2025-08-19*
+*문서 버전: 8.0 (Final MVP - Hono + Vue.js + Cloudflare)*
+*최종 수정: 2025-08-28*

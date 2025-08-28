@@ -36,7 +36,9 @@
       "mcp__playwright__browser_network_requests",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npm run deploy:*)"
+      "Bash(npm run deploy:*)",
+      "Bash(npx wrangler auth:*)",
+      "Bash(npx wrangler:*)"
     ]
   },
   "enabledMcpjsonServers": [

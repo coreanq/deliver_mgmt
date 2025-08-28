@@ -164,7 +164,29 @@ sheets.get('/date/:date', async (c) => {
       }
     }
 
-    // If no date-named spreadsheet found, return empty result
+    // If no date-named spreadsheet found, try to find a sheet with the date name in available spreadsheets
+    for (const spreadsheet of spreadsheets) {
+      try {
+        const sheets = await sheetsService.getSheets(spreadsheet.id);
+        const dateSheet = sheets.find(sheet => sheet.title === date);
+        
+        if (dateSheet) {
+          console.log(`Found sheet with date name: ${date} in spreadsheet: ${spreadsheet.name}`);
+          const orders = await sheetsService.getDeliveryOrders(spreadsheet.id, dateSheet.title);
+          
+          return c.json({
+            success: true,
+            data: { orders, sheetName: dateSheet.title, spreadsheetId: spreadsheet.id },
+            message: `${date} 날짜의 배달 주문을 조회했습니다.`,
+          } as ApiResponse);
+        }
+      } catch (error) {
+        console.log(`Error checking sheets in spreadsheet ${spreadsheet.name}:`, error);
+        continue;
+      }
+    }
+
+    // If no date-named sheet found, return empty result
     return c.json({
       success: true,
       data: { orders: [], sheetName: date },
@@ -201,6 +223,8 @@ sheets.get('/date/:date/by-staff', async (c) => {
 
     // First, try to find a spreadsheet with the date name
     const spreadsheets = await sheetsService.getSpreadsheets();
+    console.log(`Available spreadsheets:`, spreadsheets.map(s => s.name));
+    console.log(`Looking for spreadsheet with name: ${date}`);
     const dateSpreadsheet = spreadsheets.find(sheet => sheet.name === date);
 
     if (dateSpreadsheet) {
@@ -209,9 +233,12 @@ sheets.get('/date/:date/by-staff', async (c) => {
       
       if (sheets && sheets.length > 0) {
         const firstSheetName = sheets[0].title;
+        console.log(`Using first sheet: ${firstSheetName}`);
         const ordersByStaff = await sheetsService.getDeliveryOrdersByStaff(dateSpreadsheet.id, firstSheetName);
         const allOrders = await sheetsService.getDeliveryOrders(dateSpreadsheet.id, firstSheetName);
         const headers = allOrders.length > 0 ? Object.keys(allOrders[0]).filter(key => key !== 'rowIndex') : [];
+        
+        console.log(`Found ${Object.keys(ordersByStaff).length} staff members with ${allOrders.length} total orders`);
         
         return c.json({
           success: true,
@@ -222,11 +249,41 @@ sheets.get('/date/:date/by-staff', async (c) => {
       }
     }
 
-    // If no date-named spreadsheet found, return empty result
+    // If no date-named spreadsheet found, try to find a sheet with the date name in available spreadsheets
+    console.log(`No spreadsheet named ${date} found, checking sheets within each spreadsheet...`);
+    for (const spreadsheet of spreadsheets) {
+      try {
+        console.log(`Checking sheets in spreadsheet: ${spreadsheet.name}`);
+        const sheets = await sheetsService.getSheets(spreadsheet.id);
+        console.log(`Sheets in ${spreadsheet.name}:`, sheets.map(s => s.title));
+        const dateSheet = sheets.find(sheet => sheet.title === date);
+        
+        if (dateSheet) {
+          console.log(`Found sheet with date name: ${date} in spreadsheet: ${spreadsheet.name}`);
+          const ordersByStaff = await sheetsService.getDeliveryOrdersByStaff(spreadsheet.id, dateSheet.title);
+          const allOrders = await sheetsService.getDeliveryOrders(spreadsheet.id, dateSheet.title);
+          const headers = allOrders.length > 0 ? Object.keys(allOrders[0]).filter(key => key !== 'rowIndex') : [];
+          
+          console.log(`Found ${Object.keys(ordersByStaff).length} staff members with ${allOrders.length} total orders in sheet ${dateSheet.title}`);
+          
+          return c.json({
+            success: true,
+            data: { ordersByStaff, sheetName: dateSheet.title, spreadsheetId: spreadsheet.id },
+            headers: headers,
+            message: `${date} 날짜의 배달담당자별 주문을 조회했습니다.`,
+          } as ApiResponse);
+        }
+      } catch (error) {
+        console.log(`Error checking sheets in spreadsheet ${spreadsheet.name}:`, error);
+        continue;
+      }
+    }
+
+    // If no date-named sheet found, return empty result
     return c.json({
       success: true,
       data: { ordersByStaff: {}, sheetName: date },
-      message: `${date} 날짜의 스프레드시트를 찾을 수 없습니다.`,
+      message: `${date} 날짜의 스프레드시트나 시트를 찾을 수 없습니다.`,
     } as ApiResponse);
   } catch (error: any) {
     console.error('Failed to get delivery orders by staff:', error);
