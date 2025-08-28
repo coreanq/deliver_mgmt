@@ -4,7 +4,7 @@
       <v-col cols="12" md="6" lg="4">
         <v-card class="pa-6">
           <v-card-title class="text-h5 text-center mb-4">
-            배달담당자 인증
+            배송담당자 인증
           </v-card-title>
 
           <!-- QR Token Verification Step -->
@@ -30,7 +30,7 @@
           <div v-else-if="!isNameVerified">
             <v-card-text>
               <p class="text-h6 mb-4 text-center">본인 확인</p>
-              <p class="mb-4">QR 코드에 등록된 배달담당자명: <strong>{{ staffNameFromQR }}</strong></p>
+              <p class="mb-4">QR 코드에 등록된 배송담당자명: <strong>{{ staffNameFromQR }}</strong></p>
               <p class="mb-4">보안을 위해 본인 이름을 정확히 입력해주세요.</p>
               
               <v-text-field

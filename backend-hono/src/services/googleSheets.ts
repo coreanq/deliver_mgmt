@@ -141,7 +141,7 @@ export class GoogleSheetsService {
       const groupedOrders: { [staffName: string]: DeliveryOrder[] } = {};
 
       // Look for delivery staff column
-      const staffColumnNames = ['배달 담당자', '담당자', '배달담당자', '배송담당자'];
+      const staffColumnNames = ['배송 담당자', '담당자', '배송담당자'];
       let staffColumnName = '';
       
       for (const colName of staffColumnNames) {
@@ -202,7 +202,7 @@ export class GoogleSheetsService {
       return groupedOrders;
     } catch (error) {
       console.error('Failed to get delivery orders by staff:', error);
-      throw new Error('배달담당자별 주문 목록을 가져오는데 실패했습니다.');
+      throw new Error('배송담당자별 주문 목록을 가져오는데 실패했습니다.');
     }
   }
 

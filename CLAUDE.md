@@ -227,3 +227,4 @@ Set these in the Cloudflare Workers dashboard:
 - `CLOUDFLARE_DEPLOYMENT.md`: Detailed Cloudflare deployment guide
 - `prd.md`: Product Requirements Document (MVP specifications)
 - `tasks.md`: Development task tracking and checklist
+- local server 와 운영 서버 간의 url 을 동적으로 설정할수 있도록 해야함

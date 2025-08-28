@@ -262,13 +262,22 @@ auth.post('/logout', async (c) => {
     }
 
     // Clear session cookie
-    setCookie(c, 'sessionId', '', {
+    // Get domain based on environment
+    const isDev = process.env.NODE_ENV !== 'production';
+    const cookieOptions: any = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: !isDev,
       maxAge: 0, // Delete cookie
       sameSite: 'Lax',
-      domain: 'localhost' // Allow cross-port access on localhost
-    });
+      path: '/'
+    };
+    
+    // Only set domain for localhost in development
+    if (isDev) {
+      cookieOptions.domain = 'localhost';
+    }
+    
+    setCookie(c, 'sessionId', '', cookieOptions);
 
     return c.json({
       success: true,

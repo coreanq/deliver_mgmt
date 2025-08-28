@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('배달담당자 대시보드', () => {
+test.describe('배송담당자 대시보드', () => {
   test.beforeEach(async ({ page }) => {
     // Mock authenticated delivery staff state
     await page.addInitScript(() => {
@@ -14,7 +14,7 @@ test.describe('배달담당자 대시보드', () => {
   test('배달 목록 기본 UI 확인', async ({ page }) => {
     await page.goto('/delivery');
     
-    // 페이지 제목 및 배달담당자 이름 확인
+    // 페이지 제목 및 배송담당자 이름 확인
     await expect(page.getByText('김배달님의 배달 목록')).toBeVisible();
     
     // 진행률 정보 확인

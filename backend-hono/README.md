@@ -8,7 +8,7 @@ Google Sheets 기반 배달 관리 시스템의 Cloudflare Workers용 Hono 백�
 - **Cloudflare Workers**: 엣지에서 실행되는 서버리스 환경  
 - **Google Sheets Integration**: 구글 시트를 데이터베이스로 사용
 - **SOLAPI Integration**: 카카오톡 메시지 발송
-- **QR Code Authentication**: 배달 담당자 인증
+- **QR Code Authentication**: 배송 담당자 인증
 - **TypeScript**: 완전한 타입 안전성
 
 ## 개발 환경 설정

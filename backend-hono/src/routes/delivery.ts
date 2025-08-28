@@ -37,12 +37,16 @@ delivery.get('/qr/:staffName', async (c) => {
     // Create JWT token (24 hour expiry)
     const token = jwt.sign(payload, 'your-jwt-secret', { expiresIn: '24h' });
     
-    // Create QR code data URL
+    // Create QR code SVG (Cloudflare Workers compatible)
     const qrData = `${c.env.FRONTEND_URL}/delivery/auth?token=${token}`;
-    const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+    const qrCodeSvg = await QRCode.toString(qrData, {
+      type: 'svg',
       width: 300,
       margin: 2,
     });
+    
+    // Convert SVG to data URL
+    const qrCodeDataUrl = `data:image/svg+xml;base64,${Buffer.from(qrCodeSvg).toString('base64')}`;
 
     return c.json({
       success: true,
@@ -52,7 +56,7 @@ delivery.get('/qr/:staffName', async (c) => {
         qrCodeDataUrl,
         expiresIn: '24시간',
       },
-      message: '배달담당자 QR 코드가 생성되었습니다.',
+      message: '배송담당자 QR 코드가 생성되었습니다.',
     } as ApiResponse);
   } catch (error: any) {
     console.error('Failed to generate QR code:', error);
@@ -74,7 +78,7 @@ delivery.post('/qr/generate-mobile/:staffName/:date', async (c) => {
   if (!staffName || !date) {
     return c.json({
       success: false,
-      message: '배달담당자 이름과 날짜가 필요합니다.',
+      message: '배송담당자 이름과 날짜가 필요합니다.',
     } as ApiResponse, 400);
   }
 
@@ -107,11 +111,15 @@ delivery.post('/qr/generate-mobile/:staffName/:date', async (c) => {
     // Generate URL for staff mobile page with date
     const qrUrl = `${c.env.FRONTEND_URL}/delivery/${date}/${encodeURIComponent(staffName)}?token=${token}`;
     
-    // Create QR code data URL
-    const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
+    // Create QR code SVG (Cloudflare Workers compatible)
+    const qrCodeSvg = await QRCode.toString(qrUrl, {
+      type: 'svg',
       width: 300,
       margin: 2,
     });
+    
+    // Convert SVG to data URL
+    const qrCodeDataUrl = `data:image/svg+xml;base64,${Buffer.from(qrCodeSvg).toString('base64')}`;
 
     return c.json({
       success: true,

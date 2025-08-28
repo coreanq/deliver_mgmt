@@ -342,7 +342,7 @@
                                               <div v-else-if="header.includes('담당자') && getStaffName(item)" class="staff-section-unified">
                                                 <div class="field-header">
                                                   <v-icon size="18" color="green">mdi-account-tie</v-icon>
-                                                  <span class="field-label-unified">배달 담당자</span>
+                                                  <span class="field-label-unified">배송 담당자</span>
                                                 </div>
                                                 <div class="staff-name-unified">
                                                   {{ getStaffName(item) || '-' }}
@@ -775,7 +775,7 @@ const getStaffName = (order: any): string => {
     const lowerHeader = header.toLowerCase();
     return (
       lowerHeader.includes('담당자') ||
-      lowerHeader.includes('배달담당자') ||
+      lowerHeader.includes('배송담당자') ||
       lowerHeader.includes('배송담당자') ||
       lowerHeader.includes('직원') ||
       (lowerHeader.includes('배달') && lowerHeader.includes('담당'))
@@ -787,8 +787,8 @@ const getStaffName = (order: any): string => {
   }
   
   // Fallback: check specific header names
-  if (order['배달 담당자']) {
-    return order['배달 담당자'];
+  if (order['배송 담당자']) {
+    return order['배송 담당자'];
   }
   
   return '';
@@ -798,7 +798,8 @@ const getStaffName = (order: any): string => {
 
 const openStaffPage = (staffName: string): void => {
   if (staffName && selectedDateString.value) {
-    const url = `http://localhost:5173/delivery/${selectedDateString.value}/${encodeURIComponent(staffName)}`;
+    const baseUrl = window.location.origin;
+    const url = `${baseUrl}/delivery/${selectedDateString.value}/${encodeURIComponent(staffName)}`;
     window.open(url, '_blank');
   }
 };
@@ -835,7 +836,7 @@ const connectSolapi = async (): Promise<void> => {
     // TODO: Implement SOLAPI OAuth2 flow
     console.log('Connecting to SOLAPI...');
     // Redirect to backend OAuth endpoint
-    window.location.href = 'http://localhost:3000/api/solapi/auth/login';
+    window.location.href = `${API_BASE_URL}/api/solapi/auth/login`;
   } catch (error) {
     console.error('SOLAPI connection failed:', error);
   } finally {

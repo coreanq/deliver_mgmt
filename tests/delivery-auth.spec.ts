@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('배달담당자 인증 시스템', () => {
+test.describe('배송담당자 인증 시스템', () => {
   test('QR 코드 없이 접근 시 오류 메시지', async ({ page }) => {
     await page.goto('/delivery/auth');
     
@@ -17,7 +17,7 @@ test.describe('배달담당자 인증 시스템', () => {
     
     // QR 인증 후 이름 입력 단계로 진행
     await expect(page.getByText('본인 확인')).toBeVisible();
-    await expect(page.getByText(`QR 코드에 등록된 배달담당자명: ${mockStaffName}`)).toBeVisible();
+    await expect(page.getByText(`QR 코드에 등록된 배송담당자명: ${mockStaffName}`)).toBeVisible();
     await expect(page.getByLabel('본인 이름 입력')).toBeVisible();
   });
 
@@ -117,7 +117,7 @@ test.describe('배달담당자 인증 시스템', () => {
     await expect(qrIcon).toBeVisible();
     
     // 텍스트가 모바일에서 읽기 좋은 크기여야 함
-    const titleElement = page.getByText('배달담당자 인증');
+    const titleElement = page.getByText('배송담당자 인증');
     const fontSize = await titleElement.evaluate(el => 
       window.getComputedStyle(el).fontSize
     );

@@ -415,7 +415,7 @@ const getStatusIcon = (status: string): string => {
 
 
 const getAvailableStatuses = (currentStatus: string): string[] => {
-  // 배달담당자는 배송 준비중 상태에서만 버튼 활성화
+  // 배송담당자는 배송 준비중 상태에서만 버튼 활성화
   const currentStatusValue = currentStatus || '주문 완료';
   
   // 배송 준비중 → 배송 출발 → 배송 완료 순서로만 변경 가능

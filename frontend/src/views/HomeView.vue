@@ -9,7 +9,7 @@
           
           <v-card-text class="text-center">
             <p class="text-h6 mb-4">구글 스프레드시트 기반 배달 관리</p>
-            <p class="mb-6">관리자는 설정을 통해 시스템을 구성하고, 배달담당자는 QR 코드를 통해 접근할 수 있습니다.</p>
+            <p class="mb-6">관리자는 설정을 통해 시스템을 구성하고, 배송담당자는 QR 코드를 통해 접근할 수 있습니다.</p>
           </v-card-text>
 
           <v-card-actions class="justify-center">
@@ -32,7 +32,7 @@
               class="ma-2"
             >
               <v-icon start>mdi-qrcode-scan</v-icon>
-              배달담당자 접속
+              배송담당자 접속
             </v-btn>
           </v-card-actions>
         </v-card>

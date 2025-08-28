@@ -50,7 +50,7 @@ test.describe('관리자 설정 UI', () => {
     expect(response.status()).toBe(302);
   });
 
-  test('배달담당자 추가 기능', async ({ page }) => {
+  test('배송담당자 추가 기능', async ({ page }) => {
     // Mock Google 인증 상태로 설정 (실제로는 OAuth 완료 후 상태)
     await page.evaluate(() => {
       // Simulate authenticated state
@@ -59,18 +59,18 @@ test.describe('관리자 설정 UI', () => {
     
     await page.reload();
     
-    // 배달담당자 관리 섹션이 보여야 함
-    await expect(page.getByText('배달담당자 관리')).toBeVisible();
+    // 배송담당자 관리 섹션이 보여야 함
+    await expect(page.getByText('배송담당자 관리')).toBeVisible();
     
-    // 배달담당자 이름 입력
-    const nameInput = page.getByLabel('배달담당자 이름');
+    // 배송담당자 이름 입력
+    const nameInput = page.getByLabel('배송담당자 이름');
     await nameInput.fill('김배달');
     
     // 추가 버튼 클릭
-    const addButton = page.getByRole('button', { name: '배달담당자 추가' });
+    const addButton = page.getByRole('button', { name: '배송담당자 추가' });
     await addButton.click();
     
-    // 추가된 배달담당자가 목록에 표시되어야 함
+    // 추가된 배송담당자가 목록에 표시되어야 함
     await expect(page.getByText('김배달')).toBeVisible();
     
     // QR 코드 생성 버튼 확인
@@ -80,7 +80,7 @@ test.describe('관리자 설정 UI', () => {
     await expect(page.getByRole('button', { name: /delete/ })).toBeVisible();
   });
 
-  test('빈 이름으로 배달담당자 추가 시도', async ({ page }) => {
+  test('빈 이름으로 배송담당자 추가 시도', async ({ page }) => {
     // Mock Google 인증 상태
     await page.evaluate(() => {
       window.localStorage.setItem('googleAuth', 'true');
@@ -89,27 +89,27 @@ test.describe('관리자 설정 UI', () => {
     await page.reload();
     
     // 빈 이름으로 추가 버튼 클릭
-    const addButton = page.getByRole('button', { name: '배달담당자 추가' });
+    const addButton = page.getByRole('button', { name: '배송담당자 추가' });
     await expect(addButton).toBeDisabled();
     
     // 공백만 입력했을 때도 버튼이 비활성화되어야 함
-    const nameInput = page.getByLabel('배달담당자 이름');
+    const nameInput = page.getByLabel('배송담당자 이름');
     await nameInput.fill('   ');
     await expect(addButton).toBeDisabled();
   });
 
   test('QR 코드 생성 기능', async ({ page }) => {
-    // Mock Google 인증 상태 및 배달담당자 추가
+    // Mock Google 인증 상태 및 배송담당자 추가
     await page.evaluate(() => {
       window.localStorage.setItem('googleAuth', 'true');
     });
     
     await page.reload();
     
-    // 배달담당자 추가
-    const nameInput = page.getByLabel('배달담당자 이름');
+    // 배송담당자 추가
+    const nameInput = page.getByLabel('배송담당자 이름');
     await nameInput.fill('김배달');
-    await page.getByRole('button', { name: '배달담당자 추가' }).click();
+    await page.getByRole('button', { name: '배송담당자 추가' }).click();
     
     // QR 코드 생성 버튼 클릭
     const qrButton = page.getByRole('button', { name: /qrcode/ }).first();

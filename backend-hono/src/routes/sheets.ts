@@ -244,7 +244,7 @@ sheets.get('/date/:date/by-staff', async (c) => {
           success: true,
           data: { ordersByStaff, sheetName: firstSheetName, spreadsheetId: dateSpreadsheet.id },
           headers: headers,
-          message: `${date} 날짜의 배달담당자별 주문을 조회했습니다.`,
+          message: `${date} 날짜의 배송담당자별 주문을 조회했습니다.`,
         } as ApiResponse);
       }
     }
@@ -270,7 +270,7 @@ sheets.get('/date/:date/by-staff', async (c) => {
             success: true,
             data: { ordersByStaff, sheetName: dateSheet.title, spreadsheetId: spreadsheet.id },
             headers: headers,
-            message: `${date} 날짜의 배달담당자별 주문을 조회했습니다.`,
+            message: `${date} 날짜의 배송담당자별 주문을 조회했습니다.`,
           } as ApiResponse);
         }
       } catch (error) {
@@ -289,7 +289,7 @@ sheets.get('/date/:date/by-staff', async (c) => {
     console.error('Failed to get delivery orders by staff:', error);
     return c.json({
       success: false,
-      message: '배달담당자별 주문 목록을 가져오는데 실패했습니다.',
+      message: '배송담당자별 주문 목록을 가져오는데 실패했습니다.',
       error: error.message,
     } as ApiResponse, 500);
   }
@@ -349,7 +349,7 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
     console.error('Failed to get staff delivery orders:', error);
     return c.json({
       success: false,
-      message: '배달담당자 주문 목록을 가져오는데 실패했습니다.',
+      message: '배송담당자 주문 목록을 가져오는데 실패했습니다.',
       error: error.message,
     } as ApiResponse, 500);
   }
