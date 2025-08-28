@@ -528,10 +528,10 @@ const loadDeliveryData = async (): Promise<void> => {
     }
     
     // Prepare headers for API request
-    const headers: { [key: string]: string } = {};
+    const requestHeaders: { [key: string]: string } = {};
     
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      requestHeaders['Authorization'] = `Bearer ${token}`;
     }
     
     const response = await fetch(
@@ -539,7 +539,7 @@ const loadDeliveryData = async (): Promise<void> => {
       {
         method: 'GET',
         credentials: 'include',
-        headers,
+        headers: requestHeaders,
       }
     );
     
@@ -547,7 +547,7 @@ const loadDeliveryData = async (): Promise<void> => {
     
     if (result.success) {
       deliveryOrders.value = result.data || [];
-      headers.value = (result.headers || []) as string[];
+      headers.value = result.headers || [];
       console.log('Staff delivery data loaded:', result.data);
     } else {
       error.value = result.message || '데이터를 불러올 수 없습니다.';
@@ -558,7 +558,7 @@ const loadDeliveryData = async (): Promise<void> => {
     console.error('Failed to load delivery data:', err);
     error.value = '서버 연결에 실패했습니다.';
     deliveryOrders.value = [];
-    headers.value = [];
+    headers.value = [] as string[];
   } finally {
     loading.value = false;
   }
@@ -575,19 +575,19 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
   
   try {
     // Prepare headers with QR token if available
-    const headers: { [key: string]: string } = {
+    const requestHeaders: { [key: string]: string } = {
       'Content-Type': 'application/json',
     };
     
     if (qrToken.value) {
-      headers['Authorization'] = `Bearer ${qrToken.value}`;
+      requestHeaders['Authorization'] = `Bearer ${qrToken.value}`;
     }
     
     const response = await fetch(
       `${API_BASE_URL}/api/sheets/data/${dateString.value}/status`,
       {
         method: 'PUT',
-        headers,
+        headers: requestHeaders,
         credentials: 'include',
         body: JSON.stringify({
           rowIndex: rowIndex,
