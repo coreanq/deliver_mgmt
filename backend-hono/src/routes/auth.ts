@@ -157,7 +157,13 @@ auth.get('/status', async (c) => {
       header: headerSessionId,
       query: querySessionId,
       allCookies: c.req.header('Cookie'),
-      allHeaders: Object.fromEntries(c.req.raw.headers.entries())
+      allHeaders: (() => {
+        const headers: Record<string, string> = {};
+        c.req.raw.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        return headers;
+      })()
     });
     
     const sessionId = cookieSessionId || headerSessionId || querySessionId;

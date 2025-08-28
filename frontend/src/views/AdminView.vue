@@ -1001,6 +1001,23 @@ const formatDateDisplay = (dateString: string): string => {
   return dateString;
 };
 
+// Helper function to get session headers
+const getSessionHeaders = (): HeadersInit => {
+  const headers: Record<string, string> = {};
+  
+  // Get sessionId from localStorage (preferred) or cookies (fallback)
+  const localStorageSessionId = localStorage.getItem('sessionId');
+  const sessionIdMatch = document.cookie.match(/sessionId=([^;]+)/);
+  const cookieSessionId = sessionIdMatch ? sessionIdMatch[1] : null;
+  
+  const sessionId = localStorageSessionId || cookieSessionId;
+  if (sessionId) {
+    headers['X-Session-ID'] = sessionId;
+  }
+  
+  return headers;
+};
+
 const loadSheetData = async (dateString: string): Promise<void> => {
   if (!dateString) return;
   
@@ -1010,6 +1027,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
     const staffResponse = await fetch(`${API_BASE_URL}/api/sheets/date/${dateString}/by-staff`, {
       method: 'GET',
       credentials: 'include',
+      headers: getSessionHeaders(),
     });
     
     const staffResult = await staffResponse.json();
@@ -1037,6 +1055,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       const response = await fetch(`${API_BASE_URL}/api/sheets/date/${dateString}`, {
         method: 'GET',
         credentials: 'include',
+        headers: getSessionHeaders(),
       });
       
       const result = await response.json();
