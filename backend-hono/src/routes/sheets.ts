@@ -373,17 +373,30 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
         try {
           const kvKeys = await c.env.SESSIONS.list();
           
+          console.log(`Searching for admin session among ${kvKeys.keys.length} sessions`);
+          
           for (const key of kvKeys.keys) {
             try {
               const sessionDataStr = await c.env.SESSIONS.get(key.name);
               if (sessionDataStr) {
                 const parsed = JSON.parse(sessionDataStr);
+                console.log(`Checking session ${key.name}:`, { hasAccessToken: !!parsed.accessToken, hasRefreshToken: !!parsed.refreshToken });
                 if (parsed.accessToken && parsed.refreshToken) {
-                  adminSessionData = parsed;
-                  break;
+                  // Verify the session is not expired
+                  if (parsed.expiryDate && new Date(parsed.expiryDate) > new Date()) {
+                    adminSessionData = parsed;
+                    console.log(`Found valid admin session: ${key.name}`);
+                    break;
+                  } else if (!parsed.expiryDate) {
+                    // Fallback for sessions without expiry date
+                    adminSessionData = parsed;
+                    console.log(`Found admin session without expiry: ${key.name}`);
+                    break;
+                  }
                 }
               }
             } catch (e) {
+              console.error(`Error parsing session ${key.name}:`, e);
               continue;
             }
           }
@@ -391,7 +404,7 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
           if (!adminSessionData) {
             return c.json({
               success: false,
-              message: '관리자 세션을 찾을 수 없습니다.',
+              message: '유효한 관리자 세션을 찾을 수 없습니다. 관리자가 먼저 Google 인증을 완료해주세요.',
             } as ApiResponse, 401);
           }
           
@@ -526,33 +539,45 @@ sheets.put('/data/:date/status', async (c) => {
         
         try {
           // Try to find the most recent admin session
-          // In a production environment, you might want to store a reference to the admin session
-          // For now, we'll try to find any valid Google session
           const kvKeys = await c.env.SESSIONS.list();
+          
+          console.log(`[Status Update] Searching for admin session among ${kvKeys.keys.length} sessions`);
           
           for (const key of kvKeys.keys) {
             try {
-              const sessionData = await c.env.SESSIONS.get(key.name);
-              if (sessionData) {
-                const parsed = JSON.parse(sessionData);
+              const sessionDataStr = await c.env.SESSIONS.get(key.name);
+              if (sessionDataStr) {
+                const parsed = JSON.parse(sessionDataStr);
+                console.log(`[Status Update] Checking session ${key.name}:`, { hasAccessToken: !!parsed.accessToken, hasRefreshToken: !!parsed.refreshToken });
                 if (parsed.accessToken && parsed.refreshToken) {
-                  adminSessionData = parsed;
-                  break; // Use the first valid session found
+                  // Verify the session is not expired
+                  if (parsed.expiryDate && new Date(parsed.expiryDate) > new Date()) {
+                    adminSessionData = parsed;
+                    console.log(`[Status Update] Found valid admin session: ${key.name}`);
+                    break;
+                  } else if (!parsed.expiryDate) {
+                    // Fallback for sessions without expiry date
+                    adminSessionData = parsed;
+                    console.log(`[Status Update] Found admin session without expiry: ${key.name}`);
+                    break;
+                  }
                 }
               }
             } catch (e) {
-              continue; // Skip invalid sessions
+              console.error(`[Status Update] Error parsing session ${key.name}:`, e);
+              continue;
             }
           }
           
           if (!adminSessionData) {
             return c.json({
               success: false,
-              message: '관리자 세션을 찾을 수 없습니다. 관리자가 먼저 로그인해주세요.',
+              message: '유효한 관리자 세션을 찾을 수 없습니다. 관리자가 먼저 Google 인증을 완료해주세요.',
             } as ApiResponse, 401);
           }
           
           sessionData = adminSessionData;
+          console.log(`[Status Update] Using admin session for QR token`);
           
         } catch (error: any) {
           console.error('Failed to find admin session:', error);

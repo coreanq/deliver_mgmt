@@ -79,11 +79,6 @@ export const useAuthStore = defineStore('auth', () => {
       const cookieSessionId = sessionIdMatch ? sessionIdMatch[1] : null;
       
       const sessionId = localStorageSessionId || cookieSessionId;
-      console.log('SessionId sources:', { 
-        localStorage: localStorageSessionId, 
-        cookie: cookieSessionId, 
-        final: sessionId 
-      });
       
       const headers: any = {};
       if (sessionId) {
