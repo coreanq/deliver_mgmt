@@ -42,12 +42,22 @@ cd backend-hono && npm run deploy   # Deploy to Cloudflare Workers
 cd frontend && npm run dev       # Vite dev server (port 5173)
 cd frontend && npm run build     # Production build
 cd frontend && npm run preview   # Preview production build
+
+# Production build with custom API URL
+VITE_API_BASE_URL=https://your-worker.your-subdomain.workers.dev npm run build
 ```
 
 ### Testing
 - **Playwright E2E**: Use Playwright MCP tools, NOT `npx playwright test`
-- **Backend Tests**: Jest framework
+- **Backend Tests**: Jest framework  
 - **Test Page**: `http://localhost:5173/test` for development testing
+- **Individual Tests**: 
+  ```bash
+  # Frontend specific test
+  cd frontend && npm run test -- --run specific-test-name
+  # Backend specific test  
+  cd backend-hono && npm test -- --testNamePattern="specific test"
+  ```
 
 ## Architecture
 
@@ -147,8 +157,7 @@ if (token) {
 
 ### Environment Variables
 
-Both backends require similar environment variables:
-
+**Node.js Version Requirement**: >= 22.0.0 (specified in frontend/package.json)
 
 **Hono Backend** (`.env` in `backend-hono/`):
 ```bash
@@ -232,6 +241,8 @@ This enables delivery staff to access their assigned data from separate mobile d
 - **Response Language**: 한글로 답변
 - **Comment Language**: 영어로 주석 작성
 - **Design Principles**: Follow SOLID principles for all modifications
+- **Dark Mode**: UI supports dark mode (design requirement)
+- **Responsive Design**: Support PC, Tablet, Mobile with both landscape and portrait orientations
 
 ### Testing Approach
 - **Critical**: Use Playwright MCP tools for browser automation, never `npx playwright test`
@@ -299,6 +310,16 @@ Set these in the Cloudflare Workers dashboard:
 - `SOLAPI_CLIENT_SECRET`
 - `SOLAPI_REDIRECT_URL` (with your Workers domain)
 - `FRONTEND_URL` (your frontend domain)
+
+### Cross-Domain Cookie Limitations (Cloudflare Workers + Pages)
+When using Cloudflare Workers (backend) + Cloudflare Pages (frontend) with different domains:
+
+- **SameSite=Strict 제한사항**: 서로 다른 도메인 간에는 `SameSite=Strict` 설정으로 쿠키 전송 불가
+- **Cross-Domain 쿠키 정책**: 브라우저 보안 정책으로 인해 서로 다른 도메인의 쿠키는 자동으로 차단됨
+- **해결 방안**: 
+  - `SameSite=None; Secure` 설정 사용 (HTTPS 필수)
+  - 또는 동일 도메인/서브도메인 구조로 배포 권장
+  - JWT 토큰 기반 헤더 인증 방식 활용 고려
 
 ## Testing
 
