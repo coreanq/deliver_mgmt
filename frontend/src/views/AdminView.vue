@@ -1047,6 +1047,10 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       staffList.value = detectedStaff;
       
       console.log('Sheet data by staff loaded:', staffResult.data);
+      console.log('Raw ordersByStaff:', sheetDataByStaff.value);
+      console.log('박국철 orders:', sheetDataByStaff.value['박국철']?.length || 0);
+      console.log('정나영 orders:', sheetDataByStaff.value['정나영']?.length || 0);
+      console.log('AllData after flatten:', allData);
       console.log('Headers:', dynamicHeaders.value);
       console.log('Total items:', allData.length);
       console.log('Detected staff:', detectedStaff);
