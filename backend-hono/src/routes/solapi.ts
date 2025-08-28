@@ -18,6 +18,13 @@ async function setSession(sessionId: string, data: any, env: Env): Promise<void>
   await env.SESSIONS.put(sessionId, JSON.stringify(data), { expirationTtl: 86400 }); // 24 hours
 }
 
+// Generate secure session ID
+function generateSecureSessionId(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 /**
  * SOLAPI OAuth login - redirect to SOLAPI
  */
@@ -61,8 +68,8 @@ solapi.get('/auth/callback', async (c) => {
 
     const { access_token, refresh_token } = tokenResponse.data;
 
-    // Get session ID from query or generate new one
-    const sessionId = c.req.query('sessionId') || Math.random().toString(36).substring(2) + Date.now().toString(36);
+    // Get session ID from query or generate secure new one
+    const sessionId = c.req.query('sessionId') || generateSecureSessionId();
     
     // Get existing session or create new one
     let sessionData = await getSession(sessionId, c.env) || {};
@@ -76,10 +83,9 @@ solapi.get('/auth/callback', async (c) => {
 
     await setSession(sessionId, sessionData, c.env);
 
-    // Redirect to frontend
+    // Redirect to frontend without sessionId in URL (security improvement)
     const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
     redirectUrl.searchParams.set('solapi', 'success');
-    redirectUrl.searchParams.set('sessionId', sessionId);
 
     return c.redirect(redirectUrl.toString());
   } catch (error: any) {

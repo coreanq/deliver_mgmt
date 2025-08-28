@@ -547,12 +547,12 @@ const loadDeliveryData = async (): Promise<void> => {
     
     if (result.success) {
       deliveryOrders.value = result.data || [];
-      headers.value = result.headers || [];
+      headers.value = (result.headers || []) as string[];
       console.log('Staff delivery data loaded:', result.data);
     } else {
       error.value = result.message || '데이터를 불러올 수 없습니다.';
       deliveryOrders.value = [];
-      headers.value = [];
+      headers.value = [] as string[];
     }
   } catch (err) {
     console.error('Failed to load delivery data:', err);

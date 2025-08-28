@@ -19,9 +19,11 @@ async function setSession(sessionId: string, data: GoogleTokens, env: Env): Prom
   await env.SESSIONS.put(sessionId, JSON.stringify(data), { expirationTtl: 86400 }); // 24 hours
 }
 
-// Generate session ID
-function generateSessionId(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+// Generate secure session ID
+function generateSecureSessionId(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -81,7 +83,7 @@ auth.get('/google/callback', async (c) => {
     const tokens = await googleAuth.getTokens(code);
 
     // Generate session ID and store tokens
-    const sessionId = generateSessionId();
+    const sessionId = generateSecureSessionId();
     const sessionData: GoogleTokens = {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -91,28 +93,20 @@ auth.get('/google/callback', async (c) => {
 
     await setSession(sessionId, sessionData, c.env);
 
-    // Set session cookie with cross-site compatibility
-    console.log('Setting session cookie:', { sessionId, sameSite: 'None', secure: true, httpOnly: false });
+    // Set secure httpOnly session cookie
+    console.log('Setting secure session cookie:', { sessionId: sessionId.substring(0, 8) + '...', httpOnly: true, secure: true });
     
-    // Try multiple Set-Cookie approaches
     setCookie(c, 'sessionId', sessionId, {
-      httpOnly: false,
+      httpOnly: true,  // XSS 방지
       secure: true,
       maxAge: 86400,
-      sameSite: 'None',
+      sameSite: 'Strict',
       path: '/'
     });
-    
-    // Also set manual header as fallback
-    const cookieValue = `sessionId=${sessionId}; Max-Age=86400; Path=/; SameSite=None; Secure`;
-    c.header('Set-Cookie', cookieValue);
-    
-    console.log('Cookie header set:', cookieValue);
 
-    // Redirect to frontend with sessionId in URL as fallback
+    // Redirect to frontend without sessionId in URL (security improvement)
     const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
     redirectUrl.searchParams.set('auth', 'success');
-    redirectUrl.searchParams.set('sessionId', sessionId); // Fallback for cross-site cookie issues
 
     console.log('Redirecting to:', redirectUrl.toString());
     return c.redirect(redirectUrl.toString());

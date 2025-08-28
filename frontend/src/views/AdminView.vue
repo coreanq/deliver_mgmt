@@ -1006,15 +1006,8 @@ const formatDateDisplay = (dateString: string): string => {
 const getSessionHeaders = (): HeadersInit => {
   const headers: Record<string, string> = {};
   
-  // Get sessionId from localStorage (preferred) or cookies (fallback)
-  const localStorageSessionId = localStorage.getItem('sessionId');
-  const sessionIdMatch = document.cookie.match(/sessionId=([^;]+)/);
-  const cookieSessionId = sessionIdMatch ? sessionIdMatch[1] : null;
-  
-  const sessionId = localStorageSessionId || cookieSessionId;
-  if (sessionId) {
-    headers['X-Session-ID'] = sessionId;
-  }
+  // Session is now managed via httpOnly cookies automatically
+  // No need to manually add session headers - cookies are sent automatically
   
   return headers;
 };
@@ -1113,12 +1106,7 @@ onMounted(async () => {
   // Check URL parameters for OAuth callbacks
   const urlParams = new URLSearchParams(window.location.search);
   
-  // Handle sessionId from OAuth callback
-  const sessionId = urlParams.get('sessionId');
-  if (sessionId) {
-    console.log('Storing sessionId from URL:', sessionId);
-    localStorage.setItem('sessionId', sessionId);
-  }
+  // Session is now managed via httpOnly cookies - no need to handle sessionId from URL
   
   await authStore.checkAuthStatus();
   

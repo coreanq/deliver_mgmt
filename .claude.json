@@ -73,6 +73,11 @@
         "기능 추가시 기존에 기능이 이미 추가 되어 있는지 반드시 확인한다."
       ],
       
+      "session_management": {
+        "local_storage_prohibition": "local storage session 사용 금지",
+        "server_side_only": "모든 세션 관리는 서버 사이드(KV storage)에서만 처리한다"
+      },
+      
       "todo_management": {
         "update_tasks_md": "todo 완료 될때마다 tasks.md 파일의 해당 항목을 [x]로 체크 표시하여 업데이트한다."
       }
