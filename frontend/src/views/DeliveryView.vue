@@ -5,7 +5,7 @@
         <v-card>
           <v-card-title class="text-h5">
             <v-icon start>mdi-truck-delivery</v-icon>
-            {{ authStore.currentStaffName }}님의 배달 목록
+            {{ authStore.currentStaffName }}님의 배송 목록
           </v-card-title>
           
           <v-card-subtitle>
@@ -16,13 +16,13 @@
             <!-- Loading state -->
             <div v-if="loading" class="text-center pa-4">
               <v-progress-circular indeterminate color="primary" />
-              <p class="mt-2">배달 목록을 불러오는 중...</p>
+              <p class="mt-2">배송 목록을 불러오는 중...</p>
             </div>
 
             <!-- No orders -->
             <div v-else-if="deliveryOrders.length === 0" class="text-center pa-4">
               <v-icon size="64" color="grey">mdi-inbox</v-icon>
-              <p class="text-h6 mt-2">배달할 주문이 없습니다</p>
+              <p class="text-h6 mt-2">배송할 주문이 없습니다</p>
               <p class="text-body-2">새로운 주문이 등록되면 자동으로 표시됩니다.</p>
             </div>
 
@@ -92,7 +92,7 @@
                             :loading="updatingStatus[index]"
                             class="mb-2"
                           >
-                            배달 완료
+                            배송 완료
                           </v-btn>
                           
                           <v-icon

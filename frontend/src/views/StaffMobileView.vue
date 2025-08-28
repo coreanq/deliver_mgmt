@@ -32,7 +32,7 @@
         <v-card variant="outlined" class="text-center">
           <v-card-title class="text-h5 py-4">
             <v-icon start color="primary">mdi-truck-delivery</v-icon>
-            {{ staffName }} 배달 현황
+            {{ staffName }} 배송 현황
           </v-card-title>
           <v-card-subtitle>
             {{ formatDateDisplay(dateString) }}
@@ -65,7 +65,7 @@
           <v-card-text class="py-3">
             <v-icon size="32" color="success" class="mb-2">mdi-check-circle</v-icon>
             <h3>{{ completedCount }}</h3>
-            <p class="text-caption">완료된 배달</p>
+            <p class="text-caption">완료된 배송</p>
           </v-card-text>
         </v-card>
       </v-col>
@@ -75,7 +75,7 @@
     <v-row v-if="!loading && deliveryOrders.length > 0" class="mb-4">
       <v-col cols="12">
         <v-card variant="outlined">
-          <v-card-title class="text-h6">배달 진행률</v-card-title>
+          <v-card-title class="text-h6">배송 진행률</v-card-title>
           <v-card-text>
             <v-progress-linear
               :model-value="progressPercentage"
@@ -262,9 +262,9 @@
       <v-col cols="12">
         <v-card variant="outlined" class="text-center py-8">
           <v-icon size="64" color="grey-lighten-2" class="mb-4">mdi-package-variant</v-icon>
-          <h3 class="text-h6 mb-2">배달 건이 없습니다</h3>
+          <h3 class="text-h6 mb-2">배송 건이 없습니다</h3>
           <p class="text-body-2 text-grey">
-            {{ staffName }}님에게 할당된 {{ formatDateDisplay(dateString) }} 배달이 없습니다.
+            {{ staffName }}님에게 할당된 {{ formatDateDisplay(dateString) }} 배송이 없습니다.
           </p>
         </v-card>
       </v-col>
@@ -341,7 +341,7 @@ let currentY = 0;
 
 // Computed properties
 const statusColumn = computed(() => {
-  // Find status column from headers - prioritize '상태' over '배달'
+  // Find status column from headers - prioritize '상태' over '배송'
   const foundColumn = headers.value.find(header => 
     header.includes('상태')
   ) || headers.value[4] || '배송상태'; // 배송상태는 5번째 컬럼 (index 4)
@@ -392,12 +392,12 @@ const getOrderTitle = (order: any): string => {
   );
   
   if (nameHeaders.length > 0) {
-    return order[nameHeaders[0]] || `배달 #${order.rowIndex}`;
+    return order[nameHeaders[0]] || `배송 #${order.rowIndex}`;
   }
   
   // Fallback to first non-status column or row index
   const firstHeader = headers.value.find(header => header !== statusColumn.value);
-  return firstHeader ? (order[firstHeader] || `배달 #${order.rowIndex}`) : `배달 #${order.rowIndex}`;
+  return firstHeader ? (order[firstHeader] || `배송 #${order.rowIndex}`) : `배송 #${order.rowIndex}`;
 };
 
 
@@ -527,11 +527,19 @@ const loadDeliveryData = async (): Promise<void> => {
       console.log('QR token verified for staff:', staffName.value);
     }
     
+    // Prepare headers for API request
+    const headers: { [key: string]: string } = {};
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
     const response = await fetch(
       `${API_BASE_URL}/api/sheets/date/${dateString.value}/staff/${staffName.value}`,
       {
         method: 'GET',
         credentials: 'include',
+        headers,
       }
     );
     

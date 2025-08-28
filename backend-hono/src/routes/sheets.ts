@@ -7,7 +7,7 @@ import crypto from 'crypto';
 
 const sheets = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Apply auth middleware to all routes except status update
+// Apply auth middleware to all routes except status update and QR token staff access
 sheets.use('*', async (c, next) => {
   // Skip Google auth for status update endpoint if QR token is present
   if (c.req.path.includes('/status') && c.req.method === 'PUT') {
@@ -18,6 +18,17 @@ sheets.use('*', async (c, next) => {
       return;
     }
   }
+  
+  // Skip Google auth for staff data access if QR token is present
+  if (c.req.path.includes('/staff/') && c.req.method === 'GET') {
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token');
+    if (token) {
+      // Skip Google auth, handle QR token auth in the endpoint
+      await next();
+      return;
+    }
+  }
+  
   // Apply Google auth for all other cases
   return requireGoogleAuth(c, next);
 });
@@ -159,7 +170,7 @@ sheets.get('/date/:date', async (c) => {
         return c.json({
           success: true,
           data: { orders, sheetName: firstSheetName, spreadsheetId: dateSpreadsheet.id },
-          message: `${date} 날짜의 배달 주문을 조회했습니다.`,
+          message: `${date} 날짜의 배송 주문을 조회했습니다.`,
         } as ApiResponse);
       }
     }
@@ -177,7 +188,7 @@ sheets.get('/date/:date', async (c) => {
           return c.json({
             success: true,
             data: { orders, sheetName: dateSheet.title, spreadsheetId: spreadsheet.id },
-            message: `${date} 날짜의 배달 주문을 조회했습니다.`,
+            message: `${date} 날짜의 배송 주문을 조회했습니다.`,
           } as ApiResponse);
         }
       } catch (error) {
@@ -196,7 +207,7 @@ sheets.get('/date/:date', async (c) => {
     console.error('Failed to get delivery orders:', error);
     return c.json({
       success: false,
-      message: '배달 주문 목록을 가져오는데 실패했습니다.',
+      message: '배송 주문 목록을 가져오는데 실패했습니다.',
       error: error.message,
     } as ApiResponse, 500);
   }
@@ -312,7 +323,103 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
 
   try {
     console.log(`Staff endpoint called for date: ${date}, staff: ${staffName}`);
-    const sessionData = c.get('sessionData') as GoogleTokens;
+    
+    // Check for QR token authentication first
+    const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token');
+    let sessionData: any;
+
+    if (token) {
+      console.log(`QR token provided for staff access: ${staffName}`);
+      // QR token authentication
+      try {
+        const decoded = jwt.verify(token, 'your-jwt-secret') as QRTokenPayload;
+        
+        // Additional validation
+        const now = Date.now();
+        const tokenAge = now - decoded.timestamp;
+        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (tokenAge > maxAge) {
+          return c.json({
+            success: false,
+            message: '토큰이 만료되었습니다.',
+          } as ApiResponse, 401);
+        }
+
+        // Verify hash
+        const expectedHash = crypto
+          .createHash('sha256')
+          .update(`${decoded.staffName}-${decoded.timestamp}`)
+          .digest('hex');
+
+        if (decoded.hash !== expectedHash) {
+          return c.json({
+            success: false,
+            message: '유효하지 않은 토큰입니다.',
+          } as ApiResponse, 401);
+        }
+
+        // Verify staff name matches token
+        if (decoded.staffName !== staffName) {
+          return c.json({
+            success: false,
+            message: '토큰의 담당자 정보가 일치하지 않습니다.',
+          } as ApiResponse, 401);
+        }
+
+        // For QR token, we need to find an active admin session
+        let adminSessionData = null;
+        
+        try {
+          const kvKeys = await c.env.SESSIONS.list();
+          
+          for (const key of kvKeys.keys) {
+            try {
+              const sessionDataStr = await c.env.SESSIONS.get(key.name);
+              if (sessionDataStr) {
+                const parsed = JSON.parse(sessionDataStr);
+                if (parsed.accessToken && parsed.refreshToken) {
+                  adminSessionData = parsed;
+                  break;
+                }
+              }
+            } catch (e) {
+              continue;
+            }
+          }
+          
+          if (!adminSessionData) {
+            return c.json({
+              success: false,
+              message: '관리자 세션을 찾을 수 없습니다.',
+            } as ApiResponse, 401);
+          }
+          
+          sessionData = adminSessionData;
+          console.log(`Using admin session for QR token access: ${staffName}`);
+          
+        } catch (error: any) {
+          console.error('Failed to find admin session:', error);
+          return c.json({
+            success: false,
+            message: '관리자 인증 확인 중 오류가 발생했습니다.',
+          } as ApiResponse, 500);
+        }
+        
+      } catch (error: any) {
+        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+          return c.json({
+            success: false,
+            message: '유효하지 않거나 만료된 토큰입니다.',
+          } as ApiResponse, 401);
+        }
+        throw error;
+      }
+    } else {
+      // Google OAuth authentication (existing logic)
+      sessionData = c.get('sessionData') as GoogleTokens;
+    }
+
     const sheetsService = new GoogleSheetsService(c.env);
     sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
 
@@ -333,7 +440,7 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
           success: true,
           data: staffOrders,
           headers: staffOrders.length > 0 ? Object.keys(staffOrders[0]).filter(key => key !== 'rowIndex') : [],
-          message: `${staffName}의 ${date} 배달 주문을 조회했습니다.`,
+          message: `${staffName}의 ${date} 배송 주문을 조회했습니다.`,
         } as ApiResponse);
       }
     }
@@ -503,13 +610,13 @@ sheets.put('/data/:date/status', async (c) => {
     
     return c.json({
       success: true,
-      message: '배달 상태가 업데이트되었습니다.',
+      message: '배송 상태가 업데이트되었습니다.',
     } as ApiResponse);
   } catch (error: any) {
     console.error('Failed to update delivery status:', error);
     return c.json({
       success: false,
-      message: '배달 상태 업데이트에 실패했습니다.',
+      message: '배송 상태 업데이트에 실패했습니다.',
       error: error.message,
     } as ApiResponse, 500);
   }

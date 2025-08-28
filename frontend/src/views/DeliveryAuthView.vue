@@ -36,7 +36,7 @@
               <v-text-field
                 v-model="inputName"
                 label="본인 이름 입력"
-                placeholder="예: 김배달"
+                placeholder="예: 김배송"
                 :rules="[rules.required]"
                 @keyup.enter="verifyName"
                 autofocus
@@ -70,7 +70,7 @@
               <v-icon size="64" color="success" class="mb-4">mdi-check-circle</v-icon>
               <p class="text-h6 mb-2">인증 완료</p>
               <p class="mb-4">{{ staffNameFromQR }}님, 환영합니다!</p>
-              <p class="text-body-2 mb-4">배달 목록 페이지로 이동합니다.</p>
+              <p class="text-body-2 mb-4">배송 목록 페이지로 이동합니다.</p>
             </v-card-text>
           </div>
         </v-card>

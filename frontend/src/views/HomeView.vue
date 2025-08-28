@@ -4,11 +4,11 @@
       <v-col cols="12" md="8" lg="6">
         <v-card class="pa-6">
           <v-card-title class="text-h4 text-center mb-4">
-            배달 관리 시스템
+            배송 관리 시스템
           </v-card-title>
           
           <v-card-text class="text-center">
-            <p class="text-h6 mb-4">구글 스프레드시트 기반 배달 관리</p>
+            <p class="text-h6 mb-4">구글 스프레드시트 기반 배송 관리</p>
             <p class="mb-6">관리자는 설정을 통해 시스템을 구성하고, 배송담당자는 QR 코드를 통해 접근할 수 있습니다.</p>
           </v-card-text>
 

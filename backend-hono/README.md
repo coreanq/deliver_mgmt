@@ -1,6 +1,6 @@
 # Delivery Management Backend - Hono Version
 
-Google Sheets 기반 배달 관리 시스템의 Cloudflare Workers용 Hono 백엔드입니다.
+Google Sheets 기반 배송 관리 시스템의 Cloudflare Workers용 Hono 백엔드입니다.
 
 ## 특징
 
@@ -89,7 +89,7 @@ npm run deploy
 - `GET /api/sheets/date/:date/by-staff` - 담당자별 주문 조회
 - `PUT /api/sheets/data/:date/status` - 배송 상태 업데이트
 
-### 배달 관리
+### 배송 관리
 - `GET /api/delivery/qr/:staffName` - QR 코드 생성
 - `POST /api/delivery/qr/verify` - QR 코드 검증
 

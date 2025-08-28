@@ -389,7 +389,7 @@ delivery.put('/status/:date/:staffName/:rowIndex/:status', async (c) => {
 
     return c.json({
       success: false,
-      message: '배달 상태 업데이트에 실패했습니다.',
+      message: '배송 상태 업데이트에 실패했습니다.',
       error: error.message,
     } as ApiResponse, 500);
   }

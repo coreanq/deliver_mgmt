@@ -111,7 +111,7 @@ export class GoogleSheetsService {
       return orders;
     } catch (error) {
       console.error('Failed to get delivery orders:', error);
-      throw new Error('배달 주문 목록을 가져오는데 실패했습니다.');
+      throw new Error('배송 주문 목록을 가져오는데 실패했습니다.');
     }
   }
 
@@ -228,7 +228,7 @@ export class GoogleSheetsService {
       
       // Find the status column index
       let statusColumnIndex = -1;
-      const statusColumnNames = ['배송상태', '배달상태', '상태', '배송 상태', '배달 상태'];
+      const statusColumnNames = ['배송상태', '배송상태', '상태', '배송 상태', '배송 상태'];
       
       for (let i = 0; i < headers.length; i++) {
         const header = headers[i];
@@ -262,7 +262,7 @@ export class GoogleSheetsService {
       console.log(`Updated status to ${status} for row ${rowIndex} in column ${statusColumn} in sheet ${sheetName}`);
     } catch (error) {
       console.error('Failed to update delivery status:', error);
-      throw new Error('배달 상태 업데이트에 실패했습니다.');
+      throw new Error('배송 상태 업데이트에 실패했습니다.');
     }
   }
 

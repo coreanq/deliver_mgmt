@@ -110,7 +110,7 @@
                         <v-col cols="12">
                           <v-card variant="outlined">
                             <v-card-title>
-                              배달 데이터 ({{ selectedDateString }})
+                              배송 데이터 ({{ selectedDateString }})
                               <v-chip 
                                 v-if="selectedStaff !== '전체'" 
                                 color="primary" 
@@ -414,7 +414,7 @@
                             <v-card-text class="text-center py-8">
                               <v-icon size="64" color="grey-lighten-2" class="mb-4">mdi-calendar-remove</v-icon>
                               <p class="text-h6 mb-2">{{ selectedDateString }} 시트를 찾을 수 없습니다</p>
-                              <p class="text-body-2 text-grey">해당 날짜의 배달 데이터가 없거나 시트가 생성되지 않았습니다.</p>
+                              <p class="text-body-2 text-grey">해당 날짜의 배송 데이터가 없거나 시트가 생성되지 않았습니다.</p>
                             </v-card-text>
                           </v-card>
                         </v-col>
@@ -450,7 +450,7 @@
                     </v-chip>
                     
                     <div v-if="!authStore.isSolapiAuthenticated">
-                      <p class="mb-4">SOLAPI를 통해 배달 완료 알림을 고객에게 발송합니다.</p>
+                      <p class="mb-4">SOLAPI를 통해 배송 완료 알림을 고객에게 발송합니다.</p>
                       <v-btn
                         color="primary"
                         variant="elevated"
@@ -505,8 +505,8 @@
             <v-alert type="info" variant="tonal" class="mt-4 text-left">
               <strong>사용법:</strong><br>
               1. 카메라로 QR 코드를 스캔하세요<br>
-              2. 자동으로 배달 관리 페이지가 열립니다<br>
-              3. 배달 현황을 확인하고 상태를 업데이트하세요
+              2. 자동으로 배송 관리 페이지가 열립니다<br>
+              3. 배송 현황을 확인하고 상태를 업데이트하세요
             </v-alert>
           </div>
         </v-card-text>
@@ -548,7 +548,7 @@ const solapiBalance = ref<string>('');
 
 // Staff management
 const staffList = ref<{ name: string }[]>([
-  { name: '김배달' },
+  { name: '김배송' },
   { name: '박운송' },
   { name: '이택배' },
   { name: '정물류' },
@@ -697,7 +697,7 @@ const getOrderTitle = (order: any): string => {
     return order[nameHeaders[0]];
   }
   
-  return `배달 #${order.rowIndex || '미상'}`;
+  return `배송 #${order.rowIndex || '미상'}`;
 };
 
 const getOrderStatus = (order: any): string => {
@@ -706,9 +706,9 @@ const getOrderStatus = (order: any): string => {
     const lowerHeader = header.toLowerCase();
     return (
       lowerHeader.includes('배송상태') ||
-      lowerHeader.includes('배달상태') ||
+      lowerHeader.includes('배송상태') ||
       lowerHeader === '상태' ||
-      lowerHeader === '배달' ||
+      lowerHeader === '배송' ||
       lowerHeader.includes('진행상태') ||
       lowerHeader.includes('status')
     ) && !lowerHeader.includes('배송지') && !lowerHeader.includes('주소');
@@ -746,7 +746,7 @@ const isOrderCompleted = (order: any): boolean => {
   // Exclude generic '완료' to avoid counting '주문 완료' as completed
   const completedStatuses = [
     '배송 완료', '배송완료', 
-    '배달 완료', '배달완료',
+    '배송 완료', '배송완료',
     '수령 완료', '수령완료'
   ];
   
@@ -778,7 +778,7 @@ const getStaffName = (order: any): string => {
       lowerHeader.includes('배송담당자') ||
       lowerHeader.includes('배송담당자') ||
       lowerHeader.includes('직원') ||
-      (lowerHeader.includes('배달') && lowerHeader.includes('담당'))
+      (lowerHeader.includes('배송') && lowerHeader.includes('담당'))
     ) && !lowerHeader.includes('상태') && !lowerHeader.includes('배송지');
   });
   
@@ -1049,8 +1049,6 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       
       console.log('Sheet data by staff loaded:', staffResult.data);
       console.log('Raw ordersByStaff:', sheetDataByStaff.value);
-      console.log('박국철 orders:', sheetDataByStaff.value['박국철']?.length || 0);
-      console.log('정나영 orders:', sheetDataByStaff.value['정나영']?.length || 0);
       console.log('AllData after flatten:', allData);
       console.log('Headers:', dynamicHeaders.value);
       console.log('Total items:', allData.length);
@@ -1069,7 +1067,6 @@ const loadSheetData = async (dateString: string): Promise<void> => {
         sheetData.value = result.data || [];
         dynamicHeaders.value = result.headers || [];
         // Clear existing filters when loading new data
-        activeFilters.value = [];
         
         sheetDataByStaff.value = {};
         staffList.value = [];

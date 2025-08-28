@@ -13,9 +13,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
       },
       manifest: {
-        name: '배달 관리 시스템',
-        short_name: '배달관리',
-        description: '구글 스프레드시트 기반 배달 관리 시스템',
+        name: '배송 관리 시스템',
+        short_name: '배송관리',
+        description: '구글 스프레드시트 기반 배송 관리 시스템',
         theme_color: '#1976d2',
         background_color: '#ffffff',
         display: 'standalone',

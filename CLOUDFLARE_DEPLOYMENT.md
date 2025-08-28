@@ -1,6 +1,6 @@
 # Cloudflare Workers + Pages 배포 가이드
 
-이 문서는 배달 관리 시스템을 Cloudflare Workers (백엔드) + Cloudflare Pages (프론트엔드)로 배포하는 방법을 설명합니다.
+이 문서는 배송 관리 시스템을 Cloudflare Workers (백엔드) + Cloudflare Pages (프론트엔드)로 배포하는 방법을 설명합니다.
 
 **중요**: 하나의 저장소에서 백엔드와 프론트엔드를 별도로 배포하는 방법을 다룹니다.
 
