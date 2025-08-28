@@ -93,14 +93,14 @@ auth.get('/google/callback', async (c) => {
 
     await setSession(sessionId, sessionData, c.env);
 
-    // Set secure httpOnly session cookie
+    // Set secure httpOnly session cookie with SameSite=None for cross-domain
     console.log('Setting secure session cookie:', { sessionId: sessionId.substring(0, 8) + '...', httpOnly: true, secure: true });
     
     setCookie(c, 'sessionId', sessionId, {
       httpOnly: true,  // XSS 방지
-      secure: true,
-      maxAge: 86400,
-      sameSite: 'Strict',
+      secure: true,    // HTTPS 필수
+      maxAge: 86400,   // 24시간
+      sameSite: 'None', // Cross-domain 허용 (HTTPS에서 안전)
       path: '/'
     });
 
@@ -147,17 +147,9 @@ auth.get('/status', async (c) => {
     const querySessionId = c.req.query('sessionId');
     
     console.log('Session ID check:', {
-      cookie: cookieSessionId,
-      header: headerSessionId,
-      query: querySessionId,
-      allCookies: c.req.header('Cookie'),
-      allHeaders: (() => {
-        const headers: Record<string, string> = {};
-        c.req.raw.headers.forEach((value, key) => {
-          headers[key] = value;
-        });
-        return headers;
-      })()
+      cookie: cookieSessionId ? cookieSessionId.substring(0, 8) + '...' : 'none',
+      header: headerSessionId ? headerSessionId.substring(0, 8) + '...' : 'none',
+      query: querySessionId ? querySessionId.substring(0, 8) + '...' : 'none'
     });
     
     const sessionId = cookieSessionId || headerSessionId || querySessionId;
@@ -256,22 +248,13 @@ auth.post('/logout', async (c) => {
     }
 
     // Clear session cookie
-    // Get domain based on environment
-    const isDev = process.env.NODE_ENV !== 'production';
-    const cookieOptions: any = {
+    setCookie(c, 'sessionId', '', {
       httpOnly: true,
-      secure: !isDev,
+      secure: true,
       maxAge: 0, // Delete cookie
-      sameSite: 'Lax',
+      sameSite: 'None',
       path: '/'
-    };
-    
-    // Only set domain for localhost in development
-    if (isDev) {
-      cookieOptions.domain = 'localhost';
-    }
-    
-    setCookie(c, 'sessionId', '', cookieOptions);
+    })
 
     return c.json({
       success: true,
