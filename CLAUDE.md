@@ -72,10 +72,70 @@ cd frontend && npm run preview   # Preview production build
 | **Development** | `npm run local` (port 5001) | `npm run deploy` |
 | **Logging** | console.log | Cloudflare Workers logs |
 
-### Authentication Flows
+### Authentication Architecture (Dual Authentication System)
+
+This system implements a **dual authentication structure** designed for different user roles:
+
+#### 1. **Admin Authentication** (Google OAuth2)
+- **Flow**: Browser → Google OAuth → Backend → KV Storage → httpOnly Cookie
+- **Storage**: Cloudflare KV (production) / In-memory (development)
+- **Session**: Persistent with auto-refresh (expires 1 hour, refreshed 5 minutes before expiry)
+- **Security**: httpOnly cookies prevent XSS, SameSite=Strict prevents CSRF
+- **Usage**: Admin dashboard, Google Sheets management
+
+**Key Files**:
+- `backend-hono/src/routes/auth.ts`: OAuth endpoints and callback handling
+- `backend-hono/src/middleware/auth.ts`: `requireGoogleAuth` middleware
+- `frontend/src/stores/auth.ts`: Pinia store for auth state management
+
+**OAuth Flow**:
+```
+1. /api/auth/google → Google authorization page
+2. /api/auth/google/callback → Token exchange + secure session creation
+3. /api/auth/status → Session validation with auto-refresh
+4. /api/auth/logout → Session cleanup
+```
+
+#### 2. **Delivery Staff Authentication** (QR Token System)
+- **Flow**: QR Code → JWT Token → Header Authorization → Backend Bypass → Google Sheets
+- **Access Pattern**: `/delivery/:date/:staffName?token=jwt_token`
+- **Token**: JWT with SHA256 hash, 24-hour expiration
+- **Scope**: Limited to staff's assigned delivery data only
+- **Security**: Time-limited, staff-specific, no persistent session
+
+**Key Implementation**:
+- **QR Bypass Logic** (`sheets.ts` middleware):
+```typescript
+// Skip Google auth for staff endpoints when QR token is present
+if (c.req.path.includes('/staff/') && c.req.method === 'GET') {
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token');
+  if (token) {
+    await next(); // Skip Google auth, handle QR token in endpoint
+    return;
+  }
+}
+```
+
+- **Mobile Interface** (`StaffMobileView.vue`):
+```typescript
+const requestHeaders: { [key: string]: string } = {};
+if (token) {
+  requestHeaders['Authorization'] = `Bearer ${token}`;
+}
+```
+
+#### 3. **Authentication Flows Summary**
 1. **Google OAuth2**: Spreadsheet access (`/api/auth/google`)
 2. **SOLAPI OAuth2**: KakaoTalk messaging (`/api/solapi/auth/login`)
 3. **QR Authentication**: JWT tokens for staff (`/api/delivery/qr/`)
+
+#### 4. **Security Principles**
+- **Session Separation**: Admin sessions and staff tokens are completely isolated
+- **Time Limitation**: QR tokens auto-expire after 24 hours
+- **Scope Limitation**: Staff can only access their assigned delivery data
+- **Transport Security**: HTTPS + Authorization headers
+- **Local Storage Prohibition**: All auth data managed server-side or via httpOnly cookies
+- **Cross-Device Support**: QR tokens work on separate mobile devices without admin sessions
 
 ### Frontend Views (`frontend/src/views/`)
 - **AdminView.vue**: Main admin configuration and data management
@@ -115,9 +175,46 @@ FRONTEND_URL=http://localhost:5173
 - **Helper Function**: Use `getOrderStatus(order)` for reliable status access, not direct `order[statusColumn.value]`
 
 ### Token Management & Security
+
+#### Google OAuth Token Management
 - **Auto-refresh middleware**: `requireGoogleAuth` refreshes tokens 5 minutes before expiry
-- **QR Code Security**: JWT tokens with SHA256 hash, 24-hour expiration
 - **Session tracking**: Google tokens stored with `expiryDate` for lifecycle management
+- **Secure Storage**: httpOnly cookies (frontend) + KV storage (backend)
+- **Token Lifecycle**: 1-hour access tokens, persistent refresh tokens
+
+#### QR Token Security System
+- **JWT Structure**: Contains `staffName`, `date`, `exp` (24-hour expiration)
+- **Security Hash**: SHA256 with `QR_SECRET_KEY`
+- **Scope Validation**: Token must match requested staff name and date
+- **Cross-Device Support**: Works on mobile devices without admin Google sessions
+- **Admin Session Pooling**: QR requests use existing admin Google tokens for Sheets API access
+
+#### Session Management Architecture
+| Component | Development | Production |
+|-----------|-------------|------------|
+| **Admin Sessions** | In-memory Map | Cloudflare KV |
+| **Client Cookies** | httpOnly (localhost) | httpOnly (secure domain) |
+| **QR Tokens** | JWT verification | JWT verification |
+| **Local Storage** | **Prohibited** | **Prohibited** |
+
+#### Authentication Bypass Logic
+The system allows QR token holders to bypass Google authentication for specific endpoints:
+
+```typescript
+// middleware in sheets.ts
+if (c.req.path.includes('/staff/') && c.req.method === 'GET') {
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token');
+  if (token) {
+    // Skip requireGoogleAuth middleware
+    await next();
+    return;
+  }
+}
+// Apply Google auth for all other requests
+return requireGoogleAuth(c, next);
+```
+
+This enables delivery staff to access their assigned data from separate mobile devices while maintaining security through time-limited, scope-restricted JWT tokens.
 
 ### SOLAPI Implementation
 **CRITICAL**: Uses **SOLAPI OAuth2 flow**, NOT SDK. Direct HTTP API calls to SOLAPI endpoints for token exchange, refresh, and KakaoTalk messaging.
@@ -148,6 +245,11 @@ FRONTEND_URL=http://localhost:5173
 - **Task Management**: Update tasks.md when todos are completed
 - **Dynamic System**: Never assume specific column names - always use actual sheet data
 - **Session Management**: Local development uses in-memory storage; production uses Cloudflare KV
+- **Authentication Security**: 
+  - **Local Storage Prohibition**: All session management server-side only (local storage session 사용 금지)
+  - **httpOnly Cookies**: Prevent XSS attacks by using httpOnly cookies for admin sessions
+  - **QR Token Validation**: Always verify JWT token scope matches requested staff/date
+  - **Cross-Device Authentication**: Support QR access from mobile devices without admin sessions
 
 ## Common Patterns
 
