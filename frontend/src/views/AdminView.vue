@@ -1033,7 +1033,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
     const staffResult = await staffResponse.json();
     
     if (staffResult.success) {
-      sheetDataByStaff.value = staffResult.data || {};
+      sheetDataByStaff.value = staffResult.data.ordersByStaff || {};
       dynamicHeaders.value = staffResult.headers || [];
       // Clear existing filters when loading new data
       activeFilters.value = [];
