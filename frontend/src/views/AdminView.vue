@@ -514,10 +514,10 @@
                                 <v-col cols="12">
                                   <div class="d-flex justify-space-between align-center">
                                     <v-chip
-                                      :color="messageLength > 90 ? 'warning' : 'info'"
+                                      :color="(smsForm.text || '').length > 90 ? 'warning' : 'info'"
                                       size="small"
                                     >
-                                      {{ messageStatus }}
+                                      {{ ((smsForm.text || '').length > 90 ? 'LMS' : 'SMS') }} ({{ (smsForm.text || '').length }}/90자)
                                     </v-chip>
                                     <div>
                                       <v-btn
@@ -714,18 +714,6 @@ const availableStaff = computed(() => {
   return ['전체', ...staffNames];
 });
 
-// SMS message length computed properties
-const messageLength = computed(() => {
-  return (smsForm.value.text || '').length;
-});
-
-const messageType = computed(() => {
-  return messageLength.value > 90 ? 'LMS' : 'SMS';
-});
-
-const messageStatus = computed(() => {
-  return `${messageType.value} (${messageLength.value}/90자)`;
-});
 
 const currentDisplayData = computed(() => {
   if (selectedStaff.value === '전체') {
