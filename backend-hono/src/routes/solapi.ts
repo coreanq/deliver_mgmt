@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { setCookie, getCookie } from 'hono/cookie';
 import axios from 'axios';
 import type { Env, ApiResponse, SolapiConfig } from '../types';
+import { SolapiAuthService } from '../services/solapiAuth';
 
 const solapi = new Hono<{ Bindings: Env }>();
 
@@ -105,6 +106,7 @@ solapi.get('/auth/callback', async (c) => {
       accessToken: access_token,
       refreshToken: refresh_token,
       connectedAt: new Date().toISOString(),
+      expiryDate: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
     };
 
     await setSession(sessionId, sessionData, c.env);
@@ -161,6 +163,30 @@ solapi.get('/auth/status', async (c) => {
       });
     }
 
+    // Check if SOLAPI token needs refresh
+    const solapiAuth = new SolapiAuthService(c.env);
+    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+
+    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+      try {
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        
+        // Update session with new access token and expiry date
+        sessionData.solapiTokens.accessToken = accessToken;
+        sessionData.solapiTokens.expiryDate = expiryDate;
+        
+        await setSession(sessionId, sessionData, c.env);
+        console.log('SOLAPI token refreshed during status check');
+      } catch (refreshError) {
+        console.error('SOLAPI token refresh failed during status check:', refreshError);
+        return c.json({
+          success: false,
+          authenticated: false,
+          message: 'SOLAPI 인증 토큰이 만료되었고 갱신에 실패했습니다. 다시 로그인해주세요.',
+        });
+      }
+    }
+
     return c.json({
       success: true,
       authenticated: true,
@@ -173,6 +199,58 @@ solapi.get('/auth/status', async (c) => {
       success: false,
       authenticated: false,
       message: 'SOLAPI 인증 상태 확인 중 오류가 발생했습니다.',
+      error: error.message,
+    }, 500);
+  }
+});
+
+/**
+ * Test endpoint to force token expiry (development only)
+ */
+solapi.post('/auth/test-expiry', async (c) => {
+  if (c.env.NODE_ENV === 'production') {
+    return c.json({
+      success: false,
+      message: '이 엔드포인트는 개발 환경에서만 사용할 수 있습니다.',
+    }, 403);
+  }
+
+  try {
+    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
+    
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        message: '세션 ID가 제공되지 않았습니다.',
+      }, 401);
+    }
+
+    const sessionData = await getSession(sessionId, c.env);
+    
+    if (!sessionData?.solapiTokens) {
+      return c.json({
+        success: false,
+        message: 'SOLAPI 토큰이 없습니다.',
+      }, 401);
+    }
+
+    // Force token to expire (set expiry to past time)
+    sessionData.solapiTokens.expiryDate = Date.now() - 1000; // 1 second ago
+    await setSession(sessionId, sessionData, c.env);
+
+    return c.json({
+      success: true,
+      message: 'SOLAPI 토큰이 만료로 설정되었습니다. 이제 SMS 발송 또는 상태 체크 시 자동 갱신이 테스트됩니다.',
+      data: {
+        oldExpiryDate: new Date(sessionData.solapiTokens.expiryDate + 1000).toISOString(),
+        newExpiryDate: new Date(sessionData.solapiTokens.expiryDate).toISOString(),
+      }
+    });
+  } catch (error: any) {
+    console.error('Test expiry error:', error);
+    return c.json({
+      success: false,
+      message: '토큰 만료 테스트 설정에 실패했습니다.',
       error: error.message,
     }, 500);
   }
@@ -247,6 +325,29 @@ solapi.post('/message/send', async (c) => {
         success: false,
         message: 'SOLAPI 인증이 필요합니다.',
       } as ApiResponse, 401);
+    }
+
+    // Check if SOLAPI token needs refresh
+    const solapiAuth = new SolapiAuthService(c.env);
+    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+
+    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+      try {
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        
+        // Update session with new access token and expiry date
+        sessionData.solapiTokens.accessToken = accessToken;
+        sessionData.solapiTokens.expiryDate = expiryDate;
+        
+        await setSession(sessionId, sessionData, c.env);
+        console.log('SOLAPI token refreshed successfully');
+      } catch (refreshError) {
+        console.error('SOLAPI token refresh failed:', refreshError);
+        return c.json({
+          success: false,
+          message: 'SOLAPI 인증 토큰 갱신에 실패했습니다. 다시 로그인해주세요.',
+        } as ApiResponse, 401);
+      }
     }
 
     const { from, to, text, type = 'SMS' } = await c.req.json();

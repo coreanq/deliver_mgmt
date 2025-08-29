@@ -29,6 +29,7 @@ export interface GoogleTokens {
     accessToken: string;
     refreshToken: string;
     connectedAt: string;
+    expiryDate: number;
   };
 }
 
