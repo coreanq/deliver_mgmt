@@ -226,7 +226,22 @@ return requireGoogleAuth(c, next);
 This enables delivery staff to access their assigned data from separate mobile devices while maintaining security through time-limited, scope-restricted JWT tokens.
 
 ### SOLAPI Implementation
-**CRITICAL**: Uses **SOLAPI OAuth2 flow**, NOT SDK. Direct HTTP API calls to SOLAPI endpoints for token exchange, refresh, and KakaoTalk messaging.
+**CRITICAL**: Uses **SOLAPI OAuth2 flow**, NOT SDK. Direct HTTP API calls to SOLAPI endpoints for token exchange, refresh, and SMS/KakaoTalk messaging.
+
+**Key Endpoints**:
+- OAuth Authorization: `https://api.solapi.com/oauth2/v1/authorize`
+- Token Exchange: `https://api.solapi.com/oauth2/v1/access_token`
+- SMS Send: `https://api.solapi.com/messages/v4/send`
+
+**Implementation Files**:
+- `backend-hono/src/routes/solapi.ts`: OAuth flow and SMS API endpoints
+- SMS endpoint: `POST /api/solapi/message/send` (requires authenticated session)
+- Authentication status: `GET /api/solapi/auth/status`
+
+**Testing Requirements**:
+- **발신번호**: Must use SOLAPI-registered sender numbers (e.g., 010-3091-7061)
+- **Message Format**: JSON with `{message: {type, from, to, text}}` structure
+- **Authentication**: OAuth2 Bearer tokens via session management
 
 ### API Route Patterns
 - Date-based sheets: `/api/sheets/date/:date` (YYYYMMDD format)
@@ -352,3 +367,4 @@ When using Cloudflare Workers (backend) + Cloudflare Pages (frontend) with diffe
 - `tasks.md`: Development task tracking and checklist
 - local server 와 운영 서버 간의 url 을 동적으로 설정할수 있도록 해야함
 - frontend, backend 포트 변경 금지
+- solapi 구현은 https://developers.solapi.com/references/authentication/oauth2-3/oauth2 참고

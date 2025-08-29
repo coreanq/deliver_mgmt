@@ -43,7 +43,8 @@
       "WebFetch(domain:developers.solapi.com)",
       "Bash(set NODE_TLS_REJECT_UNAUTHORIZED=0)",
       "mcp__playwright__browser_press_key",
-      "mcp__playwright__browser_handle_dialog"
+      "mcp__playwright__browser_handle_dialog",
+      "mcp__playwright__browser_fill_form"
     ]
   },
   "enabledMcpjsonServers": [
