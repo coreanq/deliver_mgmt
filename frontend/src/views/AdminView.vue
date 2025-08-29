@@ -501,6 +501,7 @@
                                 <v-col cols="12">
                                   <v-textarea
                                     v-model="smsForm.text"
+                                    @input="handleTextInput"
                                     label="메시지 내용"
                                     placeholder="전송할 메시지를 입력하세요"
                                     :rules="messageRules"
@@ -714,6 +715,12 @@ const availableStaff = computed(() => {
   return ['전체', ...staffNames];
 });
 
+
+// Fix v-model binding issue in production
+const handleTextInput = (event: Event) => {
+  const target = event.target as HTMLTextAreaElement;
+  smsForm.value.text = target.value;
+};
 
 const currentDisplayData = computed(() => {
   if (selectedStaff.value === '전체') {
