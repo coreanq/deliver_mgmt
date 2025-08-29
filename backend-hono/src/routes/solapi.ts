@@ -42,7 +42,7 @@ solapi.get('/auth/login', async (c) => {
   try {
     // Generate secure state parameter for CSRF protection
     const state = generateSecureSessionId();
-    const authUrl = `https://api.solapi.com/oauth2/v1/authorize?client_id=${c.env.SOLAPI_CLIENT_ID}&redirect_uri=${encodeURIComponent(c.env.SOLAPI_REDIRECT_URL)}&response_type=code&scope=message:write&state=${state}`;
+    const authUrl = `https://api.solapi.com/oauth2/v1/authorize?client_id=${c.env.SOLAPI_CLIENT_ID}&redirect_uri=${encodeURIComponent(c.env.SOLAPI_REDIRECT_URL)}&response_type=code&scope=message:write%20cash:read%20senderid:read%20pricing:read&state=${state}`;
 
     return c.redirect(authUrl);
   } catch (error: any) {
@@ -204,57 +204,6 @@ solapi.get('/auth/status', async (c) => {
   }
 });
 
-/**
- * Test endpoint to force token expiry (development only)
- */
-solapi.post('/auth/test-expiry', async (c) => {
-  if (c.env.NODE_ENV === 'production') {
-    return c.json({
-      success: false,
-      message: '이 엔드포인트는 개발 환경에서만 사용할 수 있습니다.',
-    }, 403);
-  }
-
-  try {
-    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
-    
-    if (!sessionId) {
-      return c.json({
-        success: false,
-        message: '세션 ID가 제공되지 않았습니다.',
-      }, 401);
-    }
-
-    const sessionData = await getSession(sessionId, c.env);
-    
-    if (!sessionData?.solapiTokens) {
-      return c.json({
-        success: false,
-        message: 'SOLAPI 토큰이 없습니다.',
-      }, 401);
-    }
-
-    // Force token to expire (set expiry to past time)
-    sessionData.solapiTokens.expiryDate = Date.now() - 1000; // 1 second ago
-    await setSession(sessionId, sessionData, c.env);
-
-    return c.json({
-      success: true,
-      message: 'SOLAPI 토큰이 만료로 설정되었습니다. 이제 SMS 발송 또는 상태 체크 시 자동 갱신이 테스트됩니다.',
-      data: {
-        oldExpiryDate: new Date(sessionData.solapiTokens.expiryDate + 1000).toISOString(),
-        newExpiryDate: new Date(sessionData.solapiTokens.expiryDate).toISOString(),
-      }
-    });
-  } catch (error: any) {
-    console.error('Test expiry error:', error);
-    return c.json({
-      success: false,
-      message: '토큰 만료 테스트 설정에 실패했습니다.',
-      error: error.message,
-    }, 500);
-  }
-});
 
 /**
  * SOLAPI logout - remove SOLAPI tokens from session
@@ -290,6 +239,343 @@ solapi.post('/auth/logout', async (c) => {
       message: 'SOLAPI 연결 해제 중 오류가 발생했습니다.',
       error: error.message,
     }, 500);
+  }
+});
+
+/**
+ * Get account balance information
+ */
+solapi.get('/account/balance', async (c) => {
+  try {
+    const cookieSessionId = getCookie(c, 'sessionId');
+    const headerSessionId = c.req.header('X-Session-ID');
+    const querySessionId = c.req.query('sessionId');
+    const sessionId = cookieSessionId || headerSessionId || querySessionId;
+    
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        message: '세션 ID가 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    const sessionData = await getSession(sessionId, c.env);
+    
+    if (!sessionData?.solapiTokens) {
+      return c.json({
+        success: false,
+        message: 'SOLAPI 인증이 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    // Check if SOLAPI token needs refresh
+    const solapiAuth = new SolapiAuthService(c.env);
+    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+
+    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+      try {
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        
+        sessionData.solapiTokens.accessToken = accessToken;
+        sessionData.solapiTokens.expiryDate = expiryDate;
+        
+        await setSession(sessionId, sessionData, c.env);
+        console.log('SOLAPI token refreshed for balance inquiry');
+      } catch (refreshError) {
+        console.error('SOLAPI token refresh failed for balance inquiry:', refreshError);
+        return c.json({
+          success: false,
+          message: 'SOLAPI 인증 토큰 갱신에 실패했습니다. 다시 로그인해주세요.',
+        } as ApiResponse, 401);
+      }
+    }
+
+    // Get account balance
+    const balanceResponse = await axios.get(
+      'https://api.solapi.com/cash/v1/balance',
+      {
+        headers: {
+          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+        },
+        // Skip SSL verification for development
+        ...(process.env.NODE_ENV === 'development' && {
+          httpsAgent: new (require('https').Agent)({
+            rejectUnauthorized: false
+          })
+        })
+      }
+    );
+
+    console.log('SOLAPI balance response:', balanceResponse.data);
+
+    return c.json({
+      success: true,
+      data: balanceResponse.data,
+      message: '잔액 정보를 성공적으로 조회했습니다.',
+    } as ApiResponse);
+  } catch (error: any) {
+    console.error('Failed to get balance:', error);
+    console.error('Error response data:', error.response?.data);
+    
+    return c.json({
+      success: false,
+      message: '잔액 조회에 실패했습니다.',
+      error: error.response?.data || error.message,
+    } as ApiResponse, 500);
+  }
+});
+
+/**
+ * Get message pricing information
+ */
+solapi.get('/account/pricing', async (c) => {
+  try {
+    const cookieSessionId = getCookie(c, 'sessionId');
+    const headerSessionId = c.req.header('X-Session-ID');
+    const querySessionId = c.req.query('sessionId');
+    const sessionId = cookieSessionId || headerSessionId || querySessionId;
+    
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        message: '세션 ID가 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    const sessionData = await getSession(sessionId, c.env);
+    
+    if (!sessionData?.solapiTokens) {
+      return c.json({
+        success: false,
+        message: 'SOLAPI 인증이 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    // Check if SOLAPI token needs refresh
+    const solapiAuth = new SolapiAuthService(c.env);
+    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+
+    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+      try {
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        
+        sessionData.solapiTokens.accessToken = accessToken;
+        sessionData.solapiTokens.expiryDate = expiryDate;
+        
+        await setSession(sessionId, sessionData, c.env);
+        console.log('SOLAPI token refreshed for pricing inquiry');
+      } catch (refreshError) {
+        console.error('SOLAPI token refresh failed for pricing inquiry:', refreshError);
+        return c.json({
+          success: false,
+          message: 'SOLAPI 인증 토큰 갱신에 실패했습니다. 다시 로그인해주세요.',
+        } as ApiResponse, 401);
+      }
+    }
+
+    // Get message pricing information
+    const pricingResponse = await axios.get(
+      'https://api.solapi.com/pricing/v1/messaging',
+      {
+        headers: {
+          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+        },
+        // Skip SSL verification for development
+        ...(process.env.NODE_ENV === 'development' && {
+          httpsAgent: new (require('https').Agent)({
+            rejectUnauthorized: false
+          })
+        })
+      }
+    );
+
+    console.log('SOLAPI pricing response:', pricingResponse.data);
+
+    return c.json({
+      success: true,
+      data: pricingResponse.data,
+      message: '단가 정보를 성공적으로 조회했습니다.',
+    } as ApiResponse);
+  } catch (error: any) {
+    console.error('Failed to get pricing:', error);
+    console.error('Error response data:', error.response?.data);
+    
+    return c.json({
+      success: false,
+      message: '단가 정보 조회에 실패했습니다.',
+      error: error.response?.data || error.message,
+    } as ApiResponse, 500);
+  }
+});
+
+/**
+ * Get app-specific message pricing information
+ */
+solapi.get('/account/app-pricing', async (c) => {
+  try {
+    const cookieSessionId = getCookie(c, 'sessionId');
+    const headerSessionId = c.req.header('X-Session-ID');
+    const querySessionId = c.req.query('sessionId');
+    const sessionId = cookieSessionId || headerSessionId || querySessionId;
+    
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        message: '세션 ID가 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    const sessionData = await getSession(sessionId, c.env);
+    
+    if (!sessionData?.solapiTokens) {
+      return c.json({
+        success: false,
+        message: 'SOLAPI 인증이 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    // Check if SOLAPI token needs refresh
+    const solapiAuth = new SolapiAuthService(c.env);
+    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+
+    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+      try {
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        
+        sessionData.solapiTokens.accessToken = accessToken;
+        sessionData.solapiTokens.expiryDate = expiryDate;
+        
+        await setSession(sessionId, sessionData, c.env);
+        console.log('SOLAPI token refreshed for app pricing inquiry');
+      } catch (refreshError) {
+        console.error('SOLAPI token refresh failed for app pricing inquiry:', refreshError);
+        return c.json({
+          success: false,
+          message: 'SOLAPI 인증 토큰 갱신에 실패했습니다. 다시 로그인해주세요.',
+        } as ApiResponse, 401);
+      }
+    }
+
+    // Get app-specific pricing information
+    const appId = c.req.query('appId'); // Optional appId parameter
+    const appPricingUrl = appId 
+      ? `https://api.solapi.com/pricing/v1/messaging/combined?appId=${appId}`
+      : 'https://api.solapi.com/pricing/v1/messaging/combined';
+    
+    const appPricingResponse = await axios.get(
+      appPricingUrl,
+      {
+        headers: {
+          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+        },
+        // Skip SSL verification for development
+        ...(process.env.NODE_ENV === 'development' && {
+          httpsAgent: new (require('https').Agent)({
+            rejectUnauthorized: false
+          })
+        })
+      }
+    );
+
+    console.log('SOLAPI app pricing response:', appPricingResponse.data);
+
+    return c.json({
+      success: true,
+      data: appPricingResponse.data,
+      message: '앱 단가 정보를 성공적으로 조회했습니다.',
+    } as ApiResponse);
+  } catch (error: any) {
+    console.error('Failed to get app pricing:', error);
+    console.error('Error response data:', error.response?.data);
+    
+    return c.json({
+      success: false,
+      message: '앱 단가 정보 조회에 실패했습니다.',
+      error: error.response?.data || error.message,
+    } as ApiResponse, 500);
+  }
+});
+
+/**
+ * Get sender IDs (발신번호 조회)
+ */
+solapi.get('/account/sender-ids', async (c) => {
+  try {
+    const cookieSessionId = getCookie(c, 'sessionId');
+    const headerSessionId = c.req.header('X-Session-ID');
+    const querySessionId = c.req.query('sessionId');
+    const sessionId = cookieSessionId || headerSessionId || querySessionId;
+    
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        message: '세션 ID가 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    const sessionData = await getSession(sessionId, c.env);
+    
+    if (!sessionData?.solapiTokens) {
+      return c.json({
+        success: false,
+        message: 'SOLAPI 인증이 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    // Check if SOLAPI token needs refresh
+    const solapiAuth = new SolapiAuthService(c.env);
+    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+
+    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+      try {
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        
+        sessionData.solapiTokens.accessToken = accessToken;
+        sessionData.solapiTokens.expiryDate = expiryDate;
+        
+        await setSession(sessionId, sessionData, c.env);
+        console.log('SOLAPI token refreshed for sender ID inquiry');
+      } catch (refreshError) {
+        console.error('SOLAPI token refresh failed for sender ID inquiry:', refreshError);
+        return c.json({
+          success: false,
+          message: 'SOLAPI 인증 토큰 갱신에 실패했습니다. 다시 로그인해주세요.',
+        } as ApiResponse, 401);
+      }
+    }
+
+    // Get sender IDs
+    const senderIdsResponse = await axios.get(
+      'https://api.solapi.com/senderid/v1/numbers/active',
+      {
+        headers: {
+          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+        },
+        // Skip SSL verification for development
+        ...(process.env.NODE_ENV === 'development' && {
+          httpsAgent: new (require('https').Agent)({
+            rejectUnauthorized: false
+          })
+        })
+      }
+    );
+
+    console.log('SOLAPI sender IDs response:', senderIdsResponse.data);
+
+    return c.json({
+      success: true,
+      data: senderIdsResponse.data,
+      message: '발신번호 목록을 성공적으로 조회했습니다.',
+    } as ApiResponse);
+  } catch (error: any) {
+    console.error('Failed to get sender IDs:', error);
+    console.error('Error response data:', error.response?.data);
+    
+    return c.json({
+      success: false,
+      message: '발신번호 조회에 실패했습니다.',
+      error: error.response?.data || error.message,
+    } as ApiResponse, 500);
   }
 });
 

@@ -463,8 +463,32 @@
                     </div>
                     
                     <div v-else>
-                      <p class="mb-2">발신번호: {{ solapiSenderId || '로딩 중...' }}</p>
-                      <p class="text-body-2 mb-4">잔액: {{ solapiBalance || '확인 중...' }}</p>
+                      <div class="mb-4">
+                        <v-card variant="outlined" color="info">
+                          <v-card-title class="text-subtitle-1">
+                            <v-icon start>mdi-account-cash</v-icon>
+                            계정 정보
+                          </v-card-title>
+                          <v-card-text>
+                            <div class="d-flex justify-space-between align-center mb-2">
+                              <span>잔액:</span>
+                              <v-chip color="success" size="small">
+                                {{ solapiBalance || '확인 중...' }}
+                              </v-chip>
+                            </div>
+                            <v-btn
+                              variant="outlined"
+                              size="small"
+                              @click="loadAccountInfo"
+                              :loading="accountInfoLoading"
+                              class="mt-2"
+                            >
+                              <v-icon start>mdi-refresh</v-icon>
+                              정보 새로고침
+                            </v-btn>
+                          </v-card-text>
+                        </v-card>
+                      </div>
                       
                       <!-- SMS 발송 섹션 - 완전히 새로 구현 -->
                       <v-card variant="outlined" class="mb-4">
@@ -624,8 +648,8 @@ const solapiLoading = ref(false);
 const connectedSheetName = ref<string>('');
 
 // SOLAPI data
-const solapiSenderId = ref<string>('');
 const solapiBalance = ref<string>('');
+const accountInfoLoading = ref(false);
 
 // SMS 발송 관련
 // 새로운 SMS 폼 구현
@@ -954,11 +978,36 @@ const connectSolapi = async (): Promise<void> => {
 const disconnectSolapi = async (): Promise<void> => {
   try {
     await authStore.logoutSolapi();
-    solapiSenderId.value = '';
     solapiBalance.value = '';
+    smsPricing.value = '';
     clearSmsForm(); // SMS 폼도 초기화
   } catch (error) {
     console.error('Failed to disconnect SOLAPI:', error);
+  }
+};
+
+const loadAccountInfo = async (): Promise<void> => {
+  accountInfoLoading.value = true;
+  try {
+    // Load balance information
+    const balanceResponse = await fetch(`${API_BASE_URL}/api/solapi/account/balance`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (balanceResponse.ok) {
+      const balanceData = await balanceResponse.json();
+      if (balanceData.success && balanceData.data) {
+        solapiBalance.value = `${balanceData.data.balance || 0}원 / ${balanceData.data.point || 0}P`;
+      }
+    }
+
+
+  } catch (error) {
+    console.error('Failed to load account info:', error);
+    solapiBalance.value = '조회 실패';
+  } finally {
+    accountInfoLoading.value = false;
   }
 };
 
@@ -1278,9 +1327,10 @@ onMounted(async () => {
     // Clean URL
     window.history.replaceState({}, document.title, window.location.pathname);
   }
-  if (urlParams.get('solapi_auth') === 'success') {
+  if (urlParams.get('solapi') === 'success') {
     console.log('SOLAPI authentication successful');  
     await authStore.checkAuthStatus(); // Refresh status
+    await loadAccountInfo(); // Load account info after successful auth
     // Clean URL
     window.history.replaceState({}, document.title, window.location.pathname);
   }
@@ -1300,11 +1350,9 @@ watch(() => authStore.isGoogleAuthenticated, (newValue) => {
 
 watch(() => authStore.isSolapiAuthenticated, (newValue) => {
   if (newValue) {
-    // Load SOLAPI data
-    solapiSenderId.value = 'Loading...';
-    solapiBalance.value = 'Loading...';
+    // Load SOLAPI data when authenticated
+    loadAccountInfo();
   } else {
-    solapiSenderId.value = '';
     solapiBalance.value = '';
   }
 });

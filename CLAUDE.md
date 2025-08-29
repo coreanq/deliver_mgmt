@@ -232,11 +232,30 @@ This enables delivery staff to access their assigned data from separate mobile d
 - OAuth Authorization: `https://api.solapi.com/oauth2/v1/authorize`
 - Token Exchange: `https://api.solapi.com/oauth2/v1/access_token`
 - SMS Send: `https://api.solapi.com/messages/v4/send`
+- Account Balance: `https://api.solapi.com/cash/v1/balance`
+- Message Pricing: `https://api.solapi.com/pricing/v1/messaging`
+- App Pricing: `https://api.solapi.com/pricing/v1/messaging/combined`
+- Active Sender IDs: `https://api.solapi.com/senderid/v1/numbers/active`
 
 **Implementation Files**:
-- `backend-hono/src/routes/solapi.ts`: OAuth flow and SMS API endpoints
+- `backend-hono/src/routes/solapi.ts`: OAuth flow, account info, and SMS API endpoints
+- `backend-hono/src/services/solapiAuth.ts`: Token refresh service with 30-minute buffer
 - SMS endpoint: `POST /api/solapi/message/send` (requires authenticated session)
-- Authentication status: `GET /api/solapi/auth/status`
+- Account endpoints: `GET /api/solapi/account/{balance,pricing,app-pricing,sender-ids}`
+- Authentication: `GET /api/solapi/auth/status`, `POST /api/solapi/auth/logout`
+
+**OAuth Scopes Required**:
+- `message:write` - SMS/KakaoTalk message sending
+- `cash:read` - Account balance inquiry
+- `pricing:read` - Message/app pricing inquiry
+- `senderid:read` - Sender ID management
+- **Scope Format**: Space-separated with URL encoding (`message:write%20cash:read%20pricing:read%20senderid:read`)
+
+**Token Management**:
+- **Access Token Lifecycle**: 24 hours (SOLAPI standard)
+- **Auto-refresh Logic**: 30-minute buffer before expiry in `SolapiAuthService`
+- **Session Integration**: SOLAPI tokens stored alongside Google tokens in same session
+- **Independent Logout**: Can disconnect SOLAPI without affecting Google authentication
 
 **Testing Requirements**:
 - **발신번호**: Must use SOLAPI-registered sender numbers (e.g., 010-3091-7061)
@@ -368,3 +387,5 @@ When using Cloudflare Workers (backend) + Cloudflare Pages (frontend) with diffe
 - local server 와 운영 서버 간의 url 을 동적으로 설정할수 있도록 해야함
 - frontend, backend 포트 변경 금지
 - solapi 구현은 https://developers.solapi.com/references/authentication/oauth2-3/oauth2 참고
+- solapi 발신번호는 여기 참고 https://developers.solapi.com/references/senderid/getActivatedSenderIds, 메시지 단가 조회는 https://developers.solapi.com/references/pricing/getMessagePrice 참고
+- 앱의 단가조회는 https://developers.solapi.com/references/pricing/getMessagePriceByApp 참고

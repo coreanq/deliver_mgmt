@@ -47,7 +47,13 @@
       "mcp__playwright__browser_fill_form",
       "Bash(VITE_API_BASE_URL=https://deliver-mgmt-backend.coreanq.workers.dev npm run build)",
       "Bash(npm run:*)",
-      "Bash(VITE_API_BASE_URL=https://deliver-mgmt-backend.coreanq.workers.dev npm run build:full)"
+      "Bash(VITE_API_BASE_URL=https://deliver-mgmt-backend.coreanq.workers.dev npm run build:full)",
+      "Read(/Volumes/ex_backup/1git/**)",
+      "Read(/Volumes/ex_backup/1git/**)",
+      "WebFetch(domain:docs.solapi.com)",
+      "WebFetch(domain:developers.solapi.dev)",
+      "Bash(pkill:*)",
+      "WebFetch(domain:github.com)"
     ]
   },
   "enabledMcpjsonServers": [
