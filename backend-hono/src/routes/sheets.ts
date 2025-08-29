@@ -40,7 +40,7 @@ sheets.get('/test', async (c) => {
   try {
     const sessionData = c.get('sessionData') as GoogleTokens;
     const sheetsService = new GoogleSheetsService(c.env);
-    sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+    sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
 
     const spreadsheets = await sheetsService.getSpreadsheets();
     
@@ -70,7 +70,7 @@ sheets.get('/list', async (c) => {
   try {
     const sessionData = c.get('sessionData') as GoogleTokens;
     const sheetsService = new GoogleSheetsService(c.env);
-    sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+    sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
 
     const spreadsheets = await sheetsService.getSpreadsheets();
     
@@ -104,7 +104,7 @@ sheets.post('/connect', async (c) => {
 
     const sessionData = c.get('sessionData') as GoogleTokens;
     const sheetsService = new GoogleSheetsService(c.env);
-    sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+    sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
 
     const sheetList = await sheetsService.getSheets(spreadsheetId);
     
@@ -152,7 +152,7 @@ sheets.get('/date/:date', async (c) => {
   try {
     const sessionData = c.get('sessionData') as GoogleTokens;
     const sheetsService = new GoogleSheetsService(c.env);
-    sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+    sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
 
     // First, try to find a spreadsheet with the date name
     const spreadsheets = await sheetsService.getSpreadsheets();
@@ -230,7 +230,7 @@ sheets.get('/date/:date/by-staff', async (c) => {
   try {
     const sessionData = c.get('sessionData') as GoogleTokens;
     const sheetsService = new GoogleSheetsService(c.env);
-    sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+    sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
 
     // First, try to find a spreadsheet with the date name
     const spreadsheets = await sheetsService.getSpreadsheets();
@@ -434,7 +434,7 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
     }
 
     const sheetsService = new GoogleSheetsService(c.env);
-    sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+    sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
 
     // First, try to find a spreadsheet with the date name
     const spreadsheets = await sheetsService.getSpreadsheets();
@@ -602,7 +602,7 @@ sheets.put('/data/:date/status', async (c) => {
     }
     
     const sheetsService = new GoogleSheetsService(c.env);
-    sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+    sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
 
     // Find spreadsheet by date name (same logic as other endpoints)
     const spreadsheets = await sheetsService.getSpreadsheets();

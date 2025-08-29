@@ -46,7 +46,7 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
 
     if (needsRefresh && sessionData.refreshToken) {
       try {
-        googleAuth.setCredentials(sessionData.accessToken, sessionData.refreshToken);
+        googleAuth.setCredentials(sessionData.accessToken!, sessionData.refreshToken);
         const newAccessToken = await googleAuth.refreshAccessToken();
         
         sessionData.accessToken = newAccessToken;

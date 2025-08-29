@@ -38,7 +38,12 @@
       "Bash(git commit:*)",
       "Bash(npm run deploy:*)",
       "Bash(npx wrangler auth:*)",
-      "Bash(npx wrangler:*)"
+      "Bash(npx wrangler:*)",
+      "Bash(timeout:*)",
+      "WebFetch(domain:developers.solapi.com)",
+      "Bash(set NODE_TLS_REJECT_UNAUTHORIZED=0)",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_handle_dialog"
     ]
   },
   "enabledMcpjsonServers": [

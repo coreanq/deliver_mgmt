@@ -131,7 +131,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Logout from Google only
   const logoutGoogle = async (): Promise<void> => {
     try {
-      await axios.post(`${API_BASE_URL}/api/auth/logout`, {}, {
+      await axios.post(`${API_BASE_URL}/api/auth/google/logout`, {}, {
         withCredentials: true,
       });
       clearGoogleAuth();
@@ -144,7 +144,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Logout from SOLAPI only
   const logoutSolapi = async (): Promise<void> => {
     try {
-      await axios.post(`${API_BASE_URL}/api/auth/logout`, {}, {
+      await axios.post(`${API_BASE_URL}/api/solapi/auth/logout`, {}, {
         withCredentials: true,
       });
       clearSolapiAuth();

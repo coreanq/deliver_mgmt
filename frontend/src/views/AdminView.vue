@@ -465,6 +465,89 @@
                     <div v-else>
                       <p class="mb-2">발신번호: {{ solapiSenderId || '로딩 중...' }}</p>
                       <p class="text-body-2 mb-4">잔액: {{ solapiBalance || '확인 중...' }}</p>
+                      
+                      <!-- SMS 발송 섹션 -->
+                      <v-expansion-panels class="mb-4">
+                        <v-expansion-panel>
+                          <v-expansion-panel-title>
+                            <v-icon start>mdi-send</v-icon>
+                            SMS 발송
+                          </v-expansion-panel-title>
+                          <v-expansion-panel-text>
+                            <v-form ref="smsForm" v-model="smsFormValid" @submit.prevent="sendSms">
+                              <v-row>
+                                <v-col cols="12" md="6">
+                                  <v-text-field
+                                    v-model="smsForm.from"
+                                    label="발신번호"
+                                    placeholder="010-1234-5678"
+                                    :rules="phoneRules"
+                                    prepend-inner-icon="mdi-phone-outgoing"
+                                    variant="outlined"
+                                    required
+                                  ></v-text-field>
+                                </v-col>
+                                <v-col cols="12" md="6">
+                                  <v-text-field
+                                    v-model="smsForm.to"
+                                    label="수신번호"
+                                    placeholder="010-9876-5432"
+                                    :rules="phoneRules"
+                                    prepend-inner-icon="mdi-phone-incoming"
+                                    variant="outlined"
+                                    required
+                                  ></v-text-field>
+                                </v-col>
+                                <v-col cols="12">
+                                  <v-textarea
+                                    v-model="smsForm.text"
+                                    label="메시지 내용"
+                                    placeholder="전송할 메시지를 입력하세요"
+                                    :rules="messageRules"
+                                    rows="3"
+                                    counter="90"
+                                    prepend-inner-icon="mdi-message-text"
+                                    variant="outlined"
+                                    required
+                                  ></v-textarea>
+                                </v-col>
+                                <v-col cols="12">
+                                  <div class="d-flex justify-space-between align-center">
+                                    <v-chip
+                                      :color="(smsForm.text || '').length > 90 ? 'warning' : 'info'"
+                                      size="small"
+                                    >
+                                      {{ (smsForm.text || '').length > 90 ? 'LMS' : 'SMS' }}
+                                      ({{ (smsForm.text || '').length }}/90자)
+                                    </v-chip>
+                                    <div>
+                                      <v-btn
+                                        color="grey"
+                                        variant="outlined"
+                                        @click="resetSmsForm"
+                                        class="mr-2"
+                                      >
+                                        초기화
+                                      </v-btn>
+                                      <v-btn
+                                        color="primary"
+                                        type="submit"
+                                        :disabled="!smsFormValid"
+                                        :loading="smsSending"
+                                        variant="elevated"
+                                      >
+                                        <v-icon start>mdi-send</v-icon>
+                                        SMS 발송
+                                      </v-btn>
+                                    </div>
+                                  </div>
+                                </v-col>
+                              </v-row>
+                            </v-form>
+                          </v-expansion-panel-text>
+                        </v-expansion-panel>
+                      </v-expansion-panels>
+                      
                       <v-btn
                         color="error"
                         variant="outlined"
@@ -545,6 +628,29 @@ const connectedSheetName = ref<string>('');
 // SOLAPI data
 const solapiSenderId = ref<string>('');
 const solapiBalance = ref<string>('');
+
+// SMS 발송 관련
+const smsFormValid = ref(false);
+const smsSending = ref(false);
+const smsForm = ref({
+  from: '',
+  to: '',
+  text: ''
+});
+
+// Form validation rules
+const phoneRules = [
+  (v: string) => !!v || '전화번호를 입력하세요',
+  (v: string) => {
+    const phone = v.replace(/-/g, '');
+    return /^01[0-9]{8,9}$/.test(phone) || '올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678)';
+  }
+];
+
+const messageRules = [
+  (v: string) => !!v || '메시지 내용을 입력하세요',
+  (v: string) => v.length >= 1 || '메시지는 1자 이상 입력해야 합니다',
+];
 
 // Staff management
 const staffList = ref<{ name: string }[]>([
@@ -849,8 +955,57 @@ const disconnectSolapi = async (): Promise<void> => {
     await authStore.logoutSolapi();
     solapiSenderId.value = '';
     solapiBalance.value = '';
+    resetSmsForm(); // SMS 폼도 초기화
   } catch (error) {
     console.error('Failed to disconnect SOLAPI:', error);
+  }
+};
+
+// SMS 발송 관련 메서드들
+const resetSmsForm = (): void => {
+  smsForm.value = {
+    from: '',
+    to: '',
+    text: ''
+  };
+};
+
+const sendSms = async (): Promise<void> => {
+  if (!smsFormValid.value) {
+    return;
+  }
+
+  smsSending.value = true;
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/solapi/message/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // 쿠키 포함
+      body: JSON.stringify({
+        from: smsForm.value.from,
+        to: smsForm.value.to,
+        text: smsForm.value.text,
+        type: (smsForm.value.text || '').length > 90 ? 'LMS' : 'SMS'
+      }),
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      // 성공 알림
+      console.log('SMS 발송 성공:', result);
+      alert(`SMS 발송 성공!\n메시지 ID: ${result.data.messageId || 'N/A'}`);
+      resetSmsForm();
+    } else {
+      throw new Error(result.message || 'SMS 발송에 실패했습니다.');
+    }
+  } catch (error: any) {
+    console.error('SMS 발송 실패:', error);
+    alert(`SMS 발송 실패: ${error.message}`);
+  } finally {
+    smsSending.value = false;
   }
 };
 

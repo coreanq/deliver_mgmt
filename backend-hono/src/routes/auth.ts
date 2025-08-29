@@ -178,13 +178,33 @@ auth.get('/status', async (c) => {
       });
     }
 
+    // Check Google authentication status
+    const hasGoogleAuth = !!(sessionData.accessToken && sessionData.refreshToken);
+    
+    if (!hasGoogleAuth) {
+      // Only SOLAPI is authenticated
+      const hasSolapiAuth = !!(sessionData.solapiTokens?.accessToken);
+      return c.json({
+        success: true,
+        data: {
+          google: false,
+          solapi: hasSolapiAuth,
+          ...(hasSolapiAuth && {
+            solapiData: {
+              connectedAt: sessionData.solapiTokens!.connectedAt
+            }
+          })
+        }
+      });
+    }
+
     // Check if token needs refresh
     const googleAuth = new GoogleAuthService(c.env);
     const needsRefresh = googleAuth.shouldRefreshToken(sessionData.expiryDate);
 
     if (needsRefresh && sessionData.refreshToken) {
       try {
-        googleAuth.setCredentials(sessionData.accessToken, sessionData.refreshToken);
+        googleAuth.setCredentials(sessionData.accessToken!, sessionData.refreshToken!);
         const newAccessToken = await googleAuth.refreshAccessToken();
         
         sessionData.accessToken = newAccessToken;
@@ -193,11 +213,18 @@ auth.get('/status', async (c) => {
         await setSession(sessionId, sessionData, c.env);
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
+        // Even if Google token refresh failed, check SOLAPI status
+        const hasSolapiAuth = !!(sessionData.solapiTokens?.accessToken);
         return c.json({
           success: true,
           data: {
             google: false,
-            solapi: false
+            solapi: hasSolapiAuth,
+            ...(hasSolapiAuth && {
+              solapiData: {
+                connectedAt: sessionData.solapiTokens!.connectedAt
+              }
+            })
           }
         });
       }
@@ -208,21 +235,29 @@ auth.get('/status', async (c) => {
     try {
       const { GoogleSheetsService } = await import('../services/googleSheets');
       const sheetsService = new GoogleSheetsService(c.env);
-      sheetsService.init(sessionData.accessToken, sessionData.refreshToken);
+      sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
       spreadsheetsList = await sheetsService.getSpreadsheets();
     } catch (error) {
       console.error('Failed to fetch spreadsheets list:', error);
     }
 
+    // Check SOLAPI authentication status
+    const hasSolapiAuth = !!(sessionData.solapiTokens?.accessToken);
+
     return c.json({
       success: true,
       data: {
         google: true,
-        solapi: false,
+        solapi: hasSolapiAuth,
         googleData: {
           connectedAt: sessionData.connectedAt,
           spreadsheets: spreadsheetsList
-        }
+        },
+        ...(hasSolapiAuth && {
+          solapiData: {
+            connectedAt: sessionData.solapiTokens!.connectedAt
+          }
+        })
       }
     });
   } catch (error: any) {
@@ -238,7 +273,47 @@ auth.get('/status', async (c) => {
 });
 
 /**
- * Logout
+ * Google logout - remove Google tokens from session
+ */
+auth.post('/google/logout', async (c) => {
+  try {
+    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
+    
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        message: '세션 ID가 제공되지 않았습니다.',
+      }, 401);
+    }
+
+    // Get existing session
+    let sessionData = await getSession(sessionId, c.env);
+    
+    if (sessionData) {
+      // Remove only Google tokens, keep SOLAPI tokens
+      delete sessionData.accessToken;
+      delete sessionData.refreshToken;
+      delete sessionData.connectedAt;
+      delete sessionData.expiryDate;
+      await setSession(sessionId, sessionData, c.env);
+    }
+
+    return c.json({
+      success: true,
+      message: 'Google 연결이 해제되었습니다.',
+    });
+  } catch (error: any) {
+    console.error('Google logout error:', error);
+    return c.json({
+      success: false,
+      message: 'Google 연결 해제 중 오류가 발생했습니다.',
+      error: error.message,
+    }, 500);
+  }
+});
+
+/**
+ * Logout (전체)
  */
 auth.post('/logout', async (c) => {
   try {
