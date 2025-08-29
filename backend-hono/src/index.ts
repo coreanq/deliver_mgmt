@@ -79,10 +79,8 @@ app.use('*', cors({
     'Content-Type', 
     'Authorization', 
     'X-Session-ID', 
-    'Cookie',
-    'Set-Cookie'
+    'Cookie'
   ],
-  exposeHeaders: ['Set-Cookie'],
   credentials: true,
 }));
 

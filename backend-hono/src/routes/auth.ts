@@ -104,9 +104,10 @@ auth.get('/google/callback', async (c) => {
       path: '/'
     });
 
-    // Redirect to frontend without sessionId in URL (security improvement)
+    // Redirect to frontend with sessionId for Brave browser compatibility
     const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
     redirectUrl.searchParams.set('auth', 'success');
+    redirectUrl.searchParams.set('sessionId', sessionId);
 
     console.log('Redirecting to:', redirectUrl.toString());
     return c.redirect(redirectUrl.toString());
