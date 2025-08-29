@@ -500,8 +500,7 @@
                                 </v-col>
                                 <v-col cols="12">
                                   <v-textarea
-                                    :value="smsForm.text"
-                                    @input="handleTextInput"
+                                    v-model="smsForm.text"
                                     label="메시지 내용"
                                     placeholder="전송할 메시지를 입력하세요"
                                     :rules="messageRules"
@@ -514,12 +513,6 @@
                                 </v-col>
                                 <v-col cols="12">
                                   <div class="d-flex justify-space-between align-center">
-                                    <v-chip
-                                      :color="(smsForm.text || '').length > 90 ? 'warning' : 'info'"
-                                      size="small"
-                                    >
-                                      {{ ((smsForm.text || '').length > 90 ? 'LMS' : 'SMS') }} ({{ (smsForm.text || '').length }}/90자)
-                                    </v-chip>
                                     <div>
                                       <v-btn
                                         color="grey"
@@ -716,12 +709,6 @@ const availableStaff = computed(() => {
 });
 
 
-// Fix v-model binding issue in production - use :value + @input instead of v-model
-const handleTextInput = (event: Event) => {
-  const target = event.target as HTMLTextAreaElement;
-  smsForm.value.text = target.value;
-  console.log('SMS text updated:', target.value, 'length:', target.value.length);
-};
 
 const currentDisplayData = computed(() => {
   if (selectedStaff.value === '전체') {
