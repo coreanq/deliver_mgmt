@@ -65,8 +65,7 @@ export class MigrationService {
         refreshToken: sessionData.refreshToken,
         connectedAt: sessionData.connectedAt || new Date().toISOString(),
         expiryDate: sessionData.expiryDate,
-        email: userEmail,
-        solapiTokens: sessionData.solapiTokens
+        email: userEmail
       };
 
       // 세션의 자동화 룰들을 마이그레이션

@@ -6,18 +6,18 @@ import type { Env, GoogleTokens } from '../types';
 
 const auth = new Hono<{ Bindings: Env }>();
 
-// Session management helper functions
-async function getSession(sessionId: string, env: Env): Promise<GoogleTokens | null> {
+// Temporary session ID management for cookie-based authentication (하위 호환성)
+async function createTempSession(sessionId: string, email: string, env: Env): Promise<void> {
+  await env.SESSIONS.put(sessionId, JSON.stringify({ email }), { expirationTtl: 86400 }); // 24 hours
+}
+
+async function getTempSession(sessionId: string, env: Env): Promise<{ email?: string } | null> {
   try {
     const sessionData = await env.SESSIONS.get(sessionId);
     return sessionData ? JSON.parse(sessionData) : null;
   } catch {
     return null;
   }
-}
-
-async function setSession(sessionId: string, data: GoogleTokens, env: Env): Promise<void> {
-  await env.SESSIONS.put(sessionId, JSON.stringify(data), { expirationTtl: 86400 }); // 24 hours
 }
 
 // Generate secure session ID
@@ -93,21 +93,21 @@ auth.get('/google/callback', async (c) => {
       return c.json({ success: false, message: '사용자 정보를 가져올 수 없습니다.' }, 400);
     }
 
-    // Generate session ID and store tokens (기존 방식 유지 + 계정 기반 추가)
+    // Generate session ID for cookie-based authentication (임시 세션)
     const sessionId = generateSecureSessionId();
-    const sessionData: GoogleTokens = {
+    const googleTokens: GoogleTokens = {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       connectedAt: new Date().toISOString(),
       expiryDate: Date.now() + (3600 * 1000), // 1 hour from now
-      email: userEmail, // Google 이메일 추가
+      email: userEmail,
     };
 
-    // 기존 세션 방식 유지 (하위 호환성)
-    await setSession(sessionId, sessionData, c.env);
+    // 임시 세션 저장 (쿠키 기반 인증용, 이메일만 저장)
+    await createTempSession(sessionId, userEmail, c.env);
     
     // 통합 사용자 데이터 저장/업데이트 (Google 토큰 + 기존 자동화 룰 등 유지)
-    await unifiedUserService.updateGoogleTokens(userEmail, sessionData);
+    await unifiedUserService.updateGoogleTokens(userEmail, googleTokens);
 
     // Set secure httpOnly session cookie with SameSite=None for cross-domain
     console.log('Setting secure session cookie:', { sessionId: sessionId.substring(0, 8) + '...', httpOnly: true, secure: true });
@@ -184,9 +184,9 @@ auth.get('/status', async (c) => {
       });
     }
 
-    const sessionData = await getSession(sessionId, c.env);
+    const tempSession = await getTempSession(sessionId, c.env);
     
-    if (!sessionData) {
+    if (!tempSession?.email) {
       return c.json({
         success: false,
         authenticated: false,
@@ -198,12 +198,27 @@ auth.get('/status', async (c) => {
       });
     }
 
+    const unifiedUserService = new UnifiedUserService(c.env);
+    const userData = await unifiedUserService.getUserData(tempSession.email);
+    
+    if (!userData) {
+      return c.json({
+        success: false,
+        authenticated: false,
+        message: '사용자 데이터를 찾을 수 없습니다.',
+        data: {
+          google: false,
+          solapi: false
+        }
+      });
+    }
+
     // Check Google authentication status
-    const hasGoogleAuth = !!(sessionData.accessToken && sessionData.refreshToken);
+    const hasGoogleAuth = !!(userData.googleTokens.accessToken && userData.googleTokens.refreshToken);
     
     if (!hasGoogleAuth) {
       // Only SOLAPI is authenticated
-      const hasSolapiAuth = !!(sessionData.solapiTokens?.accessToken);
+      const hasSolapiAuth = !!(userData.solapiTokens?.accessToken);
       return c.json({
         success: true,
         data: {
@@ -211,7 +226,7 @@ auth.get('/status', async (c) => {
           solapi: hasSolapiAuth,
           ...(hasSolapiAuth && {
             solapiData: {
-              connectedAt: sessionData.solapiTokens!.connectedAt
+              connectedAt: userData.solapiTokens!.connectedAt
             }
           })
         }
@@ -220,21 +235,21 @@ auth.get('/status', async (c) => {
 
     // Check if token needs refresh
     const googleAuth = new GoogleAuthService(c.env);
-    const needsRefresh = googleAuth.shouldRefreshToken(sessionData.expiryDate);
+    const needsRefresh = googleAuth.shouldRefreshToken(userData.googleTokens.expiryDate);
 
-    if (needsRefresh && sessionData.refreshToken) {
+    if (needsRefresh && userData.googleTokens.refreshToken) {
       try {
-        googleAuth.setCredentials(sessionData.accessToken!, sessionData.refreshToken!);
+        googleAuth.setCredentials(userData.googleTokens.accessToken!, userData.googleTokens.refreshToken!);
         const newAccessToken = await googleAuth.refreshAccessToken();
         
-        sessionData.accessToken = newAccessToken;
-        sessionData.expiryDate = Date.now() + (3600 * 1000); // 1 hour from now
+        userData.googleTokens.accessToken = newAccessToken;
+        userData.googleTokens.expiryDate = Date.now() + (3600 * 1000); // 1 hour from now
         
-        await setSession(sessionId, sessionData, c.env);
+        await unifiedUserService.updateGoogleTokens(tempSession.email, userData.googleTokens);
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
         // Even if Google token refresh failed, check SOLAPI status
-        const hasSolapiAuth = !!(sessionData.solapiTokens?.accessToken);
+        const hasSolapiAuth = !!(userData.solapiTokens?.accessToken);
         return c.json({
           success: true,
           data: {
@@ -242,7 +257,7 @@ auth.get('/status', async (c) => {
             solapi: hasSolapiAuth,
             ...(hasSolapiAuth && {
               solapiData: {
-                connectedAt: sessionData.solapiTokens!.connectedAt
+                connectedAt: userData.solapiTokens!.connectedAt
               }
             })
           }
@@ -255,14 +270,14 @@ auth.get('/status', async (c) => {
     try {
       const { GoogleSheetsService } = await import('../services/googleSheets');
       const sheetsService = new GoogleSheetsService(c.env);
-      sheetsService.init(sessionData.accessToken!, sessionData.refreshToken!);
+      sheetsService.init(userData.googleTokens.accessToken!, userData.googleTokens.refreshToken!);
       spreadsheetsList = await sheetsService.getSpreadsheets();
     } catch (error) {
       console.error('Failed to fetch spreadsheets list:', error);
     }
 
     // Check SOLAPI authentication status
-    const hasSolapiAuth = !!(sessionData.solapiTokens?.accessToken);
+    const hasSolapiAuth = !!(userData.solapiTokens?.accessToken);
 
     return c.json({
       success: true,
@@ -270,12 +285,12 @@ auth.get('/status', async (c) => {
         google: true,
         solapi: hasSolapiAuth,
         googleData: {
-          connectedAt: sessionData.connectedAt,
+          connectedAt: userData.googleTokens.connectedAt,
           spreadsheets: spreadsheetsList
         },
         ...(hasSolapiAuth && {
           solapiData: {
-            connectedAt: sessionData.solapiTokens!.connectedAt
+            connectedAt: userData.solapiTokens!.connectedAt
           }
         })
       }
@@ -306,16 +321,27 @@ auth.post('/google/logout', async (c) => {
       }, 401);
     }
 
-    // Get existing session
-    let sessionData = await getSession(sessionId, c.env);
+    // Get temp session to extract email
+    const tempSession = await getTempSession(sessionId, c.env);
     
-    if (sessionData) {
-      // Remove only Google tokens, keep SOLAPI tokens
-      delete sessionData.accessToken;
-      delete sessionData.refreshToken;
-      delete sessionData.connectedAt;
-      delete sessionData.expiryDate;
-      await setSession(sessionId, sessionData, c.env);
+    if (tempSession?.email) {
+      // UnifiedUserService에서 Google 토큰만 제거하는 기능은 없으므로
+      // SOLAPI 토큰은 유지하면서 Google 토큰만 빈 값으로 설정
+      const unifiedUserService = new UnifiedUserService(c.env);
+      const userData = await unifiedUserService.getUserData(tempSession.email);
+      
+      if (userData) {
+        // Google 토큰을 빈 값으로 설정 (SOLAPI는 유지)
+        const emptyGoogleTokens: GoogleTokens = {
+          accessToken: undefined,
+          refreshToken: undefined,
+          connectedAt: undefined,
+          expiryDate: undefined,
+          email: tempSession.email
+        };
+        
+        await unifiedUserService.updateGoogleTokens(tempSession.email, emptyGoogleTokens);
+      }
     }
 
     return c.json({
@@ -340,6 +366,7 @@ auth.post('/logout', async (c) => {
     const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
     
     if (sessionId) {
+      // 임시 세션만 삭제 (UnifiedUserService의 데이터는 유지)
       await c.env.SESSIONS.delete(sessionId);
     }
 

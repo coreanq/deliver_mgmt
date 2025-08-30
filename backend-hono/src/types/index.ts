@@ -26,12 +26,6 @@ export interface GoogleTokens {
   connectedAt?: string;
   expiryDate?: number;
   email?: string; // Google 계정 이메일
-  solapiTokens?: {
-    accessToken: string;
-    refreshToken: string;
-    connectedAt: string;
-    expiryDate: number;
-  };
 }
 
 // 통합 사용자 데이터 구조 (해시 기반 보안 키 사용)
@@ -51,28 +45,6 @@ export interface UnifiedUserData {
   updatedAt: string;
 }
 
-// Google 계정 기반 사용자 프로필 (하위 호환성)
-export interface UserProfile {
-  email: string;
-  googleTokens: GoogleTokens;
-  solapiTokens?: {
-    accessToken: string;
-    refreshToken: string;
-    connectedAt: string;
-    expiryDate: number;
-  };
-  lastLoginAt: string;
-  createdAt: string;
-}
-
-// 사용자별 세션 관리
-export interface UserSession {
-  email: string;
-  sessionId: string;
-  createdAt: string;
-  lastAccessAt: string;
-  userAgent?: string;
-}
 
 export interface SolapiConfig {
   accessToken: string;

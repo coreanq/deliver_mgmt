@@ -2,19 +2,16 @@ import type { Context, Next } from 'hono';
 import { getCookie } from 'hono/cookie';
 import type { Env, GoogleTokens, Variables } from '../types';
 import { GoogleAuthService } from '../services/googleAuth';
+import { UnifiedUserService } from '../services/unifiedUserService';
 
-// Session management helper functions
-async function getSession(sessionId: string, env: Env): Promise<GoogleTokens | null> {
+// Helper function for temp session access
+async function getTempSession(sessionId: string, env: Env): Promise<{ email?: string } | null> {
   try {
     const sessionData = await env.SESSIONS.get(sessionId);
     return sessionData ? JSON.parse(sessionData) : null;
   } catch {
     return null;
   }
-}
-
-async function setSession(sessionId: string, data: GoogleTokens, env: Env): Promise<void> {
-  await env.SESSIONS.put(sessionId, JSON.stringify(data), { expirationTtl: 86400 }); // 24 hours
 }
 
 /**
@@ -31,28 +28,38 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
       }, 401);
     }
 
-    const sessionData = await getSession(sessionId, c.env);
+    const tempSession = await getTempSession(sessionId, c.env);
     
-    if (!sessionData) {
+    if (!tempSession?.email) {
       return c.json({
         success: false,
         message: '유효하지 않은 세션입니다. 다시 로그인해주세요.',
       }, 401);
     }
 
+    const unifiedUserService = new UnifiedUserService(c.env);
+    const userData = await unifiedUserService.getUserData(tempSession.email);
+
+    if (!userData || !userData.googleTokens.accessToken) {
+      return c.json({
+        success: false,
+        message: '사용자 데이터를 찾을 수 없습니다. 다시 로그인해주세요.',
+      }, 401);
+    }
+
     // Check if token needs refresh
     const googleAuth = new GoogleAuthService(c.env);
-    const needsRefresh = googleAuth.shouldRefreshToken(sessionData.expiryDate);
+    const needsRefresh = googleAuth.shouldRefreshToken(userData.googleTokens.expiryDate);
 
-    if (needsRefresh && sessionData.refreshToken) {
+    if (needsRefresh && userData.googleTokens.refreshToken) {
       try {
-        googleAuth.setCredentials(sessionData.accessToken!, sessionData.refreshToken);
+        googleAuth.setCredentials(userData.googleTokens.accessToken!, userData.googleTokens.refreshToken);
         const newAccessToken = await googleAuth.refreshAccessToken();
         
-        sessionData.accessToken = newAccessToken;
-        sessionData.expiryDate = Date.now() + (3600 * 1000); // 1 hour from now
+        userData.googleTokens.accessToken = newAccessToken;
+        userData.googleTokens.expiryDate = Date.now() + (3600 * 1000); // 1 hour from now
         
-        await setSession(sessionId, sessionData, c.env);
+        await unifiedUserService.updateGoogleTokens(tempSession.email, userData.googleTokens);
         console.log('Token refreshed successfully');
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
@@ -63,8 +70,8 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
       }
     }
 
-    // Store session data in context for use in handlers
-    c.set('sessionData', sessionData);
+    // Store session data in context for use in handlers (backward compatibility)
+    c.set('sessionData', userData.googleTokens);
     c.set('sessionId', sessionId);
 
     await next();
