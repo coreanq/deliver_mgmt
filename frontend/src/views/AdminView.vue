@@ -915,6 +915,13 @@ const automationForm = ref({
 });
 const accountInfoLoading = ref(false);
 
+// Alert function for user notifications
+const showAlert = (message: string, type: 'info' | 'warning' | 'error' = 'info'): void => {
+  // Simple alert for now - can be enhanced with toast notifications later
+  const prefix = type === 'error' ? '❌ ' : type === 'warning' ? '⚠️ ' : 'ℹ️ ';
+  alert(prefix + message);
+};
+
 // SMS 발송 관련
 // 새로운 SMS 폼 구현
 const newSmsForm = ref({
@@ -1247,12 +1254,38 @@ const disconnectGoogleSheets = async (): Promise<void> => {
 const connectSolapi = async (): Promise<void> => {
   solapiLoading.value = true;
   try {
-    // TODO: Implement SOLAPI OAuth2 flow
+    // Check if Google authentication is available first
+    if (!authStore.isGoogleAuthenticated) {
+      // Show guidance to connect Google first
+      showAlert('SOLAPI 연결을 위해서는 먼저 Google 계정으로 로그인해주세요.', 'warning');
+      solapiLoading.value = false;
+      return;
+    }
+
     console.log('Connecting to SOLAPI...');
-    // Redirect to backend OAuth endpoint
-    window.location.href = `${API_BASE_URL}/api/solapi/auth/login`;
+    
+    // Try to get SOLAPI auth URL
+    const response = await fetch(`${API_BASE_URL}/api/solapi/auth/login`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    if (response.ok) {
+      // Successful redirect URL, navigate there
+      window.location.href = `${API_BASE_URL}/api/solapi/auth/login`;
+    } else {
+      // Handle guidance response
+      const result = await response.json();
+      
+      if (result.requiresGoogleAuth) {
+        showAlert(result.message + '\n\n1. ' + result.guide.step1 + '\n2. ' + result.guide.step2, 'info');
+      } else {
+        showAlert(result.message || 'SOLAPI 연결에 실패했습니다.', 'error');
+      }
+    }
   } catch (error) {
     console.error('SOLAPI connection failed:', error);
+    showAlert('SOLAPI 연결 중 오류가 발생했습니다.', 'error');
   } finally {
     solapiLoading.value = false;
   }
@@ -1622,18 +1655,23 @@ onMounted(async () => {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
   
-  // Load automation rules on mount
-  await loadAutomationRules();
+  // Load automation rules only if Google is authenticated
+  if (authStore.isGoogleAuthenticated) {
+    await loadAutomationRules();
+  }
 });
 
 // Watch for auth status changes to update UI data
 watch(() => authStore.isGoogleAuthenticated, (newValue) => {
   if (newValue) {
-    // Load Google Sheets data
+    // Load Google Sheets data and automation rules when authenticated
     connectedSheetName.value = 'Connected Spreadsheet';
+    loadAutomationRules();
   } else {
+    // Clear data when not authenticated
     connectedSheetName.value = '';
     staffList.value = [];
+    automationRules.value = [];
   }
 });
 

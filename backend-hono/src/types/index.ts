@@ -34,7 +34,24 @@ export interface GoogleTokens {
   };
 }
 
-// Google 계정 기반 사용자 프로필
+// 통합 사용자 데이터 구조 (해시 기반 보안 키 사용)
+export interface UnifiedUserData {
+  email: string;
+  emailHash: string; // 보안을 위한 이메일 해시값
+  googleTokens: GoogleTokens;
+  solapiTokens?: {
+    accessToken: string;
+    refreshToken: string;
+    connectedAt: string;
+    expiryDate: number;
+  };
+  automationRules: AutomationRule[];
+  lastLoginAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Google 계정 기반 사용자 프로필 (하위 호환성)
 export interface UserProfile {
   email: string;
   googleTokens: GoogleTokens;
@@ -121,6 +138,8 @@ export interface Env {
   SOLAPI_CLIENT_SECRET: string;
   SOLAPI_REDIRECT_URL: string;
   FRONTEND_URL: string;
+  EMAIL_HASH_SALT: string; // 이메일 해시화를 위한 SALT
+  JWT_SECRET: string; // QR 토큰 서명을 위한 시크릿
   NODE_ENV?: string;
 }
 

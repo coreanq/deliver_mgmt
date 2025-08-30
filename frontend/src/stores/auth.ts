@@ -81,8 +81,8 @@ export const useAuthStore = defineStore('auth', () => {
       console.log('Auth status response:', response.data);
       
       if (response.data.success) {
-        isGoogleAuthenticated.value = response.data.data.google;
-        isSolapiAuthenticated.value = response.data.data.solapi;
+        // Set Google authentication status
+        isGoogleAuthenticated.value = true;
         
         // Update Google data if available
         if (response.data.data.googleData) {
@@ -99,14 +99,36 @@ export const useAuthStore = defineStore('auth', () => {
         } else {
           connectedSpreadsheet.value = null;
         }
+      } else {
+        // Clear all Google authentication state when not authenticated
+        clearGoogleAuth();
+      }
+      
+      // Check SOLAPI authentication status separately
+      try {
+        const solapiResponse = await axios.get(`${API_BASE_URL}/api/solapi/auth/status`, {
+          withCredentials: true
+        });
+        
+        console.log('SOLAPI status response:', solapiResponse.data);
+        if (solapiResponse.data.success && solapiResponse.data.authenticated) {
+          isSolapiAuthenticated.value = true;
+        } else {
+          // Clear SOLAPI authentication state when not authenticated
+          clearSolapiAuth();
+        }
+      } catch (solapiError) {
+        console.error('Failed to check SOLAPI status:', solapiError);
+        // Clear SOLAPI authentication state on error
+        clearSolapiAuth();
       }
     } catch (error) {
       console.error('Failed to check auth status:', error);
-      isGoogleAuthenticated.value = false;
-      isSolapiAuthenticated.value = false;
-      googleSpreadsheets.value = [];
-      googleConnectedAt.value = '';
-      connectedSpreadsheet.value = null;
+      // Clear all authentication states on error
+      clearGoogleAuth();
+      clearSolapiAuth();
+      setAdminAuth(false);
+      clearDeliveryAuth();
     }
   };
 

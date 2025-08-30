@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import { GoogleAuthService } from '../services/googleAuth';
-import { UserSessionService } from '../services/userSessionService';
+import { UnifiedUserService } from '../services/unifiedUserService';
 import type { Env, GoogleTokens } from '../types';
 
 const auth = new Hono<{ Bindings: Env }>();
@@ -83,11 +83,11 @@ auth.get('/google/callback', async (c) => {
     const googleAuth = new GoogleAuthService(c.env);
     const tokens = await googleAuth.getTokens(code);
 
-    // Google 계정 기반 세션 관리 시스템
-    const userSessionService = new UserSessionService(c.env);
+    // 통합 사용자 데이터 관리 시스템
+    const unifiedUserService = new UnifiedUserService(c.env);
     
     // Google 이메일 추출
-    const userEmail = await userSessionService.extractGoogleEmail(tokens.accessToken);
+    const userEmail = await unifiedUserService.extractGoogleEmail(tokens.accessToken);
     if (!userEmail) {
       console.error('Failed to extract Google email from access token');
       return c.json({ success: false, message: '사용자 정보를 가져올 수 없습니다.' }, 400);
@@ -106,11 +106,8 @@ auth.get('/google/callback', async (c) => {
     // 기존 세션 방식 유지 (하위 호환성)
     await setSession(sessionId, sessionData, c.env);
     
-    // Google 계정 기반 사용자 프로필 저장 (영구 저장)
-    await userSessionService.saveUserProfile(userEmail, sessionData);
-    
-    // 활성 세션 등록
-    await userSessionService.registerSession(userEmail, sessionId, c.req.header('User-Agent'));
+    // 통합 사용자 데이터 저장/업데이트 (Google 토큰 + 기존 자동화 룰 등 유지)
+    await unifiedUserService.updateGoogleTokens(userEmail, sessionData);
 
     // Set secure httpOnly session cookie with SameSite=None for cross-domain
     console.log('Setting secure session cookie:', { sessionId: sessionId.substring(0, 8) + '...', httpOnly: true, secure: true });
@@ -177,7 +174,9 @@ auth.get('/status', async (c) => {
     if (!sessionId) {
       console.log('No session ID found, returning unauthenticated status');
       return c.json({
-        success: true,
+        success: false,
+        authenticated: false,
+        message: '인증되지 않은 사용자입니다.',
         data: {
           google: false,
           solapi: false
@@ -189,7 +188,9 @@ auth.get('/status', async (c) => {
     
     if (!sessionData) {
       return c.json({
-        success: true,
+        success: false,
+        authenticated: false,
+        message: '유효하지 않은 세션입니다.',
         data: {
           google: false,
           solapi: false

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
-import { UserSessionService } from '../services/userSessionService';
+import { UnifiedUserService } from '../services/unifiedUserService';
 import type { Env, ApiResponse, AutomationRule, AutomationTriggerEvent } from '../types';
 
 const automation = new Hono<{ Bindings: Env }>();
@@ -169,7 +169,7 @@ async function sendSMS(
       return false;
     }
 
-    const result = await response.json();
+    const result = await response.json() as { messageId?: string; statusCode?: number };
     console.log('SMS sent successfully:', {
       messageId: result.messageId,
       statusCode: result.statusCode
@@ -210,7 +210,7 @@ async function sendKakaoTalk(
       return await sendSMS(accessToken, senderNumber, recipientNumber, message);
     }
 
-    const result = await response.json();
+    const result = await response.json() as { messageId?: string; statusCode?: number };
     console.log('KakaoTalk sent successfully:', {
       messageId: result.messageId,
       statusCode: result.statusCode
@@ -248,13 +248,13 @@ automation.get('/rules', async (c) => {
       } as ApiResponse, 401);
     }
 
-    // Google 계정 기반 자동화 규칙 조회 (영구 저장된 규칙)
-    const userSessionService = new UserSessionService(c.env);
+    // 통합 사용자 데이터 서비스 사용
+    const unifiedUserService = new UnifiedUserService(c.env);
     
     // Google 이메일이 세션에 없으면 추출 시도
     let userEmail = sessionData.email;
     if (!userEmail && sessionData.accessToken) {
-      userEmail = await userSessionService.extractGoogleEmail(sessionData.accessToken);
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
       
       if (userEmail) {
         // 세션에 이메일 추가하고 저장
@@ -265,17 +265,13 @@ automation.get('/rules', async (c) => {
     }
 
     if (!userEmail) {
-      // Fallback to session-based rules if email extraction fails
-      console.log('Unable to extract email, using session-based rules');
-      const rules = sessionData.automationRules || [];
       return c.json({
-        success: true,
-        data: rules,
-        message: '자동화 규칙 목록을 성공적으로 조회했습니다. (세션 기반)',
-      } as ApiResponse<AutomationRule[]>);
+        success: false,
+        message: 'Google 계정 인증이 필요합니다. 다시 로그인해주세요.',
+      } as ApiResponse, 401);
     }
     
-    const rules = await userSessionService.getAutomationRules(userEmail);
+    const rules = await unifiedUserService.getAutomationRules(userEmail);
 
     console.log(`Returning ${rules.length} automation rules for user: ${userEmail}`);
 
@@ -327,13 +323,13 @@ automation.post('/rules', async (c) => {
       } as ApiResponse, 400);
     }
 
-    // Google 계정 기반 자동화 규칙 관리
-    const userSessionService = new UserSessionService(c.env);
+    // 통합 사용자 데이터 서비스 사용
+    const unifiedUserService = new UnifiedUserService(c.env);
     
     // Google 이메일이 세션에 없으면 추출 시도
     let userEmail = sessionData.email;
     if (!userEmail && sessionData.accessToken) {
-      userEmail = await userSessionService.extractGoogleEmail(sessionData.accessToken);
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
       
       if (userEmail) {
         // 세션에 이메일 추가하고 저장
@@ -344,20 +340,10 @@ automation.post('/rules', async (c) => {
     }
 
     if (!userEmail) {
-      // Google 계정 기반 저장 실패시 기존 세션 방식으로 fallback
-      console.log('Unable to extract email, falling back to session-based storage');
-      userEmail = 'session_' + sessionId.substring(0, 8); // fallback identifier
-    }
-    
-    // 기존 자동화 규칙 조회 (Google 계정별)
-    const existingRules = await userSessionService.getAutomationRules(userEmail);
-
-    // Check if maximum limit (20) is reached
-    if (existingRules.length >= 20) {
       return c.json({
         success: false,
-        message: '자동화 규칙은 최대 20개까지만 저장할 수 있습니다. 기존 규칙을 삭제 후 다시 시도해주세요.',
-      } as ApiResponse, 400);
+        message: 'Google 계정 인증이 필요합니다. 다시 로그인해주세요.',
+      } as ApiResponse, 401);
     }
 
     const newRule: AutomationRule = {
@@ -378,26 +364,25 @@ automation.post('/rules', async (c) => {
       (newRule as any).spreadsheetName = spreadsheetName; // 시트 이름 저장
     }
 
-    // Google 계정 기반 규칙 저장 (영구 저장)
-    const updatedRules = [...existingRules, newRule];
-    await userSessionService.saveAutomationRules(userEmail, updatedRules);
-
-    // 하위 호환성을 위해 세션에도 저장 (기존 로직 유지)
-    if (!sessionData.automationRules) {
-      sessionData.automationRules = [];
+    try {
+      // 통합 사용자 데이터에 자동화 규칙 추가 (자동으로 20개 제한 체크)
+      await unifiedUserService.addAutomationRule(userEmail, newRule);
+    } catch (error: any) {
+      if (error.message.includes('최대 20개')) {
+        return c.json({
+          success: false,
+          message: error.message,
+        } as ApiResponse, 400);
+      }
+      throw error;
     }
-    sessionData.automationRules.push(newRule);
-    await setSession(sessionId, sessionData, c.env);
-
-    // Add this session to active sessions list for webhook processing
-    await addToActiveSessions(sessionId, c.env);
 
     console.log(`New automation rule created for ${userEmail}: ${newRule.name} (${newRule.id})`);
 
     return c.json({
       success: true,
       data: newRule,
-      message: '자동화 규칙이 성공적으로 생성되었습니다. Google 계정에 영구 저장되었습니다.',
+      message: '자동화 규칙이 성공적으로 생성되었습니다.',
     } as ApiResponse<AutomationRule>);
   } catch (error: any) {
     console.error('Failed to create automation rule:', error);
@@ -426,15 +411,40 @@ automation.put('/rules/:id', async (c) => {
 
     const sessionData = await getSession(sessionId, c.env);
     
-    if (!sessionData || !sessionData.automationRules) {
+    if (!sessionData) {
       return c.json({
         success: false,
-        message: '자동화 규칙을 찾을 수 없습니다.',
-      } as ApiResponse, 404);
+        message: '인증이 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
+    // 통합 사용자 데이터 서비스 사용
+    const unifiedUserService = new UnifiedUserService(c.env);
+    let userEmail = sessionData.email;
+    
+    // 이메일 추출 시도 (필요한 경우)
+    if (!userEmail && sessionData.accessToken) {
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
+    }
+
+    if (!userEmail) {
+      return c.json({
+        success: false,
+        message: 'Google 계정 인증이 필요합니다.',
+      } as ApiResponse, 401);
     }
 
     const body = await c.req.json();
-    const ruleIndex = sessionData.automationRules.findIndex((rule: AutomationRule) => rule.id === ruleId);
+    const userData = await unifiedUserService.getUserData(userEmail);
+    
+    if (!userData) {
+      return c.json({
+        success: false,
+        message: '사용자 데이터를 찾을 수 없습니다.',
+      } as ApiResponse, 404);
+    }
+
+    const ruleIndex = userData.automationRules.findIndex(rule => rule.id === ruleId);
     
     if (ruleIndex === -1) {
       return c.json({
@@ -443,18 +453,18 @@ automation.put('/rules/:id', async (c) => {
       } as ApiResponse, 404);
     }
 
-    // Update rule
-    sessionData.automationRules[ruleIndex] = {
-      ...sessionData.automationRules[ruleIndex],
+    // 규칙 업데이트
+    userData.automationRules[ruleIndex] = {
+      ...userData.automationRules[ruleIndex],
       ...body,
       updatedAt: new Date().toISOString(),
     };
     
-    await setSession(sessionId, sessionData, c.env);
+    await unifiedUserService.saveUserData(userData);
 
     return c.json({
       success: true,
-      data: sessionData.automationRules[ruleIndex],
+      data: userData.automationRules[ruleIndex],
       message: '자동화 규칙이 성공적으로 수정되었습니다.',
     } as ApiResponse<AutomationRule>);
   } catch (error: any) {
@@ -491,38 +501,30 @@ automation.delete('/rules/:id', async (c) => {
       } as ApiResponse, 401);
     }
 
-    // Google 계정 기반 자동화 규칙 삭제
-    const userSessionService = new UserSessionService(c.env);
-    const userEmail = sessionData.email;
+    // 통합 사용자 데이터에서 자동화 규칙 삭제
+    const unifiedUserService = new UnifiedUserService(c.env);
+    let userEmail = sessionData.email;
     
-    const existingRules = await userSessionService.getAutomationRules(userEmail);
-    const ruleIndex = existingRules.findIndex((rule: AutomationRule) => rule.id === ruleId);
-    
-    if (ruleIndex === -1) {
+    // 이메일 추출 시도 (필요한 경우)
+    if (!userEmail && sessionData.accessToken) {
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
+    }
+
+    if (!userEmail) {
       return c.json({
         success: false,
-        message: '자동화 규칙을 찾을 수 없습니다.',
-      } as ApiResponse, 404);
+        message: 'Google 계정 인증이 필요합니다.',
+      } as ApiResponse, 401);
     }
-
-    // Remove rule from Google account-based storage
-    const updatedRules = existingRules.filter((rule: AutomationRule) => rule.id !== ruleId);
-    await userSessionService.saveAutomationRules(userEmail, updatedRules);
-
-    // Also remove from session for compatibility
-    if (sessionData.automationRules) {
-      const sessionRuleIndex = sessionData.automationRules.findIndex((rule: AutomationRule) => rule.id === ruleId);
-      if (sessionRuleIndex !== -1) {
-        sessionData.automationRules.splice(sessionRuleIndex, 1);
-        await setSession(sessionId, sessionData, c.env);
-      }
-    }
+    
+    // 통합 서비스에서 규칙 삭제
+    await unifiedUserService.removeAutomationRule(userEmail, ruleId);
 
     console.log(`Automation rule deleted for ${userEmail}: ${ruleId}`);
 
     return c.json({
       success: true,
-      message: '자동화 규칙이 영구적으로 삭제되었습니다.',
+      message: '자동화 규칙이 삭제되었습니다.',
     } as ApiResponse);
   } catch (error: any) {
     console.error('Failed to delete automation rule:', error);
@@ -591,20 +593,32 @@ automation.post('/trigger', async (c) => {
       return date.toString();
     };
 
-    // Get all active sessions to find matching automation rules
-    // Since Google Sheets webhook doesn't have session info, we need to check all sessions
-    const activeSessions = await getAllActiveSessions(c.env);
+    // 새로운 통합 사용자 서비스를 사용한 웹훅 처리
+    const unifiedUserService = new UnifiedUserService(c.env);
+    const allUserRules = await unifiedUserService.getAllAutomationRules();
     
     let executedRules = 0;
     let results: any[] = [];
 
-    for (const [sessionId, sessionData] of activeSessions) {
-      const rules = sessionData.automationRules || [];
+    console.log(`Processing automation rules from ${allUserRules.length} users`);
+
+    for (const userRules of allUserRules) {
+      const { email, rules } = userRules;
       const activeRules = rules.filter((rule: AutomationRule) => rule.enabled);
 
       if (activeRules.length === 0) continue;
 
-      console.log(`Processing ${activeRules.length} rules for session: ${sessionId}`);
+      console.log(`Processing ${activeRules.length} rules for user: ${email}`);
+
+      // 해당 사용자의 SOLAPI 토큰 조회
+      const userData = await unifiedUserService.getUserData(email);
+      console.log(`User data for ${email}:`, {
+        hasUserData: !!userData,
+        hasSolapiTokens: !!userData?.solapiTokens,
+        solapiTokensKeys: userData?.solapiTokens ? Object.keys(userData.solapiTokens) : 'none',
+        actualTokens: userData?.solapiTokens || 'NO_TOKENS'
+      });
+      const solapiAccessToken = userData?.solapiTokens?.accessToken;
 
       for (const rule of activeRules) {
         // Check if rule matches the changed column and target date
@@ -633,18 +647,20 @@ automation.post('/trigger', async (c) => {
         const conditionMet = checkAutomationCondition(rule, oldValue, newValue);
         
         if (conditionMet) {
-          console.log(`Automation rule triggered: ${rule.name}`);
+          console.log(`Automation rule triggered: ${rule.name} for user: ${email}`);
+          console.log(`SOLAPI token status: ${solapiAccessToken ? 'found' : 'NOT FOUND'}`);
           
           // Execute automation action
           const success = await executeAutomationAction(
             rule, 
             rowData, 
-            sessionData.solapiTokens?.accessToken,
+            solapiAccessToken,
             c.env
           );
           
           executedRules++;
           results.push({
+            userEmail: email,
             ruleId: rule.id,
             ruleName: rule.name,
             success,
@@ -714,6 +730,21 @@ automation.post('/test-trigger', async (c) => {
       } as ApiResponse, 401);
     }
 
+    // 통합 사용자 서비스 사용
+    const unifiedUserService = new UnifiedUserService(c.env);
+    let userEmail = sessionData.email;
+    
+    if (!userEmail && sessionData.accessToken) {
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
+    }
+
+    if (!userEmail) {
+      return c.json({
+        success: false,
+        message: 'Google 계정 인증이 필요합니다.',
+      } as ApiResponse, 401);
+    }
+
     const body = await c.req.json();
     const { ruleId, testData } = body;
 
@@ -724,9 +755,16 @@ automation.post('/test-trigger', async (c) => {
       } as ApiResponse, 400);
     }
 
-    // Find automation rule
-    const rules = sessionData.automationRules || [];
-    const rule = rules.find((r: AutomationRule) => r.id === ruleId);
+    // Find automation rule from unified user data
+    const userData = await unifiedUserService.getUserData(userEmail);
+    if (!userData) {
+      return c.json({
+        success: false,
+        message: '사용자 데이터를 찾을 수 없습니다.',
+      } as ApiResponse, 404);
+    }
+
+    const rule = userData.automationRules.find((r: AutomationRule) => r.id === ruleId);
     
     if (!rule) {
       return c.json({
@@ -746,7 +784,7 @@ automation.post('/test-trigger', async (c) => {
     const success = await executeAutomationAction(
       rule,
       testData,
-      sessionData.solapiTokens?.accessToken,
+      userData.solapiTokens?.accessToken,
       c.env
     );
 
@@ -870,6 +908,28 @@ automation.post('/webhook/test', async (c) => {
       message: '수동 Webhook 테스트 실패',
       error: error.message,
     } as ApiResponse, 500);
+  }
+});
+
+// Debug endpoint to check unified user data
+automation.get('/debug/user/:email', async (c) => {
+  try {
+    const email = c.req.param('email');
+    const unifiedUserService = new UnifiedUserService(c.env);
+    const userData = await unifiedUserService.getUserData(email);
+    
+    return c.json({
+      success: true,
+      email,
+      userData,
+      hasSolapiTokens: !!userData?.solapiTokens,
+      solapiTokensKeys: userData?.solapiTokens ? Object.keys(userData.solapiTokens) : null
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: error.message
+    });
   }
 });
 

@@ -25,6 +25,15 @@ const mockEnv = {
       const deleted = inMemoryKV.delete(key);
       console.log(`KV DELETE: ${key} => ${deleted ? 'deleted' : 'not found'}`);
       return undefined;
+    },
+    list: async (options?: any) => {
+      const keys = Array.from(inMemoryKV.keys()).map(name => ({ name }));
+      console.log(`KV LIST: ${keys.length} keys found`);
+      return {
+        keys,
+        list_complete: true,
+        cursor: undefined
+      };
     }
   } as KVNamespace,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
@@ -34,6 +43,8 @@ const mockEnv = {
   SOLAPI_CLIENT_SECRET: process.env.SOLAPI_CLIENT_SECRET || '',
   SOLAPI_REDIRECT_URL: process.env.SOLAPI_REDIRECT_URL || 'http://localhost:5001/api/solapi/auth/callback',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  EMAIL_HASH_SALT: process.env.EMAIL_HASH_SALT || 'test-email-hash-salt-change-in-production-123456789',
+  JWT_SECRET: process.env.JWT_SECRET || 'test-jwt-secret-for-development',
   NODE_ENV: process.env.NODE_ENV || 'development',
 };
 

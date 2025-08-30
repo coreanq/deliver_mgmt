@@ -3,6 +3,7 @@ import { setCookie, getCookie } from 'hono/cookie';
 import axios from 'axios';
 import type { Env, ApiResponse, SolapiConfig } from '../types';
 import { SolapiAuthService } from '../services/solapiAuth';
+import { UnifiedUserService } from '../services/unifiedUserService';
 
 const solapi = new Hono<{ Bindings: Env }>();
 
@@ -37,9 +38,41 @@ function generateSecureSessionId(): string {
 
 /**
  * SOLAPI OAuth login - redirect to SOLAPI
+ * Requires Google authentication first
  */
 solapi.get('/auth/login', async (c) => {
   try {
+    // Check if Google session exists first
+    const sessionId = getCookie(c, 'sessionId') || c.req.header('X-Session-ID') || c.req.query('sessionId');
+    
+    if (!sessionId) {
+      return c.json({
+        success: false,
+        requiresGoogleAuth: true,
+        message: 'SOLAPI 연결을 위해서는 먼저 Google 계정으로 로그인해주세요.',
+        guide: {
+          step1: 'Google 계정으로 먼저 로그인하세요',
+          step2: '로그인 완료 후 SOLAPI 연결을 진행할 수 있습니다',
+          googleAuthUrl: '/api/auth/google'
+        }
+      }, 200); // 200으로 변경하여 가이드 제공
+    }
+
+    const sessionData = await getSession(sessionId, c.env);
+    
+    if (!sessionData) {
+      return c.json({
+        success: false,
+        requiresGoogleAuth: true,
+        message: 'Google 인증 세션이 만료되었습니다. 먼저 Google 계정으로 다시 로그인해주세요.',
+        guide: {
+          step1: 'Google 계정으로 다시 로그인하세요',
+          step2: '로그인 완료 후 SOLAPI 연결을 진행할 수 있습니다',
+          googleAuthUrl: '/api/auth/google'
+        }
+      }, 200);
+    }
+
     // Generate secure state parameter for CSRF protection
     const state = generateSecureSessionId();
     const authUrl = `https://api.solapi.com/oauth2/v1/authorize?client_id=${c.env.SOLAPI_CLIENT_ID}&redirect_uri=${encodeURIComponent(c.env.SOLAPI_REDIRECT_URL)}&response_type=code&scope=message:write%20cash:read%20senderid:read%20pricing:read&state=${state}`;
@@ -95,32 +128,40 @@ solapi.get('/auth/callback', async (c) => {
 
     const { access_token, refresh_token } = tokenResponse.data;
 
-    // Get session ID from cookie, query, or generate secure new one
-    const sessionId = getCookie(c, 'sessionId') || c.req.query('sessionId') || generateSecureSessionId();
-    
-    // Get existing session or create new one
-    let sessionData = await getSession(sessionId, c.env) || {};
-    
-    // Store SOLAPI tokens in session
-    sessionData.solapiTokens = {
+    // SOLAPI 토큰 정보
+    const solapiTokens = {
       accessToken: access_token,
       refreshToken: refresh_token,
       connectedAt: new Date().toISOString(),
       expiryDate: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
     };
 
-    await setSession(sessionId, sessionData, c.env);
+    // 통합 사용자 서비스에 SOLAPI 토큰 저장
+    const unifiedUserService = new UnifiedUserService(c.env);
+    
+    // Google 세션에서 이메일 추출
+    const sessionId = getCookie(c, 'sessionId');
+    let userEmail = null;
+    
+    if (sessionId) {
+      const sessionData = await getSession(sessionId, c.env);
+      if (sessionData?.email) {
+        userEmail = sessionData.email;
+      } else if (sessionData?.accessToken) {
+        userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
+      }
+    }
 
-    // Set secure httpOnly session cookie for SOLAPI authentication (match Google auth settings)
-    const isProduction = c.env.NODE_ENV === 'production';
-    console.log('Setting SOLAPI session cookie:', { sessionId: sessionId.substring(0, 8) + '...', isProduction });
-    setCookie(c, 'sessionId', sessionId, {
-      httpOnly: true,  // XSS 방지
-      secure: true,    // HTTPS 필수 (match Google auth)
-      maxAge: 86400,   // 24시간
-      sameSite: 'None', // Cross-domain 허용 (match Google auth)
-      path: '/'
-    });
+    if (userEmail) {
+      await unifiedUserService.updateSolapiTokens(userEmail, solapiTokens);
+      console.log(`SOLAPI tokens saved to unified user data for: ${userEmail}`);
+    } else {
+      console.error('Could not extract user email for SOLAPI token storage');
+      return c.json({
+        success: false,
+        message: 'Google 로그인 세션이 필요합니다.',
+      }, 400);
+    }
 
     // Redirect to frontend without sessionId in URL (security improvement)
     const redirectUrl = new URL('/admin', c.env.FRONTEND_URL);
@@ -143,19 +184,39 @@ solapi.get('/auth/callback', async (c) => {
  */
 solapi.get('/auth/status', async (c) => {
   try {
-    const sessionId = c.req.header('X-Session-ID') || c.req.query('sessionId');
-    
+    // Google 세션에서 이메일 추출
+    const sessionId = getCookie(c, 'sessionId');
     if (!sessionId) {
       return c.json({
         success: false,
         authenticated: false,
-        message: '세션 ID가 제공되지 않았습니다.',
+        message: 'Google 로그인 세션이 필요합니다.',
       });
     }
 
     const sessionData = await getSession(sessionId, c.env);
+    let userEmail = null;
     
-    if (!sessionData?.solapiTokens) {
+    if (sessionData?.email) {
+      userEmail = sessionData.email;
+    } else if (sessionData?.accessToken) {
+      const unifiedUserService = new UnifiedUserService(c.env);
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
+    }
+
+    if (!userEmail) {
+      return c.json({
+        success: false,
+        authenticated: false,
+        message: 'Google 로그인 세션이 유효하지 않습니다.',
+      });
+    }
+
+    // 통합 사용자 서비스에서 SOLAPI 토큰 확인
+    const unifiedUserService = new UnifiedUserService(c.env);
+    const solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
+    
+    if (!solapiTokens) {
       return c.json({
         success: false,
         authenticated: false,
@@ -165,17 +226,20 @@ solapi.get('/auth/status', async (c) => {
 
     // Check if SOLAPI token needs refresh
     const solapiAuth = new SolapiAuthService(c.env);
-    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+    const needsRefresh = solapiAuth.shouldRefreshToken(solapiTokens.expiryDate);
 
-    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+    if (needsRefresh && solapiTokens.refreshToken) {
       try {
-        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(solapiTokens.refreshToken);
         
-        // Update session with new access token and expiry date
-        sessionData.solapiTokens.accessToken = accessToken;
-        sessionData.solapiTokens.expiryDate = expiryDate;
+        // Update unified user service with refreshed token
+        const updatedTokens = {
+          ...solapiTokens,
+          accessToken,
+          expiryDate
+        };
         
-        await setSession(sessionId, sessionData, c.env);
+        await unifiedUserService.updateSolapiTokens(userEmail, updatedTokens);
         console.log('SOLAPI token refreshed during status check');
       } catch (refreshError) {
         console.error('SOLAPI token refresh failed during status check:', refreshError);
@@ -190,7 +254,7 @@ solapi.get('/auth/status', async (c) => {
     return c.json({
       success: true,
       authenticated: true,
-      connectedAt: sessionData.solapiTokens.connectedAt,
+      connectedAt: solapiTokens.connectedAt,
       message: 'SOLAPI 인증된 상태입니다.',
     });
   } catch (error: any) {
@@ -219,14 +283,28 @@ solapi.post('/auth/logout', async (c) => {
       }, 401);
     }
 
-    // Get existing session
-    let sessionData = await getSession(sessionId, c.env);
+    // Google 세션에서 이메일 추출
+    const sessionData = await getSession(sessionId, c.env);
+    let userEmail = null;
     
-    if (sessionData && sessionData.solapiTokens) {
-      // Remove only SOLAPI tokens, keep Google tokens
-      delete sessionData.solapiTokens;
-      await setSession(sessionId, sessionData, c.env);
+    if (sessionData?.email) {
+      userEmail = sessionData.email;
+    } else if (sessionData?.accessToken) {
+      const unifiedUserService = new UnifiedUserService(c.env);
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
     }
+
+    if (!userEmail) {
+      return c.json({
+        success: false,
+        message: 'Google 로그인 세션이 유효하지 않습니다.',
+      }, 400);
+    }
+
+    // 통합 사용자 서비스에서 SOLAPI 토큰 제거
+    const unifiedUserService = new UnifiedUserService(c.env);
+    await unifiedUserService.removeSolapiTokens(userEmail);
+    console.log(`SOLAPI tokens removed from unified user data for: ${userEmail}`);
 
     return c.json({
       success: true,
@@ -259,9 +337,29 @@ solapi.get('/account/balance', async (c) => {
       } as ApiResponse, 401);
     }
 
+    // Google 세션에서 이메일 추출
     const sessionData = await getSession(sessionId, c.env);
+    let userEmail = null;
     
-    if (!sessionData?.solapiTokens) {
+    if (sessionData?.email) {
+      userEmail = sessionData.email;
+    } else if (sessionData?.accessToken) {
+      const unifiedUserService = new UnifiedUserService(c.env);
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
+    }
+
+    if (!userEmail) {
+      return c.json({
+        success: false,
+        message: 'Google 로그인 세션이 유효하지 않습니다.',
+      } as ApiResponse, 400);
+    }
+
+    // 통합 사용자 서비스에서 SOLAPI 토큰 가져오기
+    const unifiedUserService = new UnifiedUserService(c.env);
+    let solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
+    
+    if (!solapiTokens) {
       return c.json({
         success: false,
         message: 'SOLAPI 인증이 필요합니다.',
@@ -270,16 +368,20 @@ solapi.get('/account/balance', async (c) => {
 
     // Check if SOLAPI token needs refresh
     const solapiAuth = new SolapiAuthService(c.env);
-    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+    const needsRefresh = solapiAuth.shouldRefreshToken(solapiTokens.expiryDate);
 
-    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+    if (needsRefresh && solapiTokens.refreshToken) {
       try {
-        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(solapiTokens.refreshToken);
         
-        sessionData.solapiTokens.accessToken = accessToken;
-        sessionData.solapiTokens.expiryDate = expiryDate;
+        const updatedTokens = {
+          ...solapiTokens,
+          accessToken,
+          expiryDate
+        };
         
-        await setSession(sessionId, sessionData, c.env);
+        await unifiedUserService.updateSolapiTokens(userEmail, updatedTokens);
+        solapiTokens = updatedTokens;
         console.log('SOLAPI token refreshed for balance inquiry');
       } catch (refreshError) {
         console.error('SOLAPI token refresh failed for balance inquiry:', refreshError);
@@ -295,7 +397,7 @@ solapi.get('/account/balance', async (c) => {
       'https://api.solapi.com/cash/v1/balance',
       {
         headers: {
-          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+          Authorization: `Bearer ${solapiTokens.accessToken}`,
         },
         // Skip SSL verification for development
         ...(process.env.NODE_ENV === 'development' && {
@@ -353,14 +455,14 @@ solapi.get('/account/pricing', async (c) => {
 
     // Check if SOLAPI token needs refresh
     const solapiAuth = new SolapiAuthService(c.env);
-    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+    const needsRefresh = solapiAuth.shouldRefreshToken(solapiTokens.expiryDate);
 
-    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+    if (needsRefresh && solapiTokens.refreshToken) {
       try {
-        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(solapiTokens.refreshToken);
         
-        sessionData.solapiTokens.accessToken = accessToken;
-        sessionData.solapiTokens.expiryDate = expiryDate;
+        solapiTokens.accessToken = accessToken;
+        solapiTokens.expiryDate = expiryDate;
         
         await setSession(sessionId, sessionData, c.env);
         console.log('SOLAPI token refreshed for pricing inquiry');
@@ -378,7 +480,7 @@ solapi.get('/account/pricing', async (c) => {
       'https://api.solapi.com/pricing/v1/messaging',
       {
         headers: {
-          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+          Authorization: `Bearer ${solapiTokens.accessToken}`,
         },
         // Skip SSL verification for development
         ...(process.env.NODE_ENV === 'development' && {
@@ -436,14 +538,14 @@ solapi.get('/account/app-pricing', async (c) => {
 
     // Check if SOLAPI token needs refresh
     const solapiAuth = new SolapiAuthService(c.env);
-    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+    const needsRefresh = solapiAuth.shouldRefreshToken(solapiTokens.expiryDate);
 
-    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+    if (needsRefresh && solapiTokens.refreshToken) {
       try {
-        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(solapiTokens.refreshToken);
         
-        sessionData.solapiTokens.accessToken = accessToken;
-        sessionData.solapiTokens.expiryDate = expiryDate;
+        solapiTokens.accessToken = accessToken;
+        solapiTokens.expiryDate = expiryDate;
         
         await setSession(sessionId, sessionData, c.env);
         console.log('SOLAPI token refreshed for app pricing inquiry');
@@ -466,7 +568,7 @@ solapi.get('/account/app-pricing', async (c) => {
       appPricingUrl,
       {
         headers: {
-          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+          Authorization: `Bearer ${solapiTokens.accessToken}`,
         },
         // Skip SSL verification for development
         ...(process.env.NODE_ENV === 'development' && {
@@ -524,14 +626,14 @@ solapi.get('/account/sender-ids', async (c) => {
 
     // Check if SOLAPI token needs refresh
     const solapiAuth = new SolapiAuthService(c.env);
-    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+    const needsRefresh = solapiAuth.shouldRefreshToken(solapiTokens.expiryDate);
 
-    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+    if (needsRefresh && solapiTokens.refreshToken) {
       try {
-        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(solapiTokens.refreshToken);
         
-        sessionData.solapiTokens.accessToken = accessToken;
-        sessionData.solapiTokens.expiryDate = expiryDate;
+        solapiTokens.accessToken = accessToken;
+        solapiTokens.expiryDate = expiryDate;
         
         await setSession(sessionId, sessionData, c.env);
         console.log('SOLAPI token refreshed for sender ID inquiry');
@@ -549,7 +651,7 @@ solapi.get('/account/sender-ids', async (c) => {
       'https://api.solapi.com/senderid/v1/numbers/active',
       {
         headers: {
-          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+          Authorization: `Bearer ${solapiTokens.accessToken}`,
         },
         // Skip SSL verification for development
         ...(process.env.NODE_ENV === 'development' && {
@@ -604,9 +706,29 @@ solapi.post('/message/send', async (c) => {
       } as ApiResponse, 401);
     }
 
+    // Google 세션에서 이메일 추출
     const sessionData = await getSession(sessionId, c.env);
+    let userEmail = null;
     
-    if (!sessionData?.solapiTokens) {
+    if (sessionData?.email) {
+      userEmail = sessionData.email;
+    } else if (sessionData?.accessToken) {
+      const unifiedUserService = new UnifiedUserService(c.env);
+      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
+    }
+
+    if (!userEmail) {
+      return c.json({
+        success: false,
+        message: 'Google 로그인 세션이 유효하지 않습니다.',
+      } as ApiResponse, 400);
+    }
+
+    // 통합 사용자 서비스에서 SOLAPI 토큰 가져오기
+    const unifiedUserService = new UnifiedUserService(c.env);
+    let solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
+    
+    if (!solapiTokens) {
       return c.json({
         success: false,
         message: 'SOLAPI 인증이 필요합니다.',
@@ -615,17 +737,21 @@ solapi.post('/message/send', async (c) => {
 
     // Check if SOLAPI token needs refresh
     const solapiAuth = new SolapiAuthService(c.env);
-    const needsRefresh = solapiAuth.shouldRefreshToken(sessionData.solapiTokens.expiryDate);
+    const needsRefresh = solapiAuth.shouldRefreshToken(solapiTokens.expiryDate);
 
-    if (needsRefresh && sessionData.solapiTokens.refreshToken) {
+    if (needsRefresh && solapiTokens.refreshToken) {
       try {
-        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(sessionData.solapiTokens.refreshToken);
+        const { accessToken, expiryDate } = await solapiAuth.refreshAccessToken(solapiTokens.refreshToken);
         
-        // Update session with new access token and expiry date
-        sessionData.solapiTokens.accessToken = accessToken;
-        sessionData.solapiTokens.expiryDate = expiryDate;
+        // Update unified user service with refreshed token
+        const updatedTokens = {
+          ...solapiTokens,
+          accessToken,
+          expiryDate
+        };
         
-        await setSession(sessionId, sessionData, c.env);
+        await unifiedUserService.updateSolapiTokens(userEmail, updatedTokens);
+        solapiTokens = updatedTokens;
         console.log('SOLAPI token refreshed successfully');
       } catch (refreshError) {
         console.error('SOLAPI token refresh failed:', refreshError);
@@ -676,7 +802,7 @@ solapi.post('/message/send', async (c) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${sessionData.solapiTokens.accessToken}`,
+          Authorization: `Bearer ${solapiTokens.accessToken}`,
           'Content-Type': 'application/json',
         },
         // Skip SSL verification for development

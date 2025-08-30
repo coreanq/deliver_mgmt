@@ -332,7 +332,7 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
       console.log(`QR token provided for staff access: ${staffName}`);
       // QR token authentication
       try {
-        const decoded = jwt.verify(token, 'your-jwt-secret') as QRTokenPayload;
+        const decoded = jwt.verify(token, c.env.JWT_SECRET || 'fallback-jwt-secret') as QRTokenPayload;
         
         // Additional validation
         const now = Date.now();
@@ -506,7 +506,7 @@ sheets.put('/data/:date/status', async (c) => {
     if (token) {
       // QR token authentication
       try {
-        const decoded = jwt.verify(token, 'your-jwt-secret') as QRTokenPayload;
+        const decoded = jwt.verify(token, c.env.JWT_SECRET || 'fallback-jwt-secret') as QRTokenPayload;
         
         // Additional validation
         const now = Date.now();

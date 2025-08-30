@@ -35,7 +35,7 @@ delivery.get('/qr/:staffName', async (c) => {
     };
 
     // Create JWT token (24 hour expiry)
-    const token = jwt.sign(payload, 'your-jwt-secret', { expiresIn: '24h' });
+    const token = jwt.sign(payload, c.env.JWT_SECRET || 'fallback-jwt-secret', { expiresIn: '24h' });
     
     // Create QR code SVG (Cloudflare Workers compatible)
     const qrData = `${c.env.FRONTEND_URL}/delivery/auth?token=${token}`;
@@ -106,7 +106,7 @@ delivery.post('/qr/generate-mobile/:staffName/:date', async (c) => {
     };
 
     // Create JWT token (24 hour expiry)
-    const token = jwt.sign(payload, 'your-jwt-secret', { expiresIn: '24h' });
+    const token = jwt.sign(payload, c.env.JWT_SECRET || 'fallback-jwt-secret', { expiresIn: '24h' });
     
     // Generate URL for staff mobile page with date
     const qrUrl = `${c.env.FRONTEND_URL}/delivery/${date}/${encodeURIComponent(staffName)}?token=${token}`;
@@ -156,7 +156,7 @@ delivery.get('/qr/verify/:token', async (c) => {
 
   try {
     // Verify JWT token
-    const decoded = jwt.verify(token, 'your-jwt-secret') as QRTokenPayload;
+    const decoded = jwt.verify(token, c.env.JWT_SECRET || 'fallback-jwt-secret') as QRTokenPayload;
     
     // Additional validation
     const now = Date.now();
@@ -231,7 +231,7 @@ delivery.post('/qr/verify', async (c) => {
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, 'your-jwt-secret') as QRTokenPayload;
+    const decoded = jwt.verify(token, c.env.JWT_SECRET || 'fallback-jwt-secret') as QRTokenPayload;
     
     // Additional validation
     const now = Date.now();
@@ -325,7 +325,7 @@ delivery.put('/status/:date/:staffName/:rowIndex/:status', async (c) => {
 
   try {
     // Verify QR token first
-    const decoded = jwt.verify(token, 'your-jwt-secret') as QRTokenPayload;
+    const decoded = jwt.verify(token, c.env.JWT_SECRET || 'fallback-jwt-secret') as QRTokenPayload;
     
     // Verify staff name matches token
     if (decoded.staffName !== staffName) {

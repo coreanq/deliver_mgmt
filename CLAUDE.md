@@ -73,6 +73,7 @@ VITE_API_BASE_URL=https://your-worker.your-subdomain.workers.dev npm run build
 - **GoogleSheetsService**: Spreadsheet CRUD operations with dynamic header system
 - **GoogleAuthService**: Google OAuth2 token management with auto-refresh
 - **SolapiAuthService**: SOLAPI OAuth2 integration (**HTTP API, not SDK**)
+- **UnifiedUserService**: SHA-256 hash-based unified user data management (**Current Architecture**)
 
 ### Development vs Production Environments
 | Feature | Local Development | Cloudflare Workers Production |
@@ -134,21 +135,101 @@ if (token) {
 }
 ```
 
-#### 3. **Authentication Flows Summary**
+#### 3. **Unified User Service Architecture** (**Current Implementation**)
+**Critical Architecture Change**: The system now uses **UnifiedUserService** with SHA-256 hashed email keys for secure, unified data management.
+
+**Key Components**:
+- **UnifiedUserService** (`backend-hono/src/services/unifiedUserService.ts`): Manages all user data with hash-based security
+- **Primary Key**: SHA-256 hash of email + salt (`unified_user:${emailHash}`)
+- **Security**: Email hash with configurable salt prevents email enumeration attacks
+- **Data Structure**: Single unified record per user containing:
+  - Google OAuth tokens with auto-refresh
+  - SOLAPI OAuth tokens 
+  - Automation rules (max 20 per user)
+  - User metadata and timestamps
+
+**Storage Strategy**:
+```typescript
+// Unified user data (1 year TTL)
+unified_user:${sha256Hash} → {
+  email: string,
+  emailHash: string,
+  googleTokens: GoogleTokens,
+  solapiTokens?: SolapiTokens,
+  automationRules: AutomationRule[],
+  createdAt: string,
+  updatedAt: string
+}
+
+// Automation user index for webhook processing
+automation_users_index → [email1, email2, ...]
+```
+
+**Benefits**:
+- **Enhanced Security**: SHA-256 hashing prevents email enumeration attacks
+- **Unified Management**: All user data in single service with consistent interface
+- **Data Persistence**: 1-year retention for all user data including automation rules
+- **Webhook Optimization**: Dedicated user index for efficient webhook processing
+- **Multi-Device Access**: Same Google account accesses same unified data
+- **Token Integration**: SOLAPI and Google tokens managed together
+
+#### 4. **Authentication Flows Summary**
 1. **Google OAuth2**: Spreadsheet access (`/api/auth/google`)
 2. **SOLAPI OAuth2**: KakaoTalk messaging (`/api/solapi/auth/login`)
 3. **QR Authentication**: JWT tokens for staff (`/api/delivery/qr/`)
 
-#### 4. **Security Principles**
+#### 5. **Security Principles**
 - **Session Separation**: Admin sessions and staff tokens are completely isolated
 - **Time Limitation**: QR tokens auto-expire after 24 hours
 - **Scope Limitation**: Staff can only access their assigned delivery data
 - **Transport Security**: HTTPS + Authorization headers
 - **Local Storage Prohibition**: All auth data managed server-side or via httpOnly cookies
 - **Cross-Device Support**: QR tokens work on separate mobile devices without admin sessions
+- **Account-Based Isolation**: Each Google account has completely isolated data storage
+
+### Automation System Architecture
+
+The automation system provides rule-based message sending triggered by Google Sheets changes.
+
+#### Automation Rule Management
+- **Storage**: Google account-based with 1-year persistence
+- **Maximum Limit**: 20 rules per Google account
+- **User Isolation**: Rules are filtered by userEmail during execution
+- **Persistence**: Rules survive session expiration and token refresh cycles
+
+**Key Features**:
+- **Rule Display**: Shows all user rules with spreadsheetId, sheet name, and owner email
+- **Manual Management**: Users can view and delete rules manually
+- **Rule Validation**: Each rule includes userEmail for ownership verification
+- **Cross-Sheet Rules**: Rules can target different spreadsheets and dates
+
+**AutomationRule Interface**:
+```typescript
+export interface AutomationRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  spreadsheetId?: string; // 특정 스프레드시트만 대상 (사용자별 구분)
+  targetDate?: string; // 특정 날짜 시트만 대상 (YYYYMMDD 형식)
+  userEmail?: string; // 규칙을 생성한 Google 계정 이메일
+  conditions: {
+    columnName: string; // 감시할 컬럼명
+    triggerValue: string; // 트리거 값
+    operator: 'equals' | 'contains' | 'changes_to';
+  };
+  actions: {
+    type: 'sms' | 'kakao';
+    senderNumber: string;
+    recipientColumn: string; // 수신자 전화번호 컬럼
+    messageTemplate: string; // 메시지 템플릿 with 변수
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+```
 
 ### Frontend Views (`frontend/src/views/`)
-- **AdminView.vue**: Main admin configuration and data management
+- **AdminView.vue**: Main admin configuration and data management with automation rules display
 - **StaffMobileView.vue**: Mobile-optimized staff delivery interface with progressive status workflow
 - **DeliveryAuthView.vue**: QR authentication flow
 - **TestView.vue**: Development testing interface
@@ -190,6 +271,14 @@ FRONTEND_URL=http://localhost:5173
 - **Session tracking**: Google tokens stored with `expiryDate` for lifecycle management
 - **Secure Storage**: httpOnly cookies (frontend) + KV storage (backend)
 - **Token Lifecycle**: 1-hour access tokens, persistent refresh tokens
+- **Required Scopes**: 
+  ```typescript
+  const scopes = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/userinfo.email', // 사용자 이메일 접근 권한
+  ];
+  ```
 
 #### QR Token Security System
 - **JWT Structure**: Contains `staffName`, `date`, `exp` (24-hour expiration)
@@ -205,6 +294,7 @@ FRONTEND_URL=http://localhost:5173
 | **Client Cookies** | httpOnly (localhost) | httpOnly (secure domain) |
 | **QR Tokens** | JWT verification | JWT verification |
 | **Local Storage** | **Prohibited** | **Prohibited** |
+| **Account Data** | Google email-based KV keys | Google email-based KV keys |
 
 #### Authentication Bypass Logic
 The system allows QR token holders to bypass Google authentication for specific endpoints:
@@ -262,74 +352,6 @@ This enables delivery staff to access their assigned data from separate mobile d
 - **Message Format**: JSON with `{message: {type, from, to, text}}` structure
 - **Authentication**: OAuth2 Bearer tokens via session management
 
-### Automation System Architecture
-
-**CRITICAL**: This system implements spreadsheetId-based multi-user automation rules to prevent cross-user rule triggers.
-
-#### Core Components
-- **AutomationRule Interface**: Defines automation rules with spreadsheetId-based user isolation
-- **Webhook Processing**: `/api/automation/trigger` endpoint processes Google Sheets change events
-- **Multi-user Support**: Each user's Google Sheets identified by unique spreadsheetId
-- **Message Templates**: Variable substitution using `#{columnName}` syntax
-
-#### Key Implementation Details
-
-**AutomationRule Structure**:
-```typescript
-interface AutomationRule {
-  id: string;
-  name: string;
-  enabled: boolean;
-  spreadsheetId?: string; // 특정 스프레드시트만 대상 (사용자별 구분)
-  targetDate?: string; // 특정 날짜 시트만 대상 (YYYYMMDD 형식, 선택적)
-  conditions: {
-    columnName: string; // 감시할 컬럼명
-    triggerValue: string; // 트리거 값 (예: "배송 완료")
-    operator: 'equals' | 'contains' | 'changes_to';
-  };
-  actions: {
-    type: 'sms' | 'kakao';
-    senderNumber: string;
-    recipientColumn: string; // 수신자 전화번호 컬럼
-    messageTemplate: string; // 메시지 템플릿 with 변수
-  };
-}
-```
-
-**Multi-user Isolation Logic**:
-```typescript
-// Only execute rules matching the webhook's spreadsheetId
-if (rule.spreadsheetId && spreadsheetId && rule.spreadsheetId !== spreadsheetId) {
-  console.log(`Rule ${rule.name} skipped: spreadsheetId ${rule.spreadsheetId} != ${spreadsheetId}`);
-  continue;
-}
-```
-
-**Google Apps Script Integration**:
-```javascript
-function onEdit(e) {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const spreadsheetId = spreadsheet.getId(); // Critical for user isolation
-  
-  const payload = {
-    sheetName: sheet.getName(),
-    spreadsheetName: spreadsheet.getName(),
-    spreadsheetId: spreadsheetId, // Required for multi-user support
-    columnName: columnName,
-    oldValue: oldValue,
-    newValue: newValue,
-    rowData: rowData,
-    timestamp: new Date().toISOString()
-  };
-  
-  UrlFetchApp.fetch('http://localhost:5001/api/automation/trigger', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    payload: JSON.stringify(payload)
-  });
-}
-```
-
 #### Automation API Routes
 - Create rule: `POST /api/automation/rules`
 - List rules: `GET /api/automation/rules`
@@ -341,18 +363,12 @@ function onEdit(e) {
 - Runtime substitution with actual row data from Google Sheets
 - Example: `#{고객명}님, 주문해주셔서 대단히 감사합니다.` → `1번 고객님, 주문해주셔서 대단히 감사합니다.`
 
-#### Testing & Validation
-- **Test Command**: Use curl for webhook testing (see tests.md for examples)
-- **Verification**: Check backend logs for rule matching and SMS sending
-- **Multi-user Testing**: Verified that different spreadsheetIds trigger only their respective rules
-
 ### API Route Patterns
 - Date-based sheets: `/api/sheets/date/:date` (YYYYMMDD format)
 - Staff-grouped data: `/api/sheets/date/:date/by-staff`
 - Individual staff data: `/api/sheets/date/:date/staff/:staffName`
 - Status updates: `PUT /api/sheets/data/:date/status`
-- Automation rules: `/api/automation/rules` (CRUD operations)
-- Webhook trigger: `POST /api/automation/trigger` (Google Sheets webhook endpoint)
+- Automation rules: `GET /api/automation/rules`, `POST /api/automation/rules`
 - Mock endpoints available in development mode
 
 ## Development Guidelines
@@ -381,11 +397,7 @@ function onEdit(e) {
   - **httpOnly Cookies**: Prevent XSS attacks by using httpOnly cookies for admin sessions
   - **QR Token Validation**: Always verify JWT token scope matches requested staff/date
   - **Cross-Device Authentication**: Support QR access from mobile devices without admin sessions
-- **Automation System**:
-  - **Multi-user Isolation**: Always include spreadsheetId in automation rules for user separation
-  - **Webhook Testing**: Use `POST /api/automation/trigger` with proper spreadsheetId for testing
-  - **Variable Templates**: Use `#{columnName}` format for message template variables
-  - **Google Apps Script**: Must include `spreadsheet.getId()` in webhook payload for user isolation
+  - **Account-Based Storage**: Use Google email as primary key for persistent data storage
 
 ## Common Patterns
 
@@ -396,20 +408,18 @@ function onEdit(e) {
 4. Frontend calls `loadDeliveryData()` to refresh from server
 5. UI updates with new status and appropriate button states
 
-### Automation Workflow
-1. Admin creates automation rule in AdminView with conditions and actions
-2. Rule saved with current spreadsheetId for user isolation
-3. Google Sheets onEdit trigger sends webhook to `/api/automation/trigger`
-4. Backend matches webhook spreadsheetId with user's automation rules
-5. Matching rules execute: variable substitution → SOLAPI SMS sending
-6. Response includes execution results and message delivery status
-
-**Critical**: Google Apps Script must include `spreadsheetId` in webhook payload for multi-user support.
+### Automation Rule Management Flow
+1. Admin creates automation rule in AdminView
+2. Rule stored with Google account email as owner identifier
+3. Rules persist for 1 year regardless of session expiration
+4. UI displays all rules with owner email and spreadsheet information
+5. Users can manually delete rules they no longer need
 
 ### Error Handling
 - Google API errors trigger automatic token refresh and retry
 - QR token verification includes expiry and staff name validation
 - Dynamic header detection falls back to column index if header matching fails
+- SOLAPI OAuth token refresh with 30-minute buffer before expiry
 
 ## Cloudflare Workers Deployment (Hono Backend)
 
