@@ -581,6 +581,256 @@
                   </v-card-text>
                 </v-card>
               </v-col>
+
+              <!-- Automation Section -->
+              <v-col cols="12" v-if="authStore.isGoogleAuthenticated && authStore.isSolapiAuthenticated">
+                <v-card variant="outlined">
+                  <v-card-title class="d-flex align-center">
+                    <v-icon start>mdi-robot</v-icon>
+                    자동화 설정
+                    <v-spacer></v-spacer>
+                    <v-switch
+                      v-model="automationEnabled"
+                      hide-details
+                      inset
+                      color="primary"
+                      label="활성화"
+                    ></v-switch>
+                  </v-card-title>
+                  
+                  <v-card-text>
+                    <!-- 조건 설정 -->
+                    <div class="mb-4">
+                      <v-row>
+                        <v-col cols="12" sm="6" md="3">
+                          <v-select
+                            v-model="automationForm.conditionColumn"
+                            :items="sheetColumns"
+                            label="아무 상품"
+                            variant="outlined"
+                            density="compact"
+                            placeholder="컬럼 선택"
+                          />
+                        </v-col>
+                        <v-col cols="12" sm="6" md="3" class="d-flex align-center">
+                          <span class="text-body-2">이(가)</span>
+                        </v-col>
+                        <v-col cols="12" sm="6" md="6">
+                          <v-text-field
+                            v-model="automationForm.triggerValue"
+                            label="결제 완료로 변경 시"
+                            variant="outlined"
+                            density="compact"
+                            placeholder="예: 결제 완료"
+                          />
+                        </v-col>
+                      </v-row>
+                    </div>
+
+                    <!-- 동작 설정 -->
+                    <div class="mb-4">
+                      <v-select
+                        v-model="automationForm.actionType"
+                        :items="[
+                          { title: '문자메시지 발송하기', value: 'sms' },
+                          { title: '카카오톡 발송하기', value: 'kakao' }
+                        ]"
+                        label="동작"
+                        variant="outlined"
+                        density="compact"
+                      />
+                    </div>
+
+                    <!-- 발신번호 및 수신자 설정 -->
+                    <v-row class="mb-4">
+                      <v-col cols="12" md="6">
+                        <v-text-field
+                          v-model="automationForm.senderNumber"
+                          label="발신번호 (메시지 보낼 번호)"
+                          variant="outlined"
+                          density="compact"
+                          placeholder="010-0000-0000"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="6">
+                        <v-select
+                          v-model="automationForm.recipientColumn"
+                          :items="sheetColumns"
+                          label="수신자 선택"
+                          variant="outlined"
+                          density="compact"
+                          placeholder="전화번호 컬럼 선택"
+                        />
+                      </v-col>
+                    </v-row>
+
+                    <!-- 메시지 템플릿 -->
+                    <div class="mb-4">
+                      <v-textarea
+                        v-model="automationForm.messageTemplate"
+                        label="메시지 내용"
+                        variant="outlined"
+                        rows="4"
+                        hint="변수 사용법: #{컬럼명} (예: #{고객명}, #{주문번호})"
+                        persistent-hint
+                        placeholder="#{고객명}님, 주문해주셔서 대단히 감사합니다."
+                      />
+                      <div class="text-caption mt-2">
+                        <v-icon size="small" color="info">mdi-information</v-icon>
+                        스프레드시트 컬럼명을 #{컬럼명} 형식으로 사용하면 실제 데이터로 치환됩니다.
+                      </div>
+                    </div>
+
+                    <!-- 액션 버튼 -->
+                    <v-card-actions class="px-0">
+                      <v-btn
+                        color="primary"
+                        variant="elevated"
+                        @click="saveAutomationRule"
+                        :disabled="!canSaveAutomation"
+                        :loading="automationSaving"
+                      >
+                        <v-icon start>mdi-content-save</v-icon>
+                        자동화 규칙 저장
+                      </v-btn>
+                      
+                      <v-btn
+                        color="success"
+                        variant="outlined"
+                        @click="testAutomation"
+                        :disabled="!canTestAutomation"
+                        :loading="automationTesting"
+                      >
+                        <v-icon start>mdi-test-tube</v-icon>
+                        테스트 발송
+                      </v-btn>
+
+                      <v-spacer></v-spacer>
+
+                      <v-btn
+                        color="warning"
+                        variant="text"
+                        @click="resetAutomationForm"
+                      >
+                        <v-icon start>mdi-refresh</v-icon>
+                        초기화
+                      </v-btn>
+                    </v-card-actions>
+
+                    <!-- 저장된 규칙 목록 -->
+                    <v-divider class="my-4"></v-divider>
+                    <div>
+                      <h4 class="text-subtitle-1 mb-3 d-flex align-center">
+                        <v-icon start>mdi-robot</v-icon>
+                        저장된 자동화 규칙 ({{ automationRules.length }}/20)
+                        <v-spacer></v-spacer>
+                        <v-chip
+                          v-if="authStore.isGoogleAuthenticated"
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                        >
+                          <v-icon start size="small">mdi-google</v-icon>
+                          계정별 영구 저장
+                        </v-chip>
+                      </h4>
+                      
+                      <!-- 20개 제한 경고 -->
+                      <v-alert
+                        v-if="automationRules.length >= 20"
+                        type="warning"
+                        variant="outlined"
+                        class="mb-3"
+                        density="compact"
+                      >
+                        <v-icon start>mdi-alert</v-icon>
+                        자동화 규칙이 최대 개수(20개)에 도달했습니다. 새 규칙을 추가하려면 기존 규칙을 삭제해주세요.
+                      </v-alert>
+                      
+                      <div v-if="automationRules.length > 0">
+                      <v-list density="compact">
+                        <v-list-item
+                          v-for="rule in automationRules"
+                          :key="rule.id"
+                          class="border rounded mb-2"
+                        >
+                          <template v-slot:prepend>
+                            <v-icon :color="rule.enabled ? 'success' : 'error'">
+                              {{ rule.enabled ? 'mdi-check-circle' : 'mdi-pause-circle' }}
+                            </v-icon>
+                          </template>
+                          
+                          <div class="flex-grow-1">
+                            <v-list-item-title class="text-subtitle-2 font-weight-bold">
+                              {{ rule.name }}
+                            </v-list-item-title>
+                            <v-list-item-subtitle class="mb-1">
+                              조건: {{ rule.conditions.columnName }} → {{ rule.conditions.triggerValue }}
+                            </v-list-item-subtitle>
+                            <v-list-item-subtitle class="text-caption">
+                              <v-chip
+                                size="x-small"
+                                color="primary"
+                                variant="outlined"
+                                class="mr-2"
+                              >
+                                시트: {{ rule.spreadsheetName || rule.targetDate || '미지정' }}
+                              </v-chip>
+                              <v-chip
+                                size="x-small"
+                                color="secondary"
+                                variant="outlined"
+                                class="mr-2"
+                              >
+                                ID: {{ rule.spreadsheetId ? rule.spreadsheetId.substring(0, 8) + '...' : '미지정' }}
+                              </v-chip>
+                              <v-chip
+                                v-if="rule.userEmail"
+                                size="x-small"
+                                color="info"
+                                variant="outlined"
+                                class="mr-2"
+                              >
+                                <v-icon start size="x-small">mdi-account</v-icon>
+                                {{ rule.userEmail }}
+                              </v-chip>
+                              <span class="text-grey">
+                                생성: {{ formatDate(rule.createdAt) }}
+                              </span>
+                            </v-list-item-subtitle>
+                          </div>
+
+                          <template v-slot:append>
+                            <v-btn
+                              size="small"
+                              icon
+                              variant="text"
+                              @click="toggleRule(rule)"
+                            >
+                              <v-icon>{{ rule.enabled ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+                            </v-btn>
+                            <v-btn
+                              size="small"
+                              icon
+                              variant="text"
+                              color="error"
+                              @click="deleteRule(rule)"
+                            >
+                              <v-icon>mdi-delete</v-icon>
+                            </v-btn>
+                          </template>
+                        </v-list-item>
+                      </v-list>
+                      </div>
+                      <div v-else class="text-center text-medium-emphasis py-4">
+                        <v-icon size="48" color="medium-emphasis">mdi-robot-outline</v-icon>
+                        <p class="mt-2">저장된 자동화 규칙이 없습니다.</p>
+                        <p class="text-caption">위에서 자동화 규칙을 설정하고 저장해보세요.</p>
+                      </div>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
             </v-row>
 
           </v-card-text>
@@ -649,6 +899,20 @@ const connectedSheetName = ref<string>('');
 
 // SOLAPI data
 const solapiBalance = ref<string>('');
+
+// Automation data
+const automationEnabled = ref<boolean>(true);
+const automationRules = ref<any[]>([]);
+const automationSaving = ref<boolean>(false);
+const automationTesting = ref<boolean>(false);
+const automationForm = ref({
+  conditionColumn: '',
+  triggerValue: '',
+  actionType: 'sms',
+  senderNumber: '',
+  recipientColumn: '',
+  messageTemplate: '#{고객명}님, 주문해주셔서 대단히 감사합니다.'
+});
 const accountInfoLoading = ref(false);
 
 // SMS 발송 관련
@@ -673,6 +937,24 @@ const canSubmit = computed(() => {
          !isSending.value;
 });
 
+// Automation computed properties
+const sheetColumns = computed(() => {
+  return dynamicHeaders.value || [];
+});
+
+const canSaveAutomation = computed(() => {
+  return automationForm.value.conditionColumn &&
+         automationForm.value.triggerValue &&
+         automationForm.value.actionType &&
+         automationForm.value.senderNumber &&
+         automationForm.value.recipientColumn &&
+         automationForm.value.messageTemplate;
+});
+
+const canTestAutomation = computed(() => {
+  return canSaveAutomation.value && sheetData.value.length > 0;
+});
+
 // Form validation rules
 
 // Staff management
@@ -690,6 +972,7 @@ const selectedDateString = ref<string>('');
 const sheetData = ref<any[]>([]);
 const sheetDataByStaff = ref<{ [staffName: string]: any[] }>({});
 const dynamicHeaders = ref<string[]>([]);
+const currentSpreadsheetId = ref<string>(''); // 현재 연결된 스프레드시트 ID
 const dataLoading = ref(false);
 const itemsPerPage = ref(10);
 const selectedStaff = ref<string>('전체');
@@ -1234,6 +1517,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
     if (staffResult.success) {
       sheetDataByStaff.value = staffResult.data.ordersByStaff || {};
       dynamicHeaders.value = staffResult.headers || [];
+      currentSpreadsheetId.value = staffResult.data.spreadsheetId || ''; // spreadsheetId 저장
       // Clear existing filters when loading new data
       activeFilters.value = [];
       
@@ -1246,6 +1530,7 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       staffList.value = detectedStaff;
       
       console.log('Sheet data by staff loaded:', staffResult.data);
+      console.log('Current spreadsheetId:', currentSpreadsheetId.value);
       console.log('Raw ordersByStaff:', sheetDataByStaff.value);
       console.log('AllData after flatten:', allData);
       console.log('Headers:', dynamicHeaders.value);
@@ -1262,13 +1547,15 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       const result = await response.json();
       
       if (result.success) {
-        sheetData.value = result.data || [];
+        sheetData.value = result.data.orders || result.data || [];
         dynamicHeaders.value = result.headers || [];
+        currentSpreadsheetId.value = result.data.spreadsheetId || ''; // spreadsheetId 저장
         // Clear existing filters when loading new data
         
         sheetDataByStaff.value = {};
         staffList.value = [];
         console.log('Sheet data loaded (fallback):', result.data);
+        console.log('Current spreadsheetId (fallback):', currentSpreadsheetId.value);
         console.log('Headers (fallback):', dynamicHeaders.value);
       } else {
         sheetData.value = [];
@@ -1335,6 +1622,8 @@ onMounted(async () => {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
   
+  // Load automation rules on mount
+  await loadAutomationRules();
 });
 
 // Watch for auth status changes to update UI data
@@ -1367,6 +1656,181 @@ watch(selectedDateString, (newDate) => {
 watch(filteredData, () => {
   currentPage.value = 1; // Reset pagination when data changes
 });
+
+// Automation methods
+const saveAutomationRule = async (): Promise<void> => {
+  if (!canSaveAutomation.value) return;
+  
+  automationSaving.value = true;
+  try {
+    const ruleName = `${automationForm.value.conditionColumn} → ${automationForm.value.triggerValue}`;
+    
+    const response = await fetch(`${API_BASE_URL}/api/automation/rules`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        name: ruleName,
+        spreadsheetId: currentSpreadsheetId.value, // 현재 달력 선택된 시트 ID
+        spreadsheetName: selectedDateString.value, // 현재 달력 선택된 날짜/시트명
+        targetDate: selectedDateString.value, // 달력에서 선택한 날짜 기준
+        conditions: {
+          columnName: automationForm.value.conditionColumn,
+          triggerValue: automationForm.value.triggerValue,
+          operator: 'changes_to'
+        },
+        actions: {
+          type: automationForm.value.actionType,
+          senderNumber: automationForm.value.senderNumber,
+          recipientColumn: automationForm.value.recipientColumn,
+          messageTemplate: automationForm.value.messageTemplate
+        }
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      automationRules.value.push(result.data);
+      resetAutomationForm();
+      console.log('자동화 규칙이 저장되었습니다:', result.data.name);
+    } else {
+      console.error('자동화 규칙 저장 실패:', result.message);
+    }
+  } catch (error) {
+    console.error('자동화 규칙 저장 중 오류:', error);
+  } finally {
+    automationSaving.value = false;
+  }
+};
+
+const testAutomation = async (): Promise<void> => {
+  if (!canTestAutomation.value) return;
+  
+  automationTesting.value = true;
+  try {
+    // Use first row of sheet data for testing
+    const testData = sheetData.value[0];
+    
+    const response = await fetch(`${API_BASE_URL}/api/automation/trigger`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        ruleId: 'test-rule',
+        testData: testData
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      console.log('자동화 테스트가 완료되었습니다');
+    } else {
+      console.error('자동화 테스트 실패:', result.message);
+    }
+  } catch (error) {
+    console.error('자동화 테스트 중 오류:', error);
+  } finally {
+    automationTesting.value = false;
+  }
+};
+
+const resetAutomationForm = (): void => {
+  automationForm.value = {
+    conditionColumn: '',
+    triggerValue: '',
+    actionType: 'sms',
+    senderNumber: '',
+    recipientColumn: '',
+    messageTemplate: '#{고객명}님, 주문해주셔서 대단히 감사합니다.'
+  };
+};
+
+const toggleRule = async (rule: any): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/automation/rules/${rule.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        ...rule,
+        enabled: !rule.enabled
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      rule.enabled = !rule.enabled;
+      console.log(`자동화 규칙 ${rule.enabled ? '활성화' : '비활성화'}:`, rule.name);
+    }
+  } catch (error) {
+    console.error('자동화 규칙 상태 변경 중 오류:', error);
+  }
+};
+
+const deleteRule = async (rule: any): Promise<void> => {
+  if (!confirm('정말로 이 자동화 규칙을 삭제하시겠습니까?')) return;
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/automation/rules/${rule.id}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      const index = automationRules.value.findIndex(r => r.id === rule.id);
+      if (index > -1) {
+        automationRules.value.splice(index, 1);
+      }
+      console.log('자동화 규칙이 삭제되었습니다:', rule.name);
+    }
+  } catch (error) {
+    console.error('자동화 규칙 삭제 중 오류:', error);
+  }
+};
+
+const loadAutomationRules = async (): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/automation/rules`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+    
+    if (result.success) {
+      automationRules.value = result.data || [];
+    }
+  } catch (error) {
+    console.error('자동화 규칙 로드 중 오류:', error);
+  }
+};
+
+// Format date for display
+const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return dateString || '';
+  }
+};
 </script>
 
 <style scoped>

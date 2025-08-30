@@ -19,6 +19,7 @@ export class GoogleAuthService {
     const scopes = [
       'https://www.googleapis.com/auth/spreadsheets',
       'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/userinfo.email', // 사용자 이메일 접근 권한
     ];
 
     return this.oauth2Client.generateAuthUrl({

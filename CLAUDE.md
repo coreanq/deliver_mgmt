@@ -262,11 +262,97 @@ This enables delivery staff to access their assigned data from separate mobile d
 - **Message Format**: JSON with `{message: {type, from, to, text}}` structure
 - **Authentication**: OAuth2 Bearer tokens via session management
 
+### Automation System Architecture
+
+**CRITICAL**: This system implements spreadsheetId-based multi-user automation rules to prevent cross-user rule triggers.
+
+#### Core Components
+- **AutomationRule Interface**: Defines automation rules with spreadsheetId-based user isolation
+- **Webhook Processing**: `/api/automation/trigger` endpoint processes Google Sheets change events
+- **Multi-user Support**: Each user's Google Sheets identified by unique spreadsheetId
+- **Message Templates**: Variable substitution using `#{columnName}` syntax
+
+#### Key Implementation Details
+
+**AutomationRule Structure**:
+```typescript
+interface AutomationRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  spreadsheetId?: string; // 특정 스프레드시트만 대상 (사용자별 구분)
+  targetDate?: string; // 특정 날짜 시트만 대상 (YYYYMMDD 형식, 선택적)
+  conditions: {
+    columnName: string; // 감시할 컬럼명
+    triggerValue: string; // 트리거 값 (예: "배송 완료")
+    operator: 'equals' | 'contains' | 'changes_to';
+  };
+  actions: {
+    type: 'sms' | 'kakao';
+    senderNumber: string;
+    recipientColumn: string; // 수신자 전화번호 컬럼
+    messageTemplate: string; // 메시지 템플릿 with 변수
+  };
+}
+```
+
+**Multi-user Isolation Logic**:
+```typescript
+// Only execute rules matching the webhook's spreadsheetId
+if (rule.spreadsheetId && spreadsheetId && rule.spreadsheetId !== spreadsheetId) {
+  console.log(`Rule ${rule.name} skipped: spreadsheetId ${rule.spreadsheetId} != ${spreadsheetId}`);
+  continue;
+}
+```
+
+**Google Apps Script Integration**:
+```javascript
+function onEdit(e) {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheetId = spreadsheet.getId(); // Critical for user isolation
+  
+  const payload = {
+    sheetName: sheet.getName(),
+    spreadsheetName: spreadsheet.getName(),
+    spreadsheetId: spreadsheetId, // Required for multi-user support
+    columnName: columnName,
+    oldValue: oldValue,
+    newValue: newValue,
+    rowData: rowData,
+    timestamp: new Date().toISOString()
+  };
+  
+  UrlFetchApp.fetch('http://localhost:5001/api/automation/trigger', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    payload: JSON.stringify(payload)
+  });
+}
+```
+
+#### Automation API Routes
+- Create rule: `POST /api/automation/rules`
+- List rules: `GET /api/automation/rules`
+- Webhook trigger: `POST /api/automation/trigger`
+- Manual test: `POST /api/automation/webhook/test`
+
+#### Message Variable System
+- Template format: `#{columnName}` (e.g., `#{고객명}`, `#{주문번호}`)
+- Runtime substitution with actual row data from Google Sheets
+- Example: `#{고객명}님, 주문해주셔서 대단히 감사합니다.` → `1번 고객님, 주문해주셔서 대단히 감사합니다.`
+
+#### Testing & Validation
+- **Test Command**: Use curl for webhook testing (see tests.md for examples)
+- **Verification**: Check backend logs for rule matching and SMS sending
+- **Multi-user Testing**: Verified that different spreadsheetIds trigger only their respective rules
+
 ### API Route Patterns
 - Date-based sheets: `/api/sheets/date/:date` (YYYYMMDD format)
 - Staff-grouped data: `/api/sheets/date/:date/by-staff`
 - Individual staff data: `/api/sheets/date/:date/staff/:staffName`
 - Status updates: `PUT /api/sheets/data/:date/status`
+- Automation rules: `/api/automation/rules` (CRUD operations)
+- Webhook trigger: `POST /api/automation/trigger` (Google Sheets webhook endpoint)
 - Mock endpoints available in development mode
 
 ## Development Guidelines
@@ -295,6 +381,11 @@ This enables delivery staff to access their assigned data from separate mobile d
   - **httpOnly Cookies**: Prevent XSS attacks by using httpOnly cookies for admin sessions
   - **QR Token Validation**: Always verify JWT token scope matches requested staff/date
   - **Cross-Device Authentication**: Support QR access from mobile devices without admin sessions
+- **Automation System**:
+  - **Multi-user Isolation**: Always include spreadsheetId in automation rules for user separation
+  - **Webhook Testing**: Use `POST /api/automation/trigger` with proper spreadsheetId for testing
+  - **Variable Templates**: Use `#{columnName}` format for message template variables
+  - **Google Apps Script**: Must include `spreadsheet.getId()` in webhook payload for user isolation
 
 ## Common Patterns
 
@@ -304,6 +395,16 @@ This enables delivery staff to access their assigned data from separate mobile d
 3. Backend updates Google Sheets via GoogleSheetsService
 4. Frontend calls `loadDeliveryData()` to refresh from server
 5. UI updates with new status and appropriate button states
+
+### Automation Workflow
+1. Admin creates automation rule in AdminView with conditions and actions
+2. Rule saved with current spreadsheetId for user isolation
+3. Google Sheets onEdit trigger sends webhook to `/api/automation/trigger`
+4. Backend matches webhook spreadsheetId with user's automation rules
+5. Matching rules execute: variable substitution → SOLAPI SMS sending
+6. Response includes execution results and message delivery status
+
+**Critical**: Google Apps Script must include `spreadsheetId` in webhook payload for multi-user support.
 
 ### Error Handling
 - Google API errors trigger automatic token refresh and retry

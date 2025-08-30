@@ -123,6 +123,18 @@
   - QR 토큰: JWT 기반 stateless 토큰 구현 완료
   - OAuth2 토큰: Cloudflare KV Storage 사용 (세션 관리)
   - Admin Session: httpOnly 쿠키 + KV 백엔드 저장
+- **🔄 Google 계정 기반 세션 관리 시스템** (개선 진행중):
+  - **영구 데이터 저장**: Google 계정 이메일을 키로 사용하여 브라우저/기기 변경시에도 데이터 유지
+  - **자동화 규칙 영속성**: `automation_rules:{googleEmail}` 키로 사용자별 자동화 규칙 영구 저장
+  - **다중 디바이스 지원**: 동일 Google 계정으로 여러 기기에서 동일한 설정 접근
+  - **세션 만료 대응**: 세션이 끊어져도 Google 계정으로 재로그인시 기존 데이터 복원
+  - **저장 구조**: 
+    ```
+    KV Storage Keys:
+    - user_profile:{googleEmail} → 사용자 기본 정보 및 토큰
+    - automation_rules:{googleEmail} → 자동화 규칙 (영구 저장, 1년)
+    - user_sessions:{googleEmail} → 활성 세션 관리
+    ```
 - **✅ 로그 관리**: 
   - 메시지 발송 로그: Cloudflare Workers 로그 시스템
   - 시스템 로그: console.log - Cloudflare Workers 환경
@@ -196,8 +208,14 @@
   - Pinia를 통한 상태 관리
 - **데이터 저장**: 
   - **메인 데이터**: 구글 스프레드시트 (날짜별)
-  - **세션 관리**: Cloudflare KV
+  - **세션 관리**: Cloudflare KV (Google 계정 기반 영구 저장)
   - **토큰 관리**: JWT (QR 인증), OAuth2 (API 접근)
+  - **사용자 데이터**: Google 이메일 키 기반 영구 저장 시스템
+    ```
+    user_profile:{email} → 사용자 토큰 및 설정
+    automation_rules:{email} → 자동화 규칙 (1년 보관)
+    user_sessions:{email} → 활성 세션 관리
+    ```
 - **API 구조**: 
   ```
   /api/auth                    - OAuth2 인증 관련

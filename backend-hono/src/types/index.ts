@@ -25,12 +25,36 @@ export interface GoogleTokens {
   refreshToken?: string;
   connectedAt?: string;
   expiryDate?: number;
+  email?: string; // Google 계정 이메일
   solapiTokens?: {
     accessToken: string;
     refreshToken: string;
     connectedAt: string;
     expiryDate: number;
   };
+}
+
+// Google 계정 기반 사용자 프로필
+export interface UserProfile {
+  email: string;
+  googleTokens: GoogleTokens;
+  solapiTokens?: {
+    accessToken: string;
+    refreshToken: string;
+    connectedAt: string;
+    expiryDate: number;
+  };
+  lastLoginAt: string;
+  createdAt: string;
+}
+
+// 사용자별 세션 관리
+export interface UserSession {
+  email: string;
+  sessionId: string;
+  createdAt: string;
+  lastAccessAt: string;
+  userAgent?: string;
 }
 
 export interface SolapiConfig {
@@ -44,6 +68,40 @@ export interface QRTokenPayload {
   staffName: string;
   timestamp: number;
   hash: string;
+}
+
+// Automation Types
+export interface AutomationRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  spreadsheetId?: string; // 특정 스프레드시트만 대상 (사용자별 구분)
+  targetDate?: string; // 특정 날짜 시트만 대상 (YYYYMMDD 형식, 예: "20250825")
+  userEmail?: string; // 규칙을 생성한 Google 계정 이메일
+  conditions: {
+    columnName: string; // 감시할 컬럼명
+    triggerValue: string; // 트리거 값 (예: "결제 완료")
+    operator: 'equals' | 'contains' | 'changes_to';
+  };
+  actions: {
+    type: 'sms' | 'kakao';
+    senderNumber: string;
+    recipientColumn: string; // 수신자 전화번호 컬럼
+    messageTemplate: string; // 메시지 템플릿 with 변수
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AutomationTriggerEvent {
+  ruleId: string;
+  sheetName: string;
+  rowIndex: number;
+  columnName: string;
+  oldValue: string;
+  newValue: string;
+  rowData: { [key: string]: any };
+  timestamp: string;
 }
 
 export interface ApiResponse<T = unknown> {

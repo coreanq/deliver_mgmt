@@ -29,6 +29,18 @@
 - [x] 자동 토큰 갱신 미들웨어 구현
 - [x] API 실패 시 토큰 갱신 후 재시도 로직 구현
 - [x] 토큰 만료 시간 추적 및 사전 갱신 구현
+- [🔄] **Google 계정 기반 영구 세션 관리 시스템** (개선 진행중)
+  - [ ] Google 이메일을 기본 키로 사용하는 세션 저장 구조 구현
+  - [ ] 브라우저/기기 변경시에도 데이터 유지되는 영구 저장 시스템
+  - [ ] 자동화 규칙 Google 계정별 영구 저장 (1년 보관)
+  - [ ] 다중 디바이스 지원 및 세션 동기화
+  - [ ] KV Storage 키 구조 개선:
+    ```
+    기존: session:{randomSessionId} (24시간 만료)
+    개선: user_profile:{googleEmail} (사용자 토큰 및 설정)
+         automation_rules:{googleEmail} (자동화 규칙, 1년 보관)
+         user_sessions:{googleEmail} (활성 세션 관리)
+    ```
 
 ### 4. Google Sheets API 연동
 - [x] Google Sheets API v4 클라이언트 설정
@@ -118,6 +130,21 @@
 - [x] 배송 진행률 표시
 
 ## Phase 2: 부가 기능 및 개선
+
+### 10-1. Google 계정 기반 세션 관리 시스템 개선 (🔄 진행중)
+- [🔄] **세션 저장 구조 개선**: sessionId 기반에서 Google 계정 기반으로 전환
+- [ ] 백엔드 KV Storage 키 구조 변경:
+  ```
+  기존: sessions:{randomSessionId} → 새 구조
+  user_profile:{googleEmail} → 사용자 Google/SOLAPI 토큰
+  automation_rules:{googleEmail} → 자동화 규칙 (1년 보관)
+  user_sessions:{googleEmail} → 활성 세션 관리
+  ```
+- [ ] 자동화 규칙 영구 저장 로직 구현
+- [ ] 다중 디바이스 지원 및 세션 동기화
+- [ ] 사용자 데이터 마이그레이션 로직 (기존 세션 → 계정 기반)
+- [ ] 세션 만료시에도 사용자 데이터 유지 보장
+- [ ] Google 이메일 추출 및 검증 로직 강화
 
 ### 11. 스프레드시트 자동 관리
 - [ ] 배송담당자명 입력 시 시트 자동 생성
@@ -222,6 +249,11 @@
 ### 데이터베이스 및 저장소 (Cloudflare 환경)
 - [x] Google Sheets를 메인 데이터 저장소로 활용
 - [x] 세션 스토리지 (Cloudflare KV Storage)
+- [🔄] **Google 계정 기반 영구 저장소 개선** (진행중):
+  - [ ] 사용자별 데이터 영구 저장 (Google 이메일 키 기반)
+  - [ ] 자동화 규칙 1년 보관 정책
+  - [ ] 다중 디바이스 세션 동기화
+  - [ ] 세션 만료시에도 사용자 데이터 유지
 - [x] 로그 저장소 (Cloudflare Workers 로그)
 - [x] 토큰 관리 (JWT stateless)
 - [x] **제외**: Redis는 Cloudflare Workers에서 직접 지원되지 않음 - KV Storage 사용
