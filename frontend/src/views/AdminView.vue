@@ -40,10 +40,6 @@
                     </div>
                     
                     <div v-else>
-                      <div class="d-flex align-center mb-4">
-                        <p class="mb-0 mr-4">Google Sheets 연결됨</p>
-                        <v-chip color="success" size="small">{{ authStore.googleSpreadsheets.length }}개 스프레드시트</v-chip>
-                      </div>
                       
                       <!-- Selected Date Section (moved to top) -->
                       <v-row v-if="selectedDateString" class="mb-4">
@@ -51,10 +47,12 @@
                           <v-card variant="outlined">
                             <v-card-title>선택된 날짜</v-card-title>
                             <v-card-text>
-                              <v-chip color="primary" size="large" class="mb-2">
-                                {{ formatDateDisplay(selectedDateString) }}
-                              </v-chip>
-                              <br>
+                              <div class="d-flex justify-space-between align-center mb-2">
+                                <v-chip color="primary" size="large">
+                                  {{ formatDateDisplay(selectedDateString) }}
+                                </v-chip>
+                                <v-chip color="success" size="small">{{ authStore.googleSpreadsheets.length }}개 스프레드시트</v-chip>
+                              </div>
                               <small class="text-grey">시트명: {{ selectedDateString }}</small>
                             </v-card-text>
                           </v-card>
@@ -578,14 +576,6 @@
                   <v-card-title class="d-flex align-center">
                     <v-icon start>mdi-robot</v-icon>
                     자동화 설정
-                    <v-spacer></v-spacer>
-                    <v-switch
-                      v-model="automationEnabled"
-                      hide-details
-                      inset
-                      color="primary"
-                      label="활성화"
-                    ></v-switch>
                   </v-card-title>
                   
                   <v-card-text>
@@ -596,7 +586,7 @@
                           <v-select
                             v-model="automationForm.conditionColumn"
                             :items="sheetColumns"
-                            label="아무 상품"
+                            label="컬럼 선택"
                             variant="outlined"
                             density="compact"
                             placeholder="컬럼 선택"
@@ -663,7 +653,7 @@
                         rows="4"
                         hint="변수 사용법: #{컬럼명} (예: #{고객명}, #{주문번호})"
                         persistent-hint
-                        placeholder="#{고객명}님, 주문해주셔서 대단히 감사합니다."
+                        placeholder="#{고객명}님, 배송 완료되었습니다. 감사합니다."
                       />
                       <div class="text-caption mt-2">
                         <v-icon size="small" color="info">mdi-information</v-icon>
