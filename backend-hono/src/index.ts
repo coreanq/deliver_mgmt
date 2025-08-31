@@ -96,6 +96,7 @@ app.get('/health', (c) => {
   });
 });
 
+
 // API routes
 app.route('/api/auth', authRoutes);
 app.route('/api/sheets', sheetsRoutes);

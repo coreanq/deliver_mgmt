@@ -38,6 +38,8 @@
    - 상태별 버튼 활성화
 
 #### 3. 배송 상태 변경 테스트
+
+##### 3-1. Production 모드 (Google Apps Script 웹훅 설정 완료 시)
 1. "배송 준비중" 상태의 고객 선택
 2. "배송 출발" 버튼 클릭
 3. 상태 변경 성공 메시지 확인
@@ -45,6 +47,35 @@
 5. "배송 완료" 버튼 활성화 확인
 6. "배송 완료" 버튼 클릭
 7. 최종 상태 변경 완료 확인
+
+##### 3-2. Local 개발 모드 (curl 웹훅 테스트)
+Google Apps Script 설정 없이 로컬에서 자동화 시스템 테스트:
+
+1. **웹훅 직접 호출로 자동화 테스트**:
+```bash
+curl -X POST http://localhost:5001/api/automation/trigger \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sheetName": "시트1",
+    "spreadsheetName": "20250825",
+    "spreadsheetId": "1Xb0jJIAl1VO8e6vhPifnr-XX2Jo03bGZHwaYzMut7WU",
+    "columnName": "배송상태",
+    "rowIndex": 2,
+    "oldValue": "배송 준비중",
+    "newValue": "배송 완료",
+    "rowData": {
+      "배송지": "수원시 장안구 수성로 157번길 60",
+      "고객명": "1번 고객",
+      "고객 연락처": "01030917061",
+      "배송 담당자": "박국철",
+      "배송상태": "배송 완료"
+    }
+  }'
+```
+
+2. **응답 확인**: 자동화 규칙 실행 및 SMS 발송 성공 여부 확인
+3. **백엔드 로그 확인**: 터미널에서 웹훅 처리 로그 모니터링
+4. **실제 SMS 수신 확인**: 설정된 수신 번호로 메시지 도착 확인
 
 #### 4. 백엔드 로그 확인
 백엔드 콘솔에서 다음 로그 확인:

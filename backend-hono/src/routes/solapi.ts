@@ -129,7 +129,7 @@ solapi.get('/auth/callback', async (c) => {
       accessToken: access_token,
       refreshToken: refresh_token,
       connectedAt: new Date().toISOString(),
-      expiryDate: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+      expiryDate: Date.now() + (18 * 60 * 60 * 1000), // 18 hours from now
     };
 
     // 통합 사용자 서비스에 SOLAPI 토큰 저장
@@ -776,7 +776,7 @@ solapi.post('/message/send', async (c) => {
       }
     }
 
-    const { from, to, text, type = 'SMS' } = await c.req.json();
+    const { from, to, text, type } = await c.req.json();
 
     if (!from || !to || !text) {
       return c.json({
@@ -801,14 +801,42 @@ solapi.post('/message/send', async (c) => {
       } as ApiResponse, 400);
     }
 
-    console.log('Sending SMS:', { from, to: to.substring(0, 7) + '***', textLength: text.length });
+    // Calculate message byte size (Korean characters = 2 bytes, ASCII = 1 byte)
+    const calculateMessageBytes = (message: string): number => {
+      let bytes = 0;
+      for (let i = 0; i < message.length; i++) {
+        const char = message.charAt(i);
+        // Korean characters (Hangul), Chinese, Japanese characters = 2 bytes
+        if (char >= '\u0080') {
+          bytes += 2;
+        } else {
+          bytes += 1;
+        }
+      }
+      return bytes;
+    };
+
+    // Auto-detect message type based on byte size if not specified
+    // SMS: up to 90 bytes (SOLAPI standard)
+    // LMS: 91+ bytes (up to 2000 bytes)
+    const messageBytes = calculateMessageBytes(text);
+    const messageType = type || (messageBytes <= 90 ? 'SMS' : 'LMS');
+
+    console.log('Sending message:', { 
+      from, 
+      to: to.substring(0, 7) + '***', 
+      textLength: text.length,
+      messageBytes: messageBytes,
+      messageType: messageType,
+      autoDetected: !type ? 'yes' : 'no'
+    });
 
     // Send message via SOLAPI
     const messageResponse = await axios.post(
       'https://api.solapi.com/messages/v4/send',
       {
         message: {
-          type: type,
+          type: messageType,
           from: from.replace(/-/g, ''),
           to: to.replace(/-/g, ''),
           text: text,
@@ -830,7 +858,10 @@ solapi.post('/message/send', async (c) => {
 
     console.log('SOLAPI response:', { 
       statusCode: messageResponse.data.statusCode,
-      messageId: messageResponse.data.messageId 
+      messageId: messageResponse.data.messageId,
+      messageType: messageType,
+      messageLength: text.length,
+      messageBytes: messageBytes
     });
 
     return c.json({
@@ -838,9 +869,12 @@ solapi.post('/message/send', async (c) => {
       data: {
         messageId: messageResponse.data.messageId,
         statusCode: messageResponse.data.statusCode,
-        statusMessage: messageResponse.data.statusMessage || '메시지 발송 요청이 완료되었습니다.'
+        statusMessage: messageResponse.data.statusMessage || '메시지 발송 요청이 완료되었습니다.',
+        messageType: messageType,
+        messageLength: text.length,
+        messageBytes: messageBytes
       },
-      message: 'SMS가 성공적으로 발송되었습니다.',
+      message: `${messageType}가 성공적으로 발송되었습니다. (${text.length}자, ${messageBytes}바이트)`,
     } as ApiResponse);
   } catch (error: any) {
     console.error('Failed to send SMS:', error);

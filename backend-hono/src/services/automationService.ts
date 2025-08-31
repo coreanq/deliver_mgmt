@@ -43,7 +43,24 @@ export class AutomationService {
   }
 
   /**
-   * Send SMS message using SOLAPI
+   * Calculate message byte size (Korean characters = 2 bytes, ASCII = 1 byte)
+   */
+  calculateMessageBytes(message: string): number {
+    let bytes = 0;
+    for (let i = 0; i < message.length; i++) {
+      const char = message.charAt(i);
+      // Korean characters (Hangul), Chinese, Japanese characters = 2 bytes
+      if (char >= '\u0080') {
+        bytes += 2;
+      } else {
+        bytes += 1;
+      }
+    }
+    return bytes;
+  }
+
+  /**
+   * Send SMS/LMS message using SOLAPI (auto-detect based on message byte size)
    */
   async sendSMS(
     accessToken: string,
@@ -52,11 +69,19 @@ export class AutomationService {
     message: string
   ): Promise<boolean> {
     try {
+      // Auto-detect message type based on byte size
+      // SMS: up to 90 bytes (SOLAPI standard)
+      // LMS: 91+ bytes (up to 2000 bytes)
+      const messageBytes = this.calculateMessageBytes(message);
+      const messageType = messageBytes <= 90 ? 'SMS' : 'LMS';
+      
+      console.log(`Message length: ${message.length} characters (${messageBytes} bytes), using ${messageType}`);
+
       const response = await axios.post(
         'https://api.solapi.com/messages/v4/send',
         {
           message: {
-            type: 'SMS',
+            type: messageType,
             from: senderNumber.replace(/-/g, ''),
             to: recipientNumber.replace(/-/g, ''),
             text: message,
@@ -76,14 +101,18 @@ export class AutomationService {
         }
       );
 
-      console.log('SMS sent successfully:', {
+      console.log(`${messageType} sent successfully:`, {
         messageId: response.data.messageId,
-        statusCode: response.data.statusCode
+        statusCode: response.data.statusCode,
+        messageLength: message.length,
+        messageBytes: messageBytes,
+        messageType: messageType
       });
 
       return true;
     } catch (error: any) {
-      console.error('Failed to send SMS:', error);
+      console.error(`Failed to send ${messageType}:`, error);
+      console.error('SOLAPI error details:', error.response?.data);
       return false;
     }
   }

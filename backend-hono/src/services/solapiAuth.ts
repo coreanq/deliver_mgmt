@@ -38,8 +38,8 @@ export class SolapiAuthService {
         throw new Error('Failed to refresh SOLAPI access token');
       }
 
-      // SOLAPI access tokens are valid for 24 hours
-      const expiryDate = Date.now() + (24 * 60 * 60 * 1000); // 24 hours from now
+      // SOLAPI access tokens are valid for 18 hours
+      const expiryDate = Date.now() + (18 * 60 * 60 * 1000); // 18 hours from now
 
       console.log('SOLAPI access token refreshed successfully');
       
@@ -55,7 +55,7 @@ export class SolapiAuthService {
 
   /**
    * Check if SOLAPI token needs refresh (within 30 minutes of expiry)
-   * Note: SOLAPI tokens last 24 hours, so we use 30 minutes buffer
+   * Note: SOLAPI tokens last 18 hours, so we use 30 minutes buffer
    */
   shouldRefreshToken(expiryDate?: number): boolean {
     if (!expiryDate) return true;

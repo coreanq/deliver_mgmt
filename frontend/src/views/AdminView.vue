@@ -289,104 +289,89 @@
                                       cols="12"
                                       class="pb-3"
                                     >
-                                      <v-card 
-                                        variant="outlined" 
-                                        class="unified-data-card"
-                                        :class="{ 'completed-order': isOrderCompleted(item) }"
-                                        elevation="2"
-                                      >
-                                        <v-card-text class="pa-4">
-                                          <!-- Order Header -->
-                                          <div class="unified-card-header">
-                                            <div class="order-info">
-                                              <h3 class="order-title-unified">{{ getOrderTitle(item) }}</h3>
-                                              <p class="order-row-info">행 #{{ item.rowIndex }}</p>
+                                      <v-tooltip location="top">
+                                        <template v-slot:activator="{ props }">
+                                          <v-card 
+                                            variant="outlined" 
+                                            class="unified-data-card customer-card-hover"
+                                            :class="{ 'completed-order': isOrderCompleted(item) }"
+                                            elevation="2"
+                                            v-bind="props"
+                                          >
+                                            <v-card-text class="pa-4">
+                                              <!-- Order Header -->
+                                              <div class="unified-card-header">
+                                                <div class="order-info">
+                                                  <h3 class="order-title-unified">{{ getOrderTitle(item) }}</h3>
+                                                  <p class="order-row-info">행 #{{ item.rowIndex }}</p>
+                                                </div>
+                                                <div class="status-section">
+                                                  <!-- 한 줄로 배치: 상태 + 담당자 + QR 버튼 -->
+                                                  <div v-if="getOrderStatus(item) === '배송 준비중' && getStaffName(item)" class="status-inline-row">
+                                                    <v-chip 
+                                                      :color="getOrderStatusColor(item)"
+                                                      size="small" 
+                                                      variant="elevated"
+                                                      class="status-chip-unified"
+                                                    >
+                                                      {{ getOrderStatus(item) }}
+                                                    </v-chip>
+                                                    <span class="status-separator">배송담당자:</span>
+                                                    <v-btn
+                                                      size="x-small"
+                                                      variant="outlined"
+                                                      color="primary"
+                                                      @click="openStaffPage(getStaffName(item))"
+                                                      class="staff-name-btn"
+                                                    >
+                                                      <v-icon start size="12">mdi-account-tie</v-icon>
+                                                      {{ getStaffName(item) }}
+                                                    </v-btn>
+                                                    <v-btn
+                                                      size="x-small"
+                                                      variant="outlined"
+                                                      color="secondary"
+                                                      @click="generateQR(getStaffName(item))"
+                                                      :disabled="!selectedDateString"
+                                                      class="qr-btn"
+                                                    >
+                                                      <v-icon start size="12">mdi-qrcode</v-icon>
+                                                      QR Code
+                                                    </v-btn>
+                                                  </div>
+                                                  <!-- 기타 상태는 기존과 동일 -->
+                                                  <div v-else class="status-chip-only">
+                                                    <v-chip 
+                                                      :color="getOrderStatusColor(item)"
+                                                      size="small" 
+                                                      variant="elevated"
+                                                      class="status-chip-unified"
+                                                    >
+                                                      {{ getOrderStatus(item) }}
+                                                    </v-chip>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </v-card-text>
+                                          </v-card>
+                                        </template>
+                                        <div class="customer-tooltip-content">
+                                          <div v-for="header in displayableHeaders" :key="header">
+                                            <div v-if="header.includes('배송지') || header.includes('주소')" class="tooltip-row">
+                                              <v-icon size="16" color="primary">mdi-map-marker</v-icon>
+                                              <strong>{{ header }}:</strong> {{ item[header] || '-' }}
                                             </div>
-                                            <v-chip 
-                                              :color="getOrderStatusColor(item)"
-                                              size="small" 
-                                              variant="elevated"
-                                              class="status-chip-unified"
-                                            >
-                                              {{ getOrderStatus(item) }}
-                                            </v-chip>
-                                          </div>
-                                          
-                                          <!-- Order Details -->
-                                          <div class="unified-card-content">
-                                            <div 
-                                              v-for="header in displayableHeaders" 
-                                              :key="header"
-                                              class="detail-row-unified"
-                                            >
-                                              <div v-if="header.includes('배송지') || header.includes('주소')" class="address-section-unified">
-                                                <div class="field-header">
-                                                  <v-icon size="18" color="primary">mdi-map-marker</v-icon>
-                                                  <span class="field-label-unified">{{ header }}</span>
-                                                </div>
-                                                <div class="address-text-unified">
-                                                  {{ item[header] || '-' }}
-                                                </div>
-                                              </div>
-                                              
-                                              <div v-else-if="header.includes('연락처') || header.includes('전화')" class="phone-section-unified">
-                                                <div class="field-header">
-                                                  <v-icon size="18" color="success">mdi-phone</v-icon>
-                                                  <span class="field-label-unified">{{ header }}</span>
-                                                </div>
-                                                <a :href="'tel:' + (item[header] || '')" class="phone-link-unified">
-                                                  {{ item[header] || '-' }}
-                                                </a>
-                                              </div>
-                                              
-                                              <div v-else-if="header.includes('담당자') && getStaffName(item)" class="staff-section-unified">
-                                                <div class="field-header">
-                                                  <v-icon size="18" color="green">mdi-account-tie</v-icon>
-                                                  <span class="field-label-unified">배송 담당자</span>
-                                                </div>
-                                                <div class="staff-name-unified">
-                                                  {{ getStaffName(item) || '-' }}
-                                                </div>
-                                              </div>
-                                              
-                                              <div v-else-if="!header.includes('상태') && !header.includes('담당자') && !header.includes('고객명') && !header.includes('이름') && !header.includes('고객') && !header.includes('성명') && item[header]" class="other-field-unified">
-                                                <div class="field-header">
-                                                  <v-icon size="16" color="grey">mdi-information-outline</v-icon>
-                                                  <span class="field-label-unified">{{ header }}</span>
-                                                </div>
-                                                <span class="field-value-unified">{{ item[header] }}</span>
-                                              </div>
+                                            <div v-else-if="header.includes('연락처') || header.includes('전화')" class="tooltip-row">
+                                              <v-icon size="16" color="success">mdi-phone</v-icon>
+                                              <strong>{{ header }}:</strong> {{ item[header] || '-' }}
+                                            </div>
+                                            <div v-else-if="header.includes('담당자') && getStaffName(item)" class="tooltip-row">
+                                              <v-icon size="16" color="green">mdi-account-tie</v-icon>
+                                              <strong>배송 담당자:</strong> {{ getStaffName(item) || '-' }}
                                             </div>
                                           </div>
-                                          
-                                          <!-- Card Actions -->
-                                          <div class="unified-card-actions">
-                                            <v-btn
-                                              v-if="getStaffName(item)"
-                                              size="small"
-                                              variant="outlined"
-                                              color="secondary"
-                                              @click="openStaffPage(getStaffName(item))"
-                                              class="action-btn"
-                                            >
-                                              <v-icon start size="16">mdi-open-in-new</v-icon>
-                                              담당자
-                                            </v-btn>
-                                            <v-btn
-                                              v-if="getStaffName(item)"
-                                              size="small"
-                                              variant="outlined"
-                                              color="secondary"
-                                              @click="generateQR(getStaffName(item))"
-                                              class="action-btn"
-                                              :disabled="!selectedDateString"
-                                            >
-                                              <v-icon start size="16">mdi-qrcode</v-icon>
-                                              QR 코드
-                                            </v-btn>
-                                          </div>
-                                        </v-card-text>
-                                      </v-card>
+                                        </div>
+                                      </v-tooltip>
                                     </v-col>
                                     
                                     <!-- Pagination -->
@@ -2068,6 +2053,19 @@ const formatDate = (dateString: string): string => {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15) !important;
 }
 
+/* Customer Card Hover Effect */
+.customer-card-hover {
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.customer-card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2) !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-color: #1976d2 !important;
+}
+
 .unified-data-card.completed-order {
   border-left: 6px solid #4caf50;
   background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 50%, #ffffff 100%);
@@ -2309,6 +2307,74 @@ const formatDate = (dateString: string): string => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* Status Inline Row */
+.status-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-chip-only {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.status-separator {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  margin: 0 4px;
+}
+
+.staff-name-btn {
+  font-size: 11px;
+  font-weight: 600;
+  height: 24px;
+  min-width: auto;
+  padding: 0 8px;
+}
+
+.qr-btn {
+  font-size: 11px;
+  font-weight: 600;
+  height: 24px;
+  min-width: auto;
+  padding: 0 8px;
+}
+
+/* Customer Tooltip Styles */
+.customer-tooltip-content {
+  max-width: 350px;
+  padding: 8px 0;
+}
+
+.tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: white !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tooltip-row:last-child {
+  border-bottom: none;
+}
+
+.tooltip-row strong {
+  min-width: 80px;
+  color: white !important;
+  font-weight: 600;
+}
+
+.tooltip-row .v-icon {
+  flex-shrink: 0;
+  color: white !important;
 }
 
 .mobile-filter-item {
@@ -2593,6 +2659,76 @@ const formatDate = (dateString: string): string => {
   .mobile-filter-btn {
     min-width: 80px;
     font-size: 12px;
+  }
+}
+
+/* Status Section with Actions */
+.status-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.status-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* Tooltip Text Styling */
+.tooltip-text {
+  cursor: help;
+  transition: all 0.2s ease;
+  display: block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltip-text:hover {
+  color: #1976d2;
+  background-color: rgba(25, 118, 210, 0.04);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.address-text-unified.tooltip-text {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #424242;
+}
+
+.phone-link-unified.tooltip-text {
+  text-decoration: none;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.phone-link-unified.tooltip-text:hover {
+  color: #1b5e20;
+  text-decoration: underline;
+}
+
+.staff-name-unified.tooltip-text {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+/* Responsive Status Actions */
+@media (max-width: 768px) {
+  .status-section {
+    align-items: center;
+  }
+  
+  .status-actions {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .tooltip-text {
+    max-width: 150px;
   }
 }
 </style>

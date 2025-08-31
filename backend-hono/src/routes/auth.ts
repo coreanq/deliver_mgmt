@@ -99,7 +99,7 @@ auth.get('/google/callback', async (c) => {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       connectedAt: new Date().toISOString(),
-      expiryDate: Date.now() + (3600 * 1000), // 1 hour from now
+      expiryDate: Date.now() + (18 * 60 * 60 * 1000), // 18 hours from now
       email: userEmail,
     };
 
@@ -243,7 +243,7 @@ auth.get('/status', async (c) => {
         const newAccessToken = await googleAuth.refreshAccessToken();
         
         userData.googleTokens.accessToken = newAccessToken;
-        userData.googleTokens.expiryDate = Date.now() + (3600 * 1000); // 1 hour from now
+        userData.googleTokens.expiryDate = Date.now() + (18 * 60 * 60 * 1000); // 18 hours from now
         
         await unifiedUserService.updateGoogleTokens(tempSession.email, userData.googleTokens);
       } catch (refreshError) {

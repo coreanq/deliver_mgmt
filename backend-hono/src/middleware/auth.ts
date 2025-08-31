@@ -57,7 +57,7 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
         const newAccessToken = await googleAuth.refreshAccessToken();
         
         userData.googleTokens.accessToken = newAccessToken;
-        userData.googleTokens.expiryDate = Date.now() + (3600 * 1000); // 1 hour from now
+        userData.googleTokens.expiryDate = Date.now() + (18 * 60 * 60 * 1000); // 18 hours from now
         
         await unifiedUserService.updateGoogleTokens(tempSession.email, userData.googleTokens);
         console.log('Token refreshed successfully');
