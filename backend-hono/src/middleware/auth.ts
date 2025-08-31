@@ -4,15 +4,8 @@ import type { Env, GoogleTokens, Variables } from '../types';
 import { GoogleAuthService } from '../services/googleAuth';
 import { UnifiedUserService } from '../services/unifiedUserService';
 
-// Helper function for temp session access
-async function getTempSession(sessionId: string, env: Env): Promise<{ email?: string } | null> {
-  try {
-    const sessionData = await env.SESSIONS.get(sessionId);
-    return sessionData ? JSON.parse(sessionData) : null;
-  } catch {
-    return null;
-  }
-}
+// 구조적 개선: 임시 세션 헬퍼 함수 제거됨
+// sessionId를 직접 통합 데이터 키로 사용
 
 /**
  * Middleware to require Google authentication
@@ -28,22 +21,14 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
       }, 401);
     }
 
-    const tempSession = await getTempSession(sessionId, c.env);
-    
-    if (!tempSession?.email) {
-      return c.json({
-        success: false,
-        message: '유효하지 않은 세션입니다. 다시 로그인해주세요.',
-      }, 401);
-    }
-
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
     const unifiedUserService = new UnifiedUserService(c.env);
-    const userData = await unifiedUserService.getUserData(tempSession.email);
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
 
     if (!userData || !userData.googleTokens.accessToken) {
       return c.json({
         success: false,
-        message: '사용자 데이터를 찾을 수 없습니다. 다시 로그인해주세요.',
+        message: '세션 데이터를 찾을 수 없습니다. 다시 로그인해주세요.',
       }, 401);
     }
 
@@ -59,7 +44,9 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
         userData.googleTokens.accessToken = newAccessToken;
         userData.googleTokens.expiryDate = Date.now() + (18 * 60 * 60 * 1000); // 18 hours from now
         
-        await unifiedUserService.updateGoogleTokens(tempSession.email, userData.googleTokens);
+        // 구조적 개선: 세션 기반 데이터와 이메일 기반 데이터 모두 업데이트
+        await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
+        await unifiedUserService.updateGoogleTokens(userData.email, userData.googleTokens);
         console.log('Token refreshed successfully');
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);

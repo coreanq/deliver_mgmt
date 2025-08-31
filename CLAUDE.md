@@ -69,11 +69,11 @@ VITE_API_BASE_URL=https://your-worker.your-subdomain.workers.dev npm run build
 - **Testing**: Playwright E2E tests, Vitest unit tests
 - **Deployment**: Cloudflare Workers (backend) + Cloudflare Pages (frontend)
 
-### Key Services (Both Backends)
+### Key Services
 - **GoogleSheetsService**: Spreadsheet CRUD operations with dynamic header system
 - **GoogleAuthService**: Google OAuth2 token management with auto-refresh
 - **SolapiAuthService**: SOLAPI OAuth2 integration (**HTTP API, not SDK**)
-- **UnifiedUserService**: SHA-256 hash-based unified user data management (**Current Architecture**)
+- **UnifiedUserService**: SHA-256 hash-based unified user data management (**Global Instance Pattern**)
 
 ### Development vs Production Environments
 | Feature | Local Development | Cloudflare Workers Production |
@@ -136,7 +136,7 @@ if (token) {
 ```
 
 #### 3. **Unified User Service Architecture** (**Current Implementation**)
-**Critical Architecture Change**: The system now uses **UnifiedUserService** with SHA-256 hashed email keys for secure, unified data management.
+**Critical Architecture**: The system uses **UnifiedUserService** with SHA-256 hashed email keys and **global instance pattern** for secure, unified data management.
 
 **Key Components**:
 - **UnifiedUserService** (`backend-hono/src/services/unifiedUserService.ts`): Manages all user data with hash-based security
@@ -172,6 +172,7 @@ automation_users_index → [email1, email2, ...]
 - **Webhook Optimization**: Dedicated user index for efficient webhook processing
 - **Multi-Device Access**: Same Google account accesses same unified data
 - **Token Integration**: SOLAPI and Google tokens managed together
+- **Performance Optimization**: Global instance pattern eliminates duplicate service creation (21+ instances → 1 per request)
 
 #### 4. **Authentication Flows Summary**
 1. **Google OAuth2**: Spreadsheet access (`/api/auth/google`)
@@ -250,6 +251,55 @@ FRONTEND_URL=http://localhost:5173
 ```
 
 ## Critical Implementation Details
+
+### UnifiedUserService Global Pattern
+**IMPORTANT**: All routes use a global middleware pattern to provide UnifiedUserService instances for optimal performance and consistency.
+
+**Implementation Pattern**:
+```typescript
+// Each route file (auth.ts, solapi.ts, automation.ts, migration.ts)
+const router = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Global middleware - creates one instance per request
+router.use('*', async (c, next) => {
+  c.set('unifiedUserService', new UnifiedUserService(c.env));
+  await next();
+});
+
+// Route handlers access via context
+const unifiedUserService = c.get('unifiedUserService');
+```
+
+**Key Benefits**:
+- **Request-Scoped Security**: Each HTTP request gets isolated service instance
+- **Performance**: Eliminates 21+ duplicate service instantiations per request
+- **Type Safety**: Full TypeScript support via Variables interface
+- **Consistency**: Uniform service access pattern across all routes
+
+**Variables Interface** (`src/types/index.ts`):
+```typescript
+export interface Variables {
+  sessionData: GoogleTokens;
+  sessionId: string;
+  unifiedUserService: import('../services/unifiedUserService').UnifiedUserService;
+}
+```
+
+### Unified Storage Architecture (2025 Update)
+**CRITICAL**: The system uses **unified storage with session delegation** pattern for optimal data management:
+
+```typescript
+// Session keys store only metadata (1 day TTL)
+session_user:${sessionId} → { email, sessionId, createdAt }
+
+// Unified keys store all actual data (1 year TTL)
+unified_user:${emailHash} → { email, googleTokens, solapiTokens, automationRules, ... }
+
+// Session-based methods delegate to unified storage
+await unifiedUserService.getSessionBasedUserData(sessionId); // → getUserData(email)
+await unifiedUserService.saveSessionBasedUserData(sessionId, userData); // → saveUserData(userData)
+await unifiedUserService.getAutomationRulesBySession(sessionId); // → getAutomationRules(email)
+```
 
 ### Dynamic Google Sheets System
 - **Never hardcode column names** - uses actual sheet headers dynamically
@@ -392,6 +442,11 @@ This enables delivery staff to access their assigned data from separate mobile d
 - **Task Management**: Update tasks.md when todos are completed
 - **Dynamic System**: Never assume specific column names - always use actual sheet data
 - **Session Management**: Local development uses in-memory storage; production uses Cloudflare KV
+- **Service Architecture**:
+  - **Global UnifiedUserService**: ALWAYS use `c.get('unifiedUserService')` instead of creating new instances
+  - **Variables Interface**: All new route files must include Variables type in Hono declaration
+  - **Unified Storage**: All data stored in `unified_user:${emailHash}` keys, sessions only store metadata
+  - **Session Delegation**: Session-based methods automatically delegate to unified storage via email lookup
 - **Authentication Security**: 
   - **Local Storage Prohibition**: All session management server-side only (local storage session 사용 금지)
   - **httpOnly Cookies**: Prevent XSS attacks by using httpOnly cookies for admin sessions
@@ -455,6 +510,8 @@ Set these in the Cloudflare Workers dashboard:
 - `SOLAPI_CLIENT_SECRET`
 - `SOLAPI_REDIRECT_URL` (with your Workers domain)
 - `FRONTEND_URL` (your frontend domain)
+- `EMAIL_HASH_SALT` (for secure email hashing)
+- `JWT_SECRET` (for QR token signing)
 
 ### Cross-Domain Cookie Limitations (Cloudflare Workers + Pages)
 When using Cloudflare Workers (backend) + Cloudflare Pages (frontend) with different domains:
@@ -500,3 +557,47 @@ When using Cloudflare Workers (backend) + Cloudflare Pages (frontend) with diffe
 - solapi 구현은 https://developers.solapi.com/references/authentication/oauth2-3/oauth2 참고
 - solapi 발신번호는 여기 참고 https://developers.solapi.com/references/senderid/getActivatedSenderIds, 메시지 단가 조회는 https://developers.solapi.com/references/pricing/getMessagePrice 참고
 - 앱의 단가조회는 https://developers.solapi.com/references/pricing/getMessagePriceByApp 참고
+
+## Recent Architectural Improvements
+
+### Unified Storage Migration (2025)
+**Problem**: Automation rules were stored separately in session storage and unified storage, causing webhooks to fail because they couldn't find rules in unified storage while session-based APIs worked correctly.
+
+**Solution**: Complete migration to unified storage with session delegation:
+- **Unified Storage**: All user data (Google tokens, SOLAPI tokens, automation rules) stored in `unified_user:${emailHash}`
+- **Lightweight Sessions**: Sessions only store metadata (`email`, `sessionId`, `createdAt`) with 1-day TTL
+- **Automatic Delegation**: Session-based methods (`getSessionBasedUserData`, `addAutomationRuleBySession`) automatically delegate to unified storage
+- **Webhook Compatibility**: Webhooks now successfully find automation rules in unified storage
+
+**Key Changes**:
+```typescript
+// Before: Dual storage causing webhook failures
+session_user:${sessionId} → { googleTokens, solapiTokens, automationRules }  // Used by APIs
+unified_user:${emailHash} → { empty or incomplete data }  // Used by webhooks
+
+// After: Single source of truth
+session_user:${sessionId} → { email, sessionId, createdAt }  // Metadata only
+unified_user:${emailHash} → { googleTokens, solapiTokens, automationRules, ... }  // All data
+```
+
+**Files Modified**:
+- `backend-hono/src/services/unifiedUserService.ts`: Updated session methods to delegate to unified storage
+- Session-based methods now extract email from session and operate on unified storage
+
+**Testing Verification**: Webhooks now successfully trigger automation rules and send SMS messages via SOLAPI integration.
+
+### UnifiedUserService Refactoring (2024)
+**Problem**: Multiple instances of UnifiedUserService were being created per request (21+ instances), causing performance degradation and potential memory issues.
+
+**Solution**: Implemented global middleware pattern across all routes:
+- **Global Middleware**: Each route now uses middleware to provide single UnifiedUserService instance per request
+- **TypeScript Safety**: Added Variables interface for type-safe context access
+- **Performance**: Reduced service instantiation from 21+ per request to 1 per request
+
+**Files Modified**:
+- `src/types/index.ts`: Added Variables interface with unifiedUserService
+- `src/routes/{auth,solapi,automation,migration}.ts`: Added global middleware and converted to context-based access
+- `src/services/automationService.ts`: Fixed variable scoping issues
+- `src/local.ts`: Enhanced KV namespace compatibility for development
+
+**Security Verification**: The global pattern maintains request-scoped isolation - each HTTP request receives its own service instance with proper environment and session context, ensuring no cross-request data leakage.

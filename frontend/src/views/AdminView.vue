@@ -303,44 +303,49 @@
                                               <div class="unified-card-header">
                                                 <div class="order-info">
                                                   <h3 class="order-title-unified">{{ getOrderTitle(item) }}</h3>
-                                                  <p class="order-row-info">행 #{{ item.rowIndex }}</p>
+                                                  <div class="order-row-info d-flex justify-space-between align-center">
+                                                    <!-- 배송 준비중 상태일 때 좌우 배치 -->
+                                                    <template v-if="getOrderStatus(item) === '배송 준비중' && getStaffName(item)">
+                                                      <div class="left-section d-flex align-center">
+                                                        <v-chip 
+                                                          :color="getOrderStatusColor(item)"
+                                                          size="small" 
+                                                          variant="elevated"
+                                                          class="status-chip-unified"
+                                                        >
+                                                          {{ getOrderStatus(item) }}
+                                                        </v-chip>
+                                                      </div>
+                                                      <div class="right-section d-flex align-center">
+                                                        <span class="status-separator mr-2">배송담당자:</span>
+                                                        <v-btn
+                                                          size="x-small"
+                                                          variant="outlined"
+                                                          color="primary"
+                                                          @click="openStaffPage(getStaffName(item))"
+                                                          class="staff-name-btn mr-2"
+                                                        >
+                                                          <v-icon start size="12">mdi-account-tie</v-icon>
+                                                          {{ getStaffName(item) }}
+                                                        </v-btn>
+                                                        <v-btn
+                                                          size="x-small"
+                                                          variant="outlined"
+                                                          color="secondary"
+                                                          @click="generateQR(getStaffName(item))"
+                                                          :disabled="!selectedDateString"
+                                                          class="qr-btn"
+                                                        >
+                                                          <v-icon start size="12">mdi-qrcode</v-icon>
+                                                          QR Code
+                                                        </v-btn>
+                                                      </div>
+                                                    </template>
+                                                  </div>
                                                 </div>
                                                 <div class="status-section">
-                                                  <!-- 한 줄로 배치: 상태 + 담당자 + QR 버튼 -->
-                                                  <div v-if="getOrderStatus(item) === '배송 준비중' && getStaffName(item)" class="status-inline-row">
-                                                    <v-chip 
-                                                      :color="getOrderStatusColor(item)"
-                                                      size="small" 
-                                                      variant="elevated"
-                                                      class="status-chip-unified"
-                                                    >
-                                                      {{ getOrderStatus(item) }}
-                                                    </v-chip>
-                                                    <span class="status-separator">배송담당자:</span>
-                                                    <v-btn
-                                                      size="x-small"
-                                                      variant="outlined"
-                                                      color="primary"
-                                                      @click="openStaffPage(getStaffName(item))"
-                                                      class="staff-name-btn"
-                                                    >
-                                                      <v-icon start size="12">mdi-account-tie</v-icon>
-                                                      {{ getStaffName(item) }}
-                                                    </v-btn>
-                                                    <v-btn
-                                                      size="x-small"
-                                                      variant="outlined"
-                                                      color="secondary"
-                                                      @click="generateQR(getStaffName(item))"
-                                                      :disabled="!selectedDateString"
-                                                      class="qr-btn"
-                                                    >
-                                                      <v-icon start size="12">mdi-qrcode</v-icon>
-                                                      QR Code
-                                                    </v-btn>
-                                                  </div>
-                                                  <!-- 기타 상태는 기존과 동일 -->
-                                                  <div v-else class="status-chip-only">
+                                                  <!-- 기타 상태는 별도로 표시 -->
+                                                  <div v-if="!(getOrderStatus(item) === '배송 준비중' && getStaffName(item))" class="status-chip-only">
                                                     <v-chip 
                                                       :color="getOrderStatusColor(item)"
                                                       size="small" 

@@ -119,4 +119,5 @@ export interface Env {
 export interface Variables {
   sessionData: GoogleTokens;
   sessionId: string;
+  unifiedUserService: import('../services/unifiedUserService').UnifiedUserService;
 }

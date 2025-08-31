@@ -68,12 +68,13 @@ export class AutomationService {
     recipientNumber: string,
     message: string
   ): Promise<boolean> {
+    // Auto-detect message type based on byte size
+    // SMS: up to 90 bytes (SOLAPI standard)
+    // LMS: 91+ bytes (up to 2000 bytes)
+    const messageBytes = this.calculateMessageBytes(message);
+    const messageType = messageBytes <= 90 ? 'SMS' : 'LMS';
+    
     try {
-      // Auto-detect message type based on byte size
-      // SMS: up to 90 bytes (SOLAPI standard)
-      // LMS: 91+ bytes (up to 2000 bytes)
-      const messageBytes = this.calculateMessageBytes(message);
-      const messageType = messageBytes <= 90 ? 'SMS' : 'LMS';
       
       console.log(`Message length: ${message.length} characters (${messageBytes} bytes), using ${messageType}`);
 

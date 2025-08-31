@@ -146,11 +146,15 @@ export class UnifiedUserService {
    * 자동화 룰 추가
    */
   async addAutomationRule(email: string, rule: AutomationRule): Promise<void> {
+    console.log(`[DEBUG] addAutomationRule called for email: ${email}, rule: ${rule.name}`);
+    
     const userData = await this.getUserData(email);
     
     if (!userData) {
       throw new Error('사용자 데이터를 찾을 수 없습니다. Google 로그인이 필요합니다.');
     }
+
+    console.log(`[DEBUG] Current automation rules count: ${userData.automationRules.length}`);
 
     // 최대 20개 제한 확인
     if (userData.automationRules.length >= 20) {
@@ -161,10 +165,14 @@ export class UnifiedUserService {
     rule.userEmail = email;
     
     userData.automationRules.push(rule);
+    console.log(`[DEBUG] Added rule, new count: ${userData.automationRules.length}`);
+    
     await this.saveUserData(userData);
+    console.log(`[DEBUG] Saved userData to unified storage`);
     
     // 웹훅을 위한 사용자 인덱스에 추가
     await this.addToAutomationIndex(email);
+    console.log(`[DEBUG] Added ${email} to automation index`);
   }
 
   /**
@@ -367,5 +375,107 @@ export class UnifiedUserService {
     }
     
     return allRules;
+  }
+
+  /**
+   * 세션 기반 사용자 데이터 저장 → 통합 저장소로 리다이렉트
+   */
+  async saveSessionBasedUserData(sessionId: string, userData: UnifiedUserData): Promise<void> {
+    try {
+      // 통합 저장소에 저장
+      await this.saveUserData(userData);
+      
+      // 세션에는 이메일과 세션 ID만 저장 (가벼운 세션 관리)
+      const sessionData = {
+        email: userData.email,
+        sessionId,
+        createdAt: new Date().toISOString()
+      };
+      
+      const sessionKey = `session_user:${sessionId}`;
+      await this.env.SESSIONS.put(sessionKey, JSON.stringify(sessionData), {
+        expirationTtl: 86400 // 1일 (세션만)
+      });
+
+      console.log(`Unified user data saved for sessionId: ${sessionId.substring(0, 8)}..., email: ${userData.email}`);
+    } catch (error) {
+      console.error('Failed to save unified user data:', error);
+      throw new Error('사용자 데이터 저장에 실패했습니다.');
+    }
+  }
+
+  /**
+   * 세션 기반 사용자 데이터 조회 → 통합 저장소에서 조회
+   */
+  async getSessionBasedUserData(sessionId: string): Promise<UnifiedUserData | null> {
+    try {
+      const sessionKey = `session_user:${sessionId}`;
+      const sessionData = await this.env.SESSIONS.get(sessionKey);
+      
+      if (!sessionData) return null;
+      
+      const session = JSON.parse(sessionData);
+      const email = session.email;
+      
+      if (!email) return null;
+      
+      // 통합 저장소에서 실제 데이터 조회
+      return await this.getUserData(email);
+    } catch (error) {
+      console.error('Failed to get unified user data via session:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 세션 기반 자동화 룰 조회 (구조적 개선)
+   */
+  async getAutomationRulesBySession(sessionId: string): Promise<AutomationRule[]> {
+    const userData = await this.getSessionBasedUserData(sessionId);
+    return userData?.automationRules || [];
+  }
+
+  /**
+   * 세션 기반 자동화 룰 추가 → 통합 저장소에 직접 추가
+   */
+  async addAutomationRuleBySession(sessionId: string, rule: AutomationRule): Promise<void> {
+    console.log(`[DEBUG] addAutomationRuleBySession called for sessionId: ${sessionId.substring(0, 8)}..., rule: ${rule.name}`);
+    
+    const userData = await this.getSessionBasedUserData(sessionId);
+    
+    if (!userData) {
+      throw new Error('세션 데이터를 찾을 수 없습니다. 다시 로그인해주세요.');
+    }
+
+    console.log(`[DEBUG] Found userData for email: ${userData.email}`);
+
+    // 통합 저장소의 addAutomationRule 메소드 사용
+    await this.addAutomationRule(userData.email, rule);
+    console.log(`[DEBUG] addAutomationRuleBySession completed`);
+  }
+
+  /**
+   * 세션 기반 자동화 룰 삭제 → 통합 저장소에서 직접 삭제
+   */
+  async removeAutomationRuleBySession(sessionId: string, ruleId: string): Promise<void> {
+    const userData = await this.getSessionBasedUserData(sessionId);
+    
+    if (!userData) return;
+
+    // 통합 저장소의 removeAutomationRule 메소드 사용
+    await this.removeAutomationRule(userData.email, ruleId);
+  }
+
+  /**
+   * 세션 정리 (로그아웃 시)
+   */
+  async cleanupSessionData(sessionId: string): Promise<void> {
+    try {
+      const sessionKey = `session_user:${sessionId}`;
+      await this.env.SESSIONS.delete(sessionKey);
+      console.log(`Session data cleaned up: ${sessionId.substring(0, 8)}...`);
+    } catch (error) {
+      console.error('Failed to cleanup session data:', error);
+    }
   }
 }

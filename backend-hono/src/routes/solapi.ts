@@ -1,29 +1,26 @@
 import { Hono } from 'hono';
 import { setCookie, getCookie } from 'hono/cookie';
 import axios from 'axios';
-import type { Env, ApiResponse, SolapiConfig } from '../types';
+import type { Env, ApiResponse, SolapiConfig, Variables } from '../types';
 import { SolapiAuthService } from '../services/solapiAuth';
 import { UnifiedUserService } from '../services/unifiedUserService';
 
-const solapi = new Hono<{ Bindings: Env }>();
+const solapi = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Debug middleware to log all SOLAPI requests
+// Debug middleware to log all SOLAPI requests + UnifiedUserService 전역 설정
 solapi.use('*', async (c, next) => {
   console.log(`[SOLAPI DEBUG ROUTE CALLED] ${c.req.method} ${c.req.path}`);
   console.log(`[SOLAPI DEBUG ROUTE CALLED] Headers:`, Object.fromEntries(Object.entries(c.req.header())));
   console.log(`[SOLAPI DEBUG ROUTE CALLED] This confirms SOLAPI router is being executed`);
+  
+  // UnifiedUserService를 context에 전역으로 설정
+  c.set('unifiedUserService', new UnifiedUserService(c.env));
+  
   await next();
 });
 
-// Helper function for temp session access
-async function getTempSession(sessionId: string, env: Env): Promise<{ email?: string } | null> {
-  try {
-    const sessionData = await env.SESSIONS.get(sessionId);
-    return sessionData ? JSON.parse(sessionData) : null;
-  } catch {
-    return null;
-  }
-}
+// 구조적 개선: 임시 세션 헬퍼 함수 제거됨
+// sessionId를 직접 통합 데이터 키로 사용
 
 // Generate secure session ID
 function generateSecureSessionId(): string {
@@ -54,9 +51,11 @@ solapi.get('/auth/login', async (c) => {
       }, 200); // 200으로 변경하여 가이드 제공
     }
 
-    const tempSession = await getTempSession(sessionId, c.env);
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
     
-    if (!tempSession?.email) {
+    if (!userData?.email) {
       return c.json({
         success: false,
         requiresGoogleAuth: true,
@@ -133,20 +132,25 @@ solapi.get('/auth/callback', async (c) => {
     };
 
     // 통합 사용자 서비스에 SOLAPI 토큰 저장
-    const unifiedUserService = new UnifiedUserService(c.env);
+    const unifiedUserService = c.get('unifiedUserService');
     
     // Google 세션에서 이메일 추출
     const sessionId = getCookie(c, 'sessionId');
     let userEmail = null;
+    let userData = null;
     
     if (sessionId) {
-      const tempSession = await getTempSession(sessionId, c.env);
-      if (tempSession?.email) {
-        userEmail = tempSession.email;
+      // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+      userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+      if (userData?.email) {
+        userEmail = userData.email;
       }
     }
 
-    if (userEmail) {
+    if (userEmail && userData && sessionId) {
+      // 세션 기반 데이터와 이메일 기반 데이터 모두 업데이트
+      userData.solapiTokens = solapiTokens;
+      await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
       await unifiedUserService.updateSolapiTokens(userEmail, solapiTokens);
       console.log(`SOLAPI tokens saved to unified user data for: ${userEmail}`);
     } else {
@@ -188,8 +192,10 @@ solapi.get('/auth/status', async (c) => {
       });
     }
 
-    const tempSession = await getTempSession(sessionId, c.env);
-    const userEmail = tempSession?.email;
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     if (!userEmail) {
       return c.json({
@@ -199,9 +205,8 @@ solapi.get('/auth/status', async (c) => {
       });
     }
 
-    // 통합 사용자 서비스에서 SOLAPI 토큰 확인
-    const unifiedUserService = new UnifiedUserService(c.env);
-    const solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
+    // 세션 기반 데이터에서 SOLAPI 토큰 확인 (이미 조회된 userData 사용)
+    const solapiTokens = userData.solapiTokens || await unifiedUserService.getSolapiTokens(userEmail);
     
     if (!solapiTokens) {
       return c.json({
@@ -271,8 +276,10 @@ solapi.post('/auth/logout', async (c) => {
     }
 
     // Google 세션에서 이메일 추출
-    const tempSession = await getTempSession(sessionId, c.env);
-    const userEmail = tempSession?.email;
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     if (!userEmail) {
       return c.json({
@@ -281,8 +288,9 @@ solapi.post('/auth/logout', async (c) => {
       }, 400);
     }
 
-    // 통합 사용자 서비스에서 SOLAPI 토큰 제거
-    const unifiedUserService = new UnifiedUserService(c.env);
+    // 세션 기반 데이터와 이메일 기반 데이터에서 SOLAPI 토큰 제거
+    userData.solapiTokens = undefined;
+    await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
     await unifiedUserService.removeSolapiTokens(userEmail);
     console.log(`SOLAPI tokens removed from unified user data for: ${userEmail}`);
 
@@ -318,8 +326,10 @@ solapi.get('/account/balance', async (c) => {
     }
 
     // Google 세션에서 이메일 추출
-    const tempSession = await getTempSession(sessionId, c.env);
-    const userEmail = tempSession?.email;
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     if (!userEmail) {
       return c.json({
@@ -329,7 +339,6 @@ solapi.get('/account/balance', async (c) => {
     }
 
     // 통합 사용자 서비스에서 SOLAPI 토큰 가져오기
-    const unifiedUserService = new UnifiedUserService(c.env);
     let solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
     
     if (!solapiTokens) {
@@ -417,8 +426,10 @@ solapi.get('/account/pricing', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const tempSession = await getTempSession(sessionId, c.env);
-    const userEmail = tempSession?.email;
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     if (!userEmail) {
       return c.json({
@@ -428,7 +439,6 @@ solapi.get('/account/pricing', async (c) => {
     }
 
     // 통합 사용자 서비스에서 SOLAPI 토큰 가져오기
-    const unifiedUserService = new UnifiedUserService(c.env);
     let solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
     
     if (!solapiTokens) {
@@ -516,8 +526,10 @@ solapi.get('/account/app-pricing', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const tempSession = await getTempSession(sessionId, c.env);
-    const userEmail = tempSession?.email;
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     if (!userEmail) {
       return c.json({
@@ -527,7 +539,6 @@ solapi.get('/account/app-pricing', async (c) => {
     }
 
     // 통합 사용자 서비스에서 SOLAPI 토큰 가져오기
-    const unifiedUserService = new UnifiedUserService(c.env);
     let solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
     
     if (!solapiTokens) {
@@ -620,8 +631,10 @@ solapi.get('/account/sender-ids', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const tempSession = await getTempSession(sessionId, c.env);
-    const userEmail = tempSession?.email;
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     if (!userEmail) {
       return c.json({
@@ -631,7 +644,6 @@ solapi.get('/account/sender-ids', async (c) => {
     }
 
     // 통합 사용자 서비스에서 SOLAPI 토큰 가져오기
-    const unifiedUserService = new UnifiedUserService(c.env);
     let solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
     
     if (!solapiTokens) {
@@ -728,8 +740,10 @@ solapi.post('/message/send', async (c) => {
     }
 
     // Google 세션에서 이메일 추출
-    const tempSession = await getTempSession(sessionId, c.env);
-    const userEmail = tempSession?.email;
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     if (!userEmail) {
       return c.json({
@@ -739,7 +753,6 @@ solapi.post('/message/send', async (c) => {
     }
 
     // 통합 사용자 서비스에서 SOLAPI 토큰 가져오기
-    const unifiedUserService = new UnifiedUserService(c.env);
     let solapiTokens = await unifiedUserService.getSolapiTokens(userEmail);
     
     if (!solapiTokens) {

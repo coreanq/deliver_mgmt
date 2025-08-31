@@ -34,8 +34,16 @@ const mockEnv = {
         list_complete: true,
         cursor: undefined
       };
+    },
+    getWithMetadata: async (key: string) => {
+      const value = inMemoryKV.get(key);
+      console.log(`KV GET_WITH_METADATA: ${key} => ${value ? 'found' : 'not found'}`);
+      return {
+        value: value || null,
+        metadata: null
+      };
     }
-  } as KVNamespace,
+  } as unknown as KVNamespace,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
   GOOGLE_REDIRECT_URL: process.env.GOOGLE_REDIRECT_URL || 'http://localhost:5001/api/auth/google/callback',

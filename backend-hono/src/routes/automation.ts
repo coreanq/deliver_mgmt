@@ -1,22 +1,26 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { UnifiedUserService } from '../services/unifiedUserService';
-import type { Env, ApiResponse, AutomationRule, AutomationTriggerEvent } from '../types';
+import type { Env, ApiResponse, AutomationRule, AutomationTriggerEvent, Variables } from '../types';
 
-const automation = new Hono<{ Bindings: Env }>();
+const automation = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Session management helper functions
+// UnifiedUserService 전역 설정
+automation.use('*', async (c, next) => {
+  c.set('unifiedUserService', new UnifiedUserService(c.env));
+  await next();
+});
+
+// 구조적 개선: 임시 세션 관리 함수 제거됨
+// sessionId를 직접 통합 데이터 키로 사용
+
 async function getSession(sessionId: string, env: Env): Promise<any | null> {
   try {
-    const sessionData = await env.SESSIONS.get(sessionId);
+    const sessionData = await env.SESSIONS.get(`session_user:${sessionId}`);
     return sessionData ? JSON.parse(sessionData) : null;
   } catch {
     return null;
   }
-}
-
-async function setSession(sessionId: string, data: any, env: Env): Promise<void> {
-  await env.SESSIONS.put(sessionId, JSON.stringify(data), { expirationTtl: 86400 }); // 24 hours
 }
 
 async function getAllActiveSessions(env: Env): Promise<Map<string, any>> {
@@ -239,39 +243,19 @@ automation.get('/rules', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const sessionData = await getSession(sessionId, c.env);
+    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const rules = await unifiedUserService.getAutomationRulesBySession(sessionId);
     
-    if (!sessionData) {
+    if (rules === null) {
       return c.json({
         success: false,
-        message: '인증이 필요합니다.',
+        message: '세션 데이터를 찾을 수 없습니다. 다시 로그인해주세요.',
       } as ApiResponse, 401);
     }
 
-    // 통합 사용자 데이터 서비스 사용
-    const unifiedUserService = new UnifiedUserService(c.env);
-    
-    // Google 이메일이 세션에 없으면 추출 시도
-    let userEmail = sessionData.email;
-    if (!userEmail && sessionData.accessToken) {
-      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
-      
-      if (userEmail) {
-        // 세션에 이메일 추가하고 저장
-        sessionData.email = userEmail;
-        await setSession(sessionId, sessionData, c.env);
-        console.log(`Added email to existing session for rules query: ${userEmail}`);
-      }
-    }
-
-    if (!userEmail) {
-      return c.json({
-        success: false,
-        message: 'Google 계정 인증이 필요합니다. 다시 로그인해주세요.',
-      } as ApiResponse, 401);
-    }
-    
-    const rules = await unifiedUserService.getAutomationRules(userEmail);
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    const userEmail = userData?.email;
 
     console.log(`Returning ${rules.length} automation rules for user: ${userEmail}`);
 
@@ -304,15 +288,6 @@ automation.post('/rules', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const sessionData = await getSession(sessionId, c.env);
-    
-    if (!sessionData) {
-      return c.json({
-        success: false,
-        message: '인증이 필요합니다.',
-      } as ApiResponse, 401);
-    }
-
     const body = await c.req.json();
     const { name, conditions, actions, targetDate, spreadsheetId, spreadsheetName } = body;
 
@@ -323,28 +298,18 @@ automation.post('/rules', async (c) => {
       } as ApiResponse, 400);
     }
 
-    // 통합 사용자 데이터 서비스 사용
-    const unifiedUserService = new UnifiedUserService(c.env);
+    // 구조적 개선: 세션 기반 통합 데이터에서 사용자 정보 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
     
-    // Google 이메일이 세션에 없으면 추출 시도
-    let userEmail = sessionData.email;
-    if (!userEmail && sessionData.accessToken) {
-      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
-      
-      if (userEmail) {
-        // 세션에 이메일 추가하고 저장
-        sessionData.email = userEmail;
-        await setSession(sessionId, sessionData, c.env);
-        console.log(`Added email to existing session: ${userEmail}`);
-      }
-    }
-
-    if (!userEmail) {
+    if (!userData?.email) {
       return c.json({
         success: false,
-        message: 'Google 계정 인증이 필요합니다. 다시 로그인해주세요.',
+        message: '세션 데이터를 찾을 수 없습니다. 다시 로그인해주세요.',
       } as ApiResponse, 401);
     }
+
+    const userEmail = userData.email;
 
     const newRule: AutomationRule = {
       id: crypto.randomUUID(),
@@ -365,8 +330,8 @@ automation.post('/rules', async (c) => {
     }
 
     try {
-      // 통합 사용자 데이터에 자동화 규칙 추가 (자동으로 20개 제한 체크)
-      await unifiedUserService.addAutomationRule(userEmail, newRule);
+      // 구조적 개선: 세션 기반 자동화 규칙 추가 (자동으로 20개 제한 체크)
+      await unifiedUserService.addAutomationRuleBySession(sessionId, newRule);
     } catch (error: any) {
       if (error.message.includes('최대 20개')) {
         return c.json({
@@ -409,40 +374,18 @@ automation.put('/rules/:id', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const sessionData = await getSession(sessionId, c.env);
+    // 구조적 개선: 세션 기반 통합 데이터에서 사용자 정보 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
     
-    if (!sessionData) {
+    if (!userData?.email) {
       return c.json({
         success: false,
-        message: '인증이 필요합니다.',
-      } as ApiResponse, 401);
-    }
-
-    // 통합 사용자 데이터 서비스 사용
-    const unifiedUserService = new UnifiedUserService(c.env);
-    let userEmail = sessionData.email;
-    
-    // 이메일 추출 시도 (필요한 경우)
-    if (!userEmail && sessionData.accessToken) {
-      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
-    }
-
-    if (!userEmail) {
-      return c.json({
-        success: false,
-        message: 'Google 계정 인증이 필요합니다.',
+        message: '세션 데이터를 찾을 수 없습니다. 다시 로그인해주세요.',
       } as ApiResponse, 401);
     }
 
     const body = await c.req.json();
-    const userData = await unifiedUserService.getUserData(userEmail);
-    
-    if (!userData) {
-      return c.json({
-        success: false,
-        message: '사용자 데이터를 찾을 수 없습니다.',
-      } as ApiResponse, 404);
-    }
 
     const ruleIndex = userData.automationRules.findIndex(rule => rule.id === ruleId);
     
@@ -453,14 +396,14 @@ automation.put('/rules/:id', async (c) => {
       } as ApiResponse, 404);
     }
 
-    // 규칙 업데이트
+    // 구조적 개선: 세션 기반 규칙 업데이트
     userData.automationRules[ruleIndex] = {
       ...userData.automationRules[ruleIndex],
       ...body,
       updatedAt: new Date().toISOString(),
     };
     
-    await unifiedUserService.saveUserData(userData);
+    await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
 
     return c.json({
       success: true,
@@ -492,35 +435,19 @@ automation.delete('/rules/:id', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const sessionData = await getSession(sessionId, c.env);
+    // 구조적 개선: 세션 기반 통합 데이터에서 규칙 삭제
+    const unifiedUserService = c.get('unifiedUserService');
+    await unifiedUserService.removeAutomationRuleBySession(sessionId, ruleId);
     
-    if (!sessionData || !sessionData.email) {
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+    if (!userData?.email) {
       return c.json({
         success: false,
-        message: '인증이 필요합니다.',
+        message: '세션 데이터를 찾을 수 없습니다.',
       } as ApiResponse, 401);
     }
 
-    // 통합 사용자 데이터에서 자동화 규칙 삭제
-    const unifiedUserService = new UnifiedUserService(c.env);
-    let userEmail = sessionData.email;
-    
-    // 이메일 추출 시도 (필요한 경우)
-    if (!userEmail && sessionData.accessToken) {
-      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
-    }
-
-    if (!userEmail) {
-      return c.json({
-        success: false,
-        message: 'Google 계정 인증이 필요합니다.',
-      } as ApiResponse, 401);
-    }
-    
-    // 통합 서비스에서 규칙 삭제
-    await unifiedUserService.removeAutomationRule(userEmail, ruleId);
-
-    console.log(`Automation rule deleted for ${userEmail}: ${ruleId}`);
+    console.log(`Automation rule deleted for ${userData.email}: ${ruleId}`);
 
     return c.json({
       success: true,
@@ -594,7 +521,7 @@ automation.post('/trigger', async (c) => {
     };
 
     // 새로운 통합 사용자 서비스를 사용한 웹훅 처리
-    const unifiedUserService = new UnifiedUserService(c.env);
+    const unifiedUserService = c.get('unifiedUserService');
     const allUserRules = await unifiedUserService.getAllAutomationRules();
     
     let executedRules = 0;
@@ -721,27 +648,14 @@ automation.post('/test-trigger', async (c) => {
       } as ApiResponse, 401);
     }
 
-    const sessionData = await getSession(sessionId, c.env);
+    // 구조적 개선: 세션 기반 통합 데이터에서 사용자 정보 조회
+    const unifiedUserService = c.get('unifiedUserService');
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
     
-    if (!sessionData) {
+    if (!userData?.email) {
       return c.json({
         success: false,
-        message: '인증이 필요합니다.',
-      } as ApiResponse, 401);
-    }
-
-    // 통합 사용자 서비스 사용
-    const unifiedUserService = new UnifiedUserService(c.env);
-    let userEmail = sessionData.email;
-    
-    if (!userEmail && sessionData.accessToken) {
-      userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
-    }
-
-    if (!userEmail) {
-      return c.json({
-        success: false,
-        message: 'Google 계정 인증이 필요합니다.',
+        message: '세션 데이터를 찾을 수 없습니다. 다시 로그인해주세요.',
       } as ApiResponse, 401);
     }
 
@@ -755,14 +669,7 @@ automation.post('/test-trigger', async (c) => {
       } as ApiResponse, 400);
     }
 
-    // Find automation rule from unified user data
-    const userData = await unifiedUserService.getUserData(userEmail);
-    if (!userData) {
-      return c.json({
-        success: false,
-        message: '사용자 데이터를 찾을 수 없습니다.',
-      } as ApiResponse, 404);
-    }
+    // 구조적 개선: userData는 이미 위에서 조회됨
 
     const rule = userData.automationRules.find((r: AutomationRule) => r.id === ruleId);
     
@@ -915,7 +822,7 @@ automation.post('/webhook/test', async (c) => {
 automation.get('/debug/user/:email', async (c) => {
   try {
     const email = c.req.param('email');
-    const unifiedUserService = new UnifiedUserService(c.env);
+    const unifiedUserService = c.get('unifiedUserService');
     const userData = await unifiedUserService.getUserData(email);
     
     return c.json({

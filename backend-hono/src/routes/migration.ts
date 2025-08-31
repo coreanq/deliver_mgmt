@@ -1,10 +1,16 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
-import type { Env, ApiResponse } from '../types';
+import type { Env, ApiResponse, Variables } from '../types';
 import { MigrationService } from '../utils/migration';
 import { UnifiedUserService } from '../services/unifiedUserService';
 
-const migration = new Hono<{ Bindings: Env }>();
+const migration = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// UnifiedUserService 전역 설정
+migration.use('*', async (c, next) => {
+  c.set('unifiedUserService', new UnifiedUserService(c.env));
+  await next();
+});
 
 // Session management helper functions
 async function getSession(sessionId: string, env: Env): Promise<any | null> {
@@ -97,7 +103,7 @@ migration.get('/status', async (c) => {
     
     // 이메일이 세션에 없으면 추출 시도
     if (!userEmail && sessionData.accessToken) {
-      const unifiedUserService = new UnifiedUserService(c.env);
+      const unifiedUserService = c.get('unifiedUserService');
       userEmail = await unifiedUserService.extractGoogleEmail(sessionData.accessToken);
     }
 

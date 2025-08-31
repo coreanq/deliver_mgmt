@@ -54,7 +54,8 @@
       "WebFetch(domain:developers.solapi.dev)",
       "Bash(pkill:*)",
       "WebFetch(domain:github.com)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(sed:*)"
     ]
   },
   "enabledMcpjsonServers": [
