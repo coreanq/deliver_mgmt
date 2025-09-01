@@ -302,8 +302,8 @@
                                                 <div class="order-info">
                                                   <h3 class="order-title-unified">{{ getOrderTitle(item) }}</h3>
                                                   <div class="order-row-info d-flex justify-space-between align-center">
-                                                    <!-- 배송 준비중 상태일 때 좌우 배치 -->
-                                                    <template v-if="getOrderStatus(item) === '배송 준비중' && getStaffName(item)">
+                                                    <!-- 담당자가 있을 때 버튼과 상태 표시 -->
+                                                    <template v-if="getStaffName(item)">
                                                       <div class="left-section d-flex align-center">
                                                         <v-chip 
                                                           :color="getOrderStatusColor(item)"
@@ -342,8 +342,8 @@
                                                   </div>
                                                 </div>
                                                 <div class="status-section">
-                                                  <!-- 기타 상태는 별도로 표시 -->
-                                                  <div v-if="!(getOrderStatus(item) === '배송 준비중' && getStaffName(item))" class="status-chip-only">
+                                                  <!-- 담당자가 없을 때 상태만 표시 -->
+                                                  <div v-if="!getStaffName(item)" class="status-chip-only">
                                                     <v-chip 
                                                       :color="getOrderStatusColor(item)"
                                                       size="small" 

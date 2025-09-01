@@ -48,43 +48,27 @@
 6. "배송 완료" 버튼 클릭
 7. 최종 상태 변경 완료 확인
 
-##### 3-2. Local 개발 모드 (curl 웹훅 테스트)
-Google Apps Script 설정 없이 로컬에서 자동화 시스템 테스트:
+##### 3-2. 직접 SMS 통합 테스트 (2025-09-01)
+배송 상태 변경 시 즉시 SMS 발송되는 새로운 시스템:
 
-1. **웹훅 직접 호출로 자동화 테스트**:
+1. **실제 배송 상태 변경을 통한 SMS 테스트**:
+   - 담당자 모바일 화면에서 "배송 완료" 버튼 클릭
+   - Google Sheets 상태 업데이트 성공 확인
+   - 즉시 SMS/LMS 자동 발송 (웹훅 없음)
 
-**Windows 환경**: 인코딩 문제로 인해 JSON 파일 사용 권장
-```bash
-curl -X POST http://localhost:5001/api/automation/trigger \
-  -H "Content-Type: application/json" \
-  -d @webhook_test.json
-```
+2. **백엔드 로그에서 확인할 내용**:
+   ```
+   Updated status to 배송 완료 for row X in column E in sheet 시트1
+   Checking automation rules for SMS sending...
+   Found 1 matching rules for user email@gmail.com
+   Message length: 174 bytes, using type: LMS
+   SMS sent successfully via rule: 배송상태 → 배송 완료
+   ```
 
-**Linux/Mac 환경**: 직접 JSON 문자열 사용 가능
-```bash
-curl -X POST http://localhost:5001/api/automation/trigger \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sheetName": "시트1",
-    "spreadsheetName": "20250825",
-    "spreadsheetId": "1Xb0jJIAl1VO8e6vhPifnr-XX2Jo03bGZHwaYzMut7WU",
-    "columnName": "배송상태",
-    "rowIndex": 2,
-    "oldValue": "배송 준비중",
-    "newValue": "배송 완료",
-    "rowData": {
-      "배송지": "수원시 장안구 수성로 157번길 60",
-      "고객명": "1번 고객",
-      "고객 연락처": "01030917061",
-      "배송 담당자": "박국철",
-      "배송상태": "배송 완료"
-    }
-  }'
-```
-
-2. **응답 확인**: 자동화 규칙 실행 및 SMS 발송 성공 여부 확인
-3. **백엔드 로그 확인**: 터미널에서 웹훅 처리 로그 모니터링
-4. **실제 SMS 수신 확인**: 설정된 수신 번호로 메시지 도착 확인
+3. **장점**:
+   - Google Apps Script 설정 불필요
+   - 웹훅 지연 없이 즉시 SMS 발송
+   - API 응답과 함께 SMS 처리 상태 확인 가능
 
 #### 4. 백엔드 로그 확인
 백엔드 콘솔에서 다음 로그 확인:
@@ -101,9 +85,10 @@ Updated status to 배송 완료 for row X in column E in sheet 시트1
 - 배송 상태 변경 성공 (준비중 → 출발 → 완료)
 - Google Sheets 데이터 실시간 업데이트
 
-#### ⚠️ 현재 제한사항
-- **Google Apps Script 웹훅 미설정**: SMS 자동 발송 되지 않음
-- 웹훅 트리거 로그 없음 (Google Apps Script 설정 필요)
+#### ✅ 직접 SMS 통합 (2025-09-01 업데이트)
+- **웹훅 시스템 대체**: 이제 Google Sheets 상태 업데이트 후 즉시 SMS 발송
+- **자동 메시지 타입**: 90바이트 이상 시 자동으로 LMS 전송
+- **Google Apps Script 불필요**: 더 이상 웹훅 설정 필요 없음
 
 ### Google Apps Script 웹훅 설정 (향후 완성 필요)
 
@@ -187,12 +172,12 @@ function onEdit(e) {
 
 ### 성공 기준
 
-- [ ] 자동화 규칙 저장 성공
-- [ ] 담당자 모바일 인터페이스 정상 동작
-- [ ] 배송 상태 변경 성공
-- [ ] Google Sheets 실시간 업데이트
-- [ ] Google Apps Script 웹훅 설정 (선택사항)
-- [ ] SMS 자동 발송 확인 (웹훅 설정 후)
+- [x] 자동화 규칙 저장 성공
+- [x] 담당자 모바일 인터페이스 정상 동작
+- [x] 배송 상태 변경 성공
+- [x] Google Sheets 실시간 업데이트
+- [x] ~~Google Apps Script 웹훅 설정~~ (불필요 - 직접 SMS 통합으로 대체)
+- [x] SMS 자동 발송 확인 (직접 통합으로 즉시 발송)
 
 ### 알려진 이슈
 

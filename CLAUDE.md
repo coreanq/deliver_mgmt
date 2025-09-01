@@ -405,8 +405,8 @@ This enables delivery staff to access their assigned data from separate mobile d
 #### Automation API Routes
 - Create rule: `POST /api/automation/rules`
 - List rules: `GET /api/automation/rules`
-- Webhook trigger: `POST /api/automation/trigger`
-- Manual test: `POST /api/automation/webhook/test`
+- ~~Webhook trigger~~ (removed - now uses direct SMS integration)
+- ~~Manual webhook test~~ (removed - direct SMS integration replaces webhooks)
 
 #### Message Variable System
 - Template format: `#{columnName}` (e.g., `#{고객명}`, `#{주문번호}`)
@@ -607,6 +607,27 @@ When using Cloudflare Workers (backend) + Cloudflare Pages (frontend) with diffe
 - 앱의 단가조회는 https://developers.solapi.com/references/pricing/getMessagePriceByApp 참고
 
 ## Recent Architectural Improvements
+
+### Direct SMS Integration (2025)
+**Problem**: Google Apps Script `onChange` triggers don't reliably detect API-based spreadsheet changes, causing webhook-based SMS automation to fail when delivery staff update status via mobile interface.
+
+**Solution**: Complete replacement of webhook system with direct SMS integration:
+- **Direct Integration**: SMS sent immediately after Google Sheets status updates in `/api/sheets/data/:date/status` endpoint
+- **Auto Message Type**: Automatic SMS/LMS selection based on message byte length (90+ bytes → LMS)
+- **Template Variables**: Full support for `#{columnName}` variable substitution
+- **Error Isolation**: SMS failures don't block status updates
+- **Performance**: Eliminates webhook roundtrip and external trigger dependencies
+
+**Key Changes**:
+```typescript
+// sheets.ts - After successful status update
+await checkAndSendAutomationSMS(env, unifiedUserService, spreadsheetId, sheetName, rowIndex, status, sheetsService);
+```
+
+**Files Modified**:
+- `backend-hono/src/routes/sheets.ts`: Added direct SMS integration after status updates
+- `backend-hono/src/routes/automation.ts`: Removed obsolete `/trigger` webhook endpoint
+- Webhook endpoints cleaned up, reducing backend complexity
 
 ### Unified Storage Migration (2025)
 **Problem**: Automation rules were stored separately in session storage and unified storage, causing webhooks to fail because they couldn't find rules in unified storage while session-based APIs worked correctly.
