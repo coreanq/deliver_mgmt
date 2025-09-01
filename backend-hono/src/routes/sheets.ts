@@ -649,6 +649,23 @@ sheets.put('/data/:date/status', async (c) => {
       status
     );
     
+    // Check automation rules and send SMS directly
+    try {
+      const unifiedUserService = c.get('unifiedUserService');
+      await checkAndSendAutomationSMS(
+        c.env,
+        unifiedUserService,
+        dateSpreadsheet.id,
+        firstSheetName,
+        rowIndex,
+        status,
+        sheetsService
+      );
+    } catch (smsError) {
+      console.error('SMS automation failed:', smsError);
+      // Don't fail the status update if SMS fails
+    }
+    
     return c.json({
       success: true,
       message: '배송 상태가 업데이트되었습니다.',
@@ -662,5 +679,161 @@ sheets.put('/data/:date/status', async (c) => {
     } as ApiResponse, 500);
   }
 });
+
+/**
+ * Check automation rules and send SMS directly after status update
+ */
+async function checkAndSendAutomationSMS(
+  env: any,
+  unifiedUserService: any,
+  spreadsheetId: string,
+  sheetName: string,
+  rowIndex: number,
+  newStatus: string,
+  sheetsService: any
+) {
+  try {
+    console.log('Checking automation rules for SMS sending...');
+    
+    // Get all users who have automation rules
+    const automationUsersIndex = await env.SESSIONS.get('automation_users_index');
+    if (!automationUsersIndex) {
+      console.log('No automation users found');
+      return;
+    }
+
+    const userEmails = JSON.parse(automationUsersIndex);
+    console.log(`Found ${userEmails.length} users with automation rules`);
+
+    // Get row data for message templating
+    const rowData = await getRowDataForAutomation(sheetsService, spreadsheetId, sheetName, rowIndex);
+    if (!rowData) {
+      console.error('Failed to get row data for SMS automation');
+      return;
+    }
+
+    // Check each user's automation rules
+    for (const email of userEmails) {
+      try {
+        const userData = await unifiedUserService.getUserData(email);
+        if (!userData || !userData.automationRules) continue;
+
+        const matchingRules = userData.automationRules.filter((rule: any) => 
+          rule.enabled &&
+          (!rule.spreadsheetId || rule.spreadsheetId === spreadsheetId) &&
+          rule.conditions.columnName === '배송상태' &&
+          rule.conditions.triggerValue === newStatus
+        );
+
+        console.log(`Found ${matchingRules.length} matching rules for user ${email}`);
+
+        for (const rule of matchingRules) {
+          await sendSMSForRule(env, userData, rule, rowData, newStatus);
+        }
+      } catch (userError) {
+        console.error(`Error processing automation for user ${email}:`, userError);
+      }
+    }
+  } catch (error) {
+    console.error('Error in SMS automation check:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get row data for automation message templating
+ */
+async function getRowDataForAutomation(sheetsService: any, spreadsheetId: string, sheetName: string, rowIndex: number) {
+  try {
+    const sheets = sheetsService.googleAuth.getSheetsClient();
+    
+    // Get headers
+    const headerResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!1:1`,
+    });
+    const headers = headerResponse.data.values?.[0] || [];
+    
+    // Get row data
+    const rowResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!${rowIndex}:${rowIndex}`,
+    });
+    const values = rowResponse.data.values?.[0] || [];
+    
+    // Build row object
+    const rowData: { [key: string]: string } = {};
+    for (let i = 0; i < headers.length && i < values.length; i++) {
+      const key = headers[i];
+      if (key) {
+        rowData[String(key)] = String(values[i] || '');
+      }
+    }
+    
+    return rowData;
+  } catch (error) {
+    console.error('Error getting row data for automation:', error);
+    return null;
+  }
+}
+
+/**
+ * Send SMS for a specific automation rule
+ */
+async function sendSMSForRule(env: any, userData: any, rule: any, rowData: any, newStatus: string) {
+  try {
+    if (!userData.solapiTokens?.accessToken) {
+      console.log('No SOLAPI tokens found for user, skipping SMS');
+      return;
+    }
+
+    // Get recipient phone number from row data
+    const recipientNumber = rowData[rule.actions.recipientColumn];
+    if (!recipientNumber) {
+      console.error(`Recipient number not found in column ${rule.actions.recipientColumn}`);
+      return;
+    }
+
+    // Replace template variables in message
+    let message = rule.actions.messageTemplate;
+    for (const [key, value] of Object.entries(rowData)) {
+      message = message.replace(new RegExp(`#{${key}}`, 'g'), String(value));
+    }
+
+    console.log(`Sending SMS to ${recipientNumber}: ${message}`);
+
+    // Determine message type based on length (Korean characters count as 2 bytes)
+    const messageByteLength = new TextEncoder().encode(message).length;
+    const messageType = messageByteLength > 90 ? 'LMS' : 'SMS';
+    
+    console.log(`Message length: ${messageByteLength} bytes, using type: ${messageType}`);
+
+    // Send SMS via SOLAPI
+    const response = await fetch('https://api.solapi.com/messages/v4/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userData.solapiTokens.accessToken}`
+      },
+      body: JSON.stringify({
+        message: {
+          type: messageType,
+          from: rule.actions.senderNumber,
+          to: recipientNumber,
+          text: message
+        }
+      })
+    });
+
+    if (response.ok) {
+      console.log(`SMS sent successfully via rule: ${rule.name}`);
+    } else {
+      const errorText = await response.text();
+      console.error('SOLAPI SMS send failed:', response.status, errorText);
+    }
+  } catch (error) {
+    console.error('Error sending SMS for rule:', error);
+  }
+}
 
 export default sheets;

@@ -460,12 +460,17 @@ For detailed specifications, see: [rules.md](./rules.md)
 
 ## Common Patterns
 
-### Status Update Flow
+### Status Update Flow (With Direct SMS Integration)
 1. User clicks status button in StaffMobileView
 2. `updateOrderStatus()` sends PUT request to `/api/sheets/data/:date/status`
 3. Backend updates Google Sheets via GoogleSheetsService
-4. Frontend calls `loadDeliveryData()` to refresh from server
-5. UI updates with new status and appropriate button states
+4. **Direct SMS Integration**: `checkAndSendAutomationSMS()` immediately processes automation rules
+   - Retrieves all users with automation rules from `automation_users_index`
+   - Checks rules matching the status change (e.g., "배송 완료")
+   - Sends SMS/LMS directly via SOLAPI API (bypasses webhooks)
+   - Auto-detects SMS vs LMS based on message byte length
+5. Frontend calls `loadDeliveryData()` to refresh from server
+6. UI updates with new status and appropriate button states
 
 ### Automation Rule Management Flow
 1. Admin creates automation rule in AdminView
@@ -526,6 +531,45 @@ When using Cloudflare Workers (backend) + Cloudflare Pages (frontend) with diffe
   - `SameSite=None; Secure` 설정 사용 (HTTPS 필수)
   - 또는 동일 도메인/서브도메인 구조로 배포 권장
   - JWT 토큰 기반 헤더 인증 방식 활용 고려
+
+## Development Workflow
+
+### Getting Started
+1. **Clone and Setup**:
+   ```bash
+   git clone [repository-url]
+   cd deliver_mgmt
+   npm install
+   cd backend-hono && npm install
+   cd ../frontend && npm install
+   ```
+
+2. **Environment Configuration**:
+   ```bash
+   # backend-hono/.env
+   cp backend-hono/.env.example backend-hono/.env
+   # Add your Google OAuth, SOLAPI credentials, and JWT_SECRET
+   ```
+
+3. **Development Server**:
+   ```bash
+   # From root directory - runs both servers concurrently
+   npm run dev
+   # Backend: http://localhost:5001
+   # Frontend: http://localhost:5173
+   ```
+
+### Key Development Principles
+- **Never modify ports**: Frontend (5173) and backend (5001) ports are fixed
+- **Always use UnifiedUserService**: Access via `c.get('unifiedUserService')` in route handlers
+- **Session-based storage**: All user data stored with Google email as primary key
+- **QR Authentication**: JWT tokens with 24-hour expiry, staff name validation
+- **Direct SMS**: Status updates trigger immediate SMS sending (no webhook dependency)
+
+### Testing
+- **E2E**: Use MCP Playwright tools, NOT `npx playwright test`
+- **Unit**: Run via `npm test` in respective directories
+- **Manual**: Access `http://localhost:5173/test` for development testing
 
 ## Testing
 
@@ -590,6 +634,20 @@ unified_user:${emailHash} → { googleTokens, solapiTokens, automationRules, ...
 
 **Testing Verification**: Webhooks now successfully trigger automation rules and send SMS messages via SOLAPI integration.
 
+## Current Development Status
+
+### Active Branch: `solapi-up`
+- **Current State**: Development branch with latest SOLAPI and unified storage improvements
+- **Key Features**: Direct SMS integration, QR authentication fixes, unified user service optimizations
+- **Main Branch**: `main` (use for production releases)
+
+### Recent Commits (Current Branch)
+- `be69e2d`: QR code access session lookup fix (unified storage compatibility)
+- `4bbd2ef`: QR code Google authentication logic removal (mobile-friendly)
+- `35fb752`: Automation rule message length-based SMS/LMS auto-detection
+- `36ff775`: Google Apps Script webhook library addition
+- `736e299`: Unified session management and legacy code cleanup
+
 ### UnifiedUserService Refactoring (2024)
 **Problem**: Multiple instances of UnifiedUserService were being created per request (21+ instances), causing performance degradation and potential memory issues.
 
@@ -605,3 +663,114 @@ unified_user:${emailHash} → { googleTokens, solapiTokens, automationRules, ...
 - `src/local.ts`: Enhanced KV namespace compatibility for development
 
 **Security Verification**: The global pattern maintains request-scoped isolation - each HTTP request receives its own service instance with proper environment and session context, ensuring no cross-request data leakage.
+
+## Google Sheets Webhook System
+
+### Critical Implementation Details
+The system uses Google Apps Script to trigger webhooks when spreadsheet data changes. **Two types of triggers** are required for complete coverage:
+
+- **`onEdit` Trigger**: Detects manual user edits in the spreadsheet UI
+- **`onChange` Trigger**: Detects API-based changes (from mobile staff interface)
+
+**Key Files**:
+- `googleSheetWebhook.js`: Complete webhook library with dual trigger support
+- Setup function: `setupWebhookLibrary(webhookUrl, options)`
+
+**Webhook Payload Structure**:
+```javascript
+{
+  sheetName: "시트1",
+  spreadsheetName: "20250901", 
+  spreadsheetId: "1Xb0jJIAl1VO8e6vhPifnr-XX2Jo03bGZHwaYzMut7WU",
+  columnName: "배송상태",
+  rowIndex: 4,
+  oldValue: "배송 준비중",
+  newValue: "배송 완료",
+  rowData: { /* complete row data with headers as keys */ }
+}
+```
+
+### QR Authentication Fix (2025)
+**Problem**: Staff QR token access was failing because the admin session lookup logic was incorrect for the unified storage architecture.
+
+**Root Cause**: QR token authentication was looking for `accessToken` directly in session data, but the unified storage architecture stores tokens in `googleTokens` nested object.
+
+**Solution**: Updated QR token authentication to use UnifiedUserService for proper admin session lookup:
+
+```typescript
+// OLD: Incorrect session structure assumption
+if (parsed.accessToken && parsed.refreshToken) { /* ... */ }
+
+// NEW: Proper unified storage access
+const userData = await unifiedUserService.getUserData(sessionMetadata.email);
+if (userData && userData.googleTokens?.accessToken && userData.googleTokens?.refreshToken) { /* ... */ }
+```
+
+**Files Modified**:
+- `backend-hono/src/routes/sheets.ts`: Updated QR token admin session lookup logic
+- Both staff data access and status update endpoints fixed
+
+**Testing Verification**: QR tokens now work correctly for mobile staff access without requiring Google authentication on the mobile device.
+
+### Direct SMS Integration (2025)
+**Problem**: Staff status updates were relying on Google Apps Script webhooks, which had reliability issues and added unnecessary complexity.
+
+**Solution**: Implemented direct SMS sending after status updates, bypassing webhook system:
+
+**Key Implementation**:
+```typescript
+// In sheets.ts status update endpoint
+await checkAndSendAutomationSMS(
+  c.env, unifiedUserService, date, rowIndex, statusColumn.name, status
+);
+
+// Direct SOLAPI integration
+async function sendSMSForRule(env: any, userData: any, rule: any, rowData: any, newStatus: string) {
+  const response = await fetch('https://api.solapi.com/messages/v4/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${userData.solapiTokens.accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      message: {
+        type: messageByteSize > 90 ? 'LMS' : 'SMS', // Auto-detect based on length
+        from: rule.actions.senderNumber,
+        to: recipientNumber,
+        text: processedMessage
+      }
+    })
+  });
+}
+```
+
+**Benefits**:
+- **Reliability**: Direct integration eliminates webhook dependency
+- **Performance**: Immediate SMS sending without external webhook delays
+- **Auto-detection**: SMS/LMS type automatically determined by message length
+- **Unified Storage**: All automation rules stored in unified storage for consistency
+
+**Files Modified**:
+- `backend-hono/src/routes/sheets.ts`: Added direct SMS integration to status update endpoint
+- Status updates now trigger automation rules immediately without webhook dependency
+
+**Testing Verification**: SMS messages are sent immediately after status updates, with automatic SMS/LMS type detection based on message length.
+
+### Webhook Trigger Coverage Fix (2025)
+**Problem**: Mobile staff status updates (via API) were not triggering webhooks, only manual spreadsheet edits worked.
+
+**Root Cause**: Google Apps Script `onEdit` triggers only fire for manual UI edits, not API changes.
+
+**Solution**: Added dual trigger system with `onChange` trigger that detects API-based modifications:
+
+```javascript
+// Create both triggers during setup
+ScriptApp.newTrigger('onEditInstallable').onEdit().create();
+ScriptApp.newTrigger('onChangeInstallable').onChange().create();
+```
+
+**Key Functions Added**:
+- `onChangeInstallable()`: Handles API-triggered changes 
+- `checkSheetForChanges_()`: Compares current sheet state with stored snapshots
+
+**Note**: This approach has been superseded by the direct SMS integration for better reliability.
