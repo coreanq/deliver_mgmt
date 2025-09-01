@@ -423,12 +423,16 @@ This enables delivery staff to access their assigned data from separate mobile d
 
 ## Development Guidelines
 
-### Language & Communication (from .claude.json)
-- **Response Language**: 한글로 답변
-- **Comment Language**: 영어로 주석 작성
-- **Design Principles**: Follow SOLID principles for all modifications
-- **Dark Mode**: UI supports dark mode (design requirement)
-- **Responsive Design**: Support PC, Tablet, Mobile with both landscape and portrait orientations
+### Project Coding Rules
+**IMPORTANT**: All development work must follow the comprehensive guidelines specified in `rules.md`. This includes:
+- Language and communication standards
+- SOLID principles implementation
+- Testing approach and requirements
+- Code modification rules
+- Session management principles
+- Task management procedures
+
+For detailed specifications, see: [rules.md](./rules.md)
 
 ### Testing Approach
 - **Critical**: Use Playwright MCP tools for browser automation, never `npx playwright test`
