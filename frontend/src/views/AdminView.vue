@@ -598,10 +598,10 @@
                         <v-col cols="12" sm="6" md="6">
                           <v-text-field
                             v-model="automationForm.triggerValue"
-                            label="결제 완료로 변경 시"
+                            label="상태 변경 시"
                             variant="outlined"
                             density="compact"
-                            placeholder="예: 결제 완료"
+                            placeholder="예: 배송 완료"
                           />
                         </v-col>
                       </v-row>
@@ -729,77 +729,106 @@
                       
                       <div v-if="automationRules.length > 0">
                       <v-list density="compact">
-                        <v-list-item
+                        <v-tooltip 
                           v-for="rule in automationRules"
                           :key="rule.id"
-                          class="border rounded mb-2"
+                          location="bottom"
                         >
-                          <template v-slot:prepend>
-                            <v-icon :color="rule.enabled ? 'success' : 'error'">
-                              {{ rule.enabled ? 'mdi-check-circle' : 'mdi-pause-circle' }}
-                            </v-icon>
+                          <template v-slot:activator="{ props }">
+                            <v-list-item
+                              v-bind="props"
+                              class="border rounded mb-2"
+                              style="cursor: help"
+                            >
+                              <template v-slot:prepend>
+                                <v-icon :color="rule.enabled ? 'success' : 'error'">
+                                  {{ rule.enabled ? 'mdi-check-circle' : 'mdi-pause-circle' }}
+                                </v-icon>
+                              </template>
+                              
+                              <div class="flex-grow-1">
+                                <v-list-item-title class="text-subtitle-2 font-weight-bold">
+                                  {{ rule.name }}
+                                </v-list-item-title>
+                                <v-list-item-subtitle class="mb-1">
+                                  조건: {{ rule.conditions.columnName }} → {{ rule.conditions.triggerValue }}
+                                </v-list-item-subtitle>
+                                <v-list-item-subtitle class="text-caption">
+                                  <v-chip
+                                    size="x-small"
+                                    color="primary"
+                                    variant="outlined"
+                                    class="mr-2"
+                                  >
+                                    시트: {{ rule.spreadsheetName || rule.targetDate || '미지정' }}
+                                  </v-chip>
+                                  <v-chip
+                                    size="x-small"
+                                    color="secondary"
+                                    variant="outlined"
+                                    class="mr-2"
+                                  >
+                                    ID: {{ rule.spreadsheetId ? rule.spreadsheetId.substring(0, 8) + '...' : '미지정' }}
+                                  </v-chip>
+                                  <v-chip
+                                    v-if="rule.userEmail"
+                                    size="x-small"
+                                    color="info"
+                                    variant="outlined"
+                                    class="mr-2"
+                                  >
+                                    <v-icon start size="x-small">mdi-account</v-icon>
+                                    {{ rule.userEmail }}
+                                  </v-chip>
+                                  <span class="text-grey">
+                                    생성: {{ formatDate(rule.createdAt) }}
+                                  </span>
+                                </v-list-item-subtitle>
+                              </div>
+
+                              <template v-slot:append>
+                                <v-btn
+                                  size="small"
+                                  icon
+                                  variant="text"
+                                  @click="toggleRule(rule)"
+                                >
+                                  <v-icon>{{ rule.enabled ? 'mdi-pause' : 'mdi-play' }}</v-icon>
+                                </v-btn>
+                                <v-btn
+                                  size="small"
+                                  icon
+                                  variant="text"
+                                  color="error"
+                                  @click="deleteRule(rule)"
+                                >
+                                  <v-icon>mdi-delete</v-icon>
+                                </v-btn>
+                              </template>
+                            </v-list-item>
                           </template>
                           
-                          <div class="flex-grow-1">
-                            <v-list-item-title class="text-subtitle-2 font-weight-bold">
-                              {{ rule.name }}
-                            </v-list-item-title>
-                            <v-list-item-subtitle class="mb-1">
-                              조건: {{ rule.conditions.columnName }} → {{ rule.conditions.triggerValue }}
-                            </v-list-item-subtitle>
-                            <v-list-item-subtitle class="text-caption">
-                              <v-chip
-                                size="x-small"
-                                color="primary"
-                                variant="outlined"
-                                class="mr-2"
-                              >
-                                시트: {{ rule.spreadsheetName || rule.targetDate || '미지정' }}
-                              </v-chip>
-                              <v-chip
-                                size="x-small"
-                                color="secondary"
-                                variant="outlined"
-                                class="mr-2"
-                              >
-                                ID: {{ rule.spreadsheetId ? rule.spreadsheetId.substring(0, 8) + '...' : '미지정' }}
-                              </v-chip>
-                              <v-chip
-                                v-if="rule.userEmail"
-                                size="x-small"
-                                color="info"
-                                variant="outlined"
-                                class="mr-2"
-                              >
-                                <v-icon start size="x-small">mdi-account</v-icon>
-                                {{ rule.userEmail }}
-                              </v-chip>
-                              <span class="text-grey">
-                                생성: {{ formatDate(rule.createdAt) }}
-                              </span>
-                            </v-list-item-subtitle>
+                          <!-- 툴팁 내용: 메시지 템플릿 -->
+                          <div class="pa-3" style="max-width: 400px;">
+                            <div class="font-weight-bold mb-2 d-flex align-center">
+                              <v-icon size="small" class="mr-2">mdi-message-text</v-icon>
+                              발송 메시지 미리보기
+                            </div>
+                            <div class="text-body-2 bg-grey-lighten-4 pa-2 rounded">
+                              {{ rule.actions.messageTemplate }}
+                            </div>
+                            <div class="mt-2 text-caption text-grey">
+                              <v-icon size="x-small" class="mr-1">mdi-phone</v-icon>
+                              발신번호: {{ rule.actions.senderNumber }}
+                              <br>
+                              <v-icon size="x-small" class="mr-1">mdi-account-group</v-icon>
+                              수신자: {{ rule.actions.recipientColumn }} 컬럼
+                              <br>
+                              <v-icon size="x-small" class="mr-1">mdi-message-processing</v-icon>
+                              타입: {{ rule.actions.type === 'sms' ? 'SMS/LMS' : '카카오톡' }}
+                            </div>
                           </div>
-
-                          <template v-slot:append>
-                            <v-btn
-                              size="small"
-                              icon
-                              variant="text"
-                              @click="toggleRule(rule)"
-                            >
-                              <v-icon>{{ rule.enabled ? 'mdi-pause' : 'mdi-play' }}</v-icon>
-                            </v-btn>
-                            <v-btn
-                              size="small"
-                              icon
-                              variant="text"
-                              color="error"
-                              @click="deleteRule(rule)"
-                            >
-                              <v-icon>mdi-delete</v-icon>
-                            </v-btn>
-                          </template>
-                        </v-list-item>
+                        </v-tooltip>
                       </v-list>
                       </div>
                       <div v-else class="text-center text-medium-emphasis py-4">

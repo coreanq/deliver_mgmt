@@ -151,6 +151,12 @@ async function sendSMS(
   message: string
 ): Promise<boolean> {
   try {
+    // 메시지 길이에 따라 SMS/LMS 자동 선택
+    const messageBytes = Buffer.byteLength(message, 'utf8');
+    const messageType = messageBytes <= 90 ? 'SMS' : 'LMS';
+    
+    console.log(`Message length: ${messageBytes} bytes, using type: ${messageType}`);
+    
     const response = await fetch('https://api.solapi.com/messages/v4/send', {
       method: 'POST',
       headers: {
@@ -159,7 +165,7 @@ async function sendSMS(
       },
       body: JSON.stringify({
         message: {
-          type: 'SMS',
+          type: messageType,
           from: senderNumber.replace(/-/g, ''),
           to: recipientNumber.replace(/-/g, ''),
           text: message,
@@ -169,19 +175,20 @@ async function sendSMS(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('SOLAPI SMS failed:', response.status, errorText);
+      console.error(`SOLAPI ${messageType} failed:`, response.status, errorText);
       return false;
     }
 
     const result = await response.json() as { messageId?: string; statusCode?: number };
-    console.log('SMS sent successfully:', {
+    console.log(`${messageType} sent successfully:`, {
       messageId: result.messageId,
-      statusCode: result.statusCode
+      statusCode: result.statusCode,
+      messageLength: messageBytes
     });
 
     return true;
   } catch (error: any) {
-    console.error('Failed to send SMS:', error);
+    console.error('Failed to send SMS/LMS:', error);
     return false;
   }
 }
