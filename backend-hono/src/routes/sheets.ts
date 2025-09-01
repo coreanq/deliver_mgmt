@@ -8,6 +8,12 @@ import crypto from 'crypto';
 
 const sheets = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+// Global middleware - creates one instance per request
+sheets.use('*', async (c, next) => {
+  c.set('unifiedUserService', new UnifiedUserService(c.env));
+  await next();
+});
+
 // Apply auth middleware to all routes except status update and QR token staff access
 sheets.use('*', async (c, next) => {
   // Skip Google auth for status update endpoint if QR token is present
@@ -371,10 +377,11 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
           } as ApiResponse, 401);
         }
 
-        // For QR token, we need to find an active admin session
+        // For QR token, we need to find an active admin session using UnifiedUserService
         let adminSessionData = null;
         
         try {
+          const unifiedUserService = c.get('unifiedUserService');
           const kvKeys = await c.env.SESSIONS.list();
           
           console.log(`Searching for admin session among ${kvKeys.keys.length} sessions`);
@@ -383,19 +390,22 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
             try {
               const sessionDataStr = await c.env.SESSIONS.get(key.name);
               if (sessionDataStr) {
-                const parsed = JSON.parse(sessionDataStr);
-                console.log(`Checking session ${key.name}:`, { hasAccessToken: !!parsed.accessToken, hasRefreshToken: !!parsed.refreshToken });
-                if (parsed.accessToken && parsed.refreshToken) {
-                  // Verify the session is not expired
-                  if (parsed.expiryDate && new Date(parsed.expiryDate) > new Date()) {
-                    adminSessionData = parsed;
-                    console.log(`Found valid admin session: ${key.name}`);
-                    break;
-                  } else if (!parsed.expiryDate) {
-                    // Fallback for sessions without expiry date
-                    adminSessionData = parsed;
-                    console.log(`Found admin session without expiry: ${key.name}`);
-                    break;
+                const sessionMetadata = JSON.parse(sessionDataStr);
+                console.log(`Checking session ${key.name}:`, { email: sessionMetadata.email });
+                
+                // Get full user data from unified storage
+                if (sessionMetadata.email) {
+                  const userData = await unifiedUserService.getUserData(sessionMetadata.email);
+                  if (userData && userData.googleTokens?.accessToken && userData.googleTokens?.refreshToken) {
+                    // Verify the token is not expired
+                    const expiryDate = userData.googleTokens.expiryDate;
+                    if (!expiryDate || new Date(expiryDate) > new Date()) {
+                      adminSessionData = userData.googleTokens;
+                      console.log(`Found valid admin session for: ${sessionMetadata.email}`);
+                      break;
+                    } else {
+                      console.log(`Admin session expired for: ${sessionMetadata.email}`);
+                    }
                   }
                 }
               }
@@ -413,7 +423,7 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
           }
           
           sessionData = adminSessionData;
-          console.log(`Using admin session for QR token access: ${staffName}`);
+          console.log(`Using admin Google tokens for QR token access: ${staffName}`);
           
         } catch (error: any) {
           console.error('Failed to find admin session:', error);
@@ -537,12 +547,11 @@ sheets.put('/data/:date/status', async (c) => {
           } as ApiResponse, 401);
         }
 
-        // For QR token, we need to find an active admin session
-        // Look for active admin Google tokens in KV storage
+        // For QR token, we need to find an active admin session using UnifiedUserService
         let adminSessionData = null;
         
         try {
-          // Try to find the most recent admin session
+          const unifiedUserService = new UnifiedUserService(c.env);
           const kvKeys = await c.env.SESSIONS.list();
           
           console.log(`[Status Update] Searching for admin session among ${kvKeys.keys.length} sessions`);
@@ -551,19 +560,22 @@ sheets.put('/data/:date/status', async (c) => {
             try {
               const sessionDataStr = await c.env.SESSIONS.get(key.name);
               if (sessionDataStr) {
-                const parsed = JSON.parse(sessionDataStr);
-                console.log(`[Status Update] Checking session ${key.name}:`, { hasAccessToken: !!parsed.accessToken, hasRefreshToken: !!parsed.refreshToken });
-                if (parsed.accessToken && parsed.refreshToken) {
-                  // Verify the session is not expired
-                  if (parsed.expiryDate && new Date(parsed.expiryDate) > new Date()) {
-                    adminSessionData = parsed;
-                    console.log(`[Status Update] Found valid admin session: ${key.name}`);
-                    break;
-                  } else if (!parsed.expiryDate) {
-                    // Fallback for sessions without expiry date
-                    adminSessionData = parsed;
-                    console.log(`[Status Update] Found admin session without expiry: ${key.name}`);
-                    break;
+                const sessionMetadata = JSON.parse(sessionDataStr);
+                console.log(`[Status Update] Checking session ${key.name}:`, { email: sessionMetadata.email });
+                
+                // Get full user data from unified storage
+                if (sessionMetadata.email) {
+                  const userData = await unifiedUserService.getUserData(sessionMetadata.email);
+                  if (userData && userData.googleTokens?.accessToken && userData.googleTokens?.refreshToken) {
+                    // Verify the token is not expired
+                    const expiryDate = userData.googleTokens.expiryDate;
+                    if (!expiryDate || new Date(expiryDate) > new Date()) {
+                      adminSessionData = userData.googleTokens;
+                      console.log(`[Status Update] Found valid admin session for: ${sessionMetadata.email}`);
+                      break;
+                    } else {
+                      console.log(`[Status Update] Admin session expired for: ${sessionMetadata.email}`);
+                    }
                   }
                 }
               }
@@ -581,7 +593,7 @@ sheets.put('/data/:date/status', async (c) => {
           }
           
           sessionData = adminSessionData;
-          console.log(`[Status Update] Using admin session for QR token`);
+          console.log(`[Status Update] Using admin Google tokens for QR token`);
           
         } catch (error: any) {
           console.error('Failed to find admin session:', error);
