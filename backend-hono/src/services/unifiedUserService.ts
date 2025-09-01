@@ -6,8 +6,7 @@ import type { Env, UnifiedUserData, GoogleTokens, AutomationRule } from '../type
  * 해시 기반 보안 키 사용으로 이메일 추측 공격 방지
  */
 export class UnifiedUserService {
-  private readonly EMAIL_HASH_SALT_KEY = 'EMAIL_HASH_SALT';
-  
+
   constructor(private env: Env) {}
 
   /**

@@ -52,6 +52,15 @@
 Google Apps Script 설정 없이 로컬에서 자동화 시스템 테스트:
 
 1. **웹훅 직접 호출로 자동화 테스트**:
+
+**Windows 환경**: 인코딩 문제로 인해 JSON 파일 사용 권장
+```bash
+curl -X POST http://localhost:5001/api/automation/trigger \
+  -H "Content-Type: application/json" \
+  -d @webhook_test.json
+```
+
+**Linux/Mac 환경**: 직접 JSON 문자열 사용 가능
 ```bash
 curl -X POST http://localhost:5001/api/automation/trigger \
   -H "Content-Type: application/json" \

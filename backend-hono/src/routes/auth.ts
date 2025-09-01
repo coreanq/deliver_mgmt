@@ -299,6 +299,9 @@ auth.get('/status', async (c) => {
           connectedAt: userData.googleTokens.connectedAt,
           spreadsheets: spreadsheetsList
         },
+        ...(userData.connectedSpreadsheet && {
+          connectedSpreadsheet: userData.connectedSpreadsheet
+        }),
         ...(hasSolapiAuth && {
           solapiData: {
             connectedAt: userData.solapiTokens!.connectedAt

@@ -57,6 +57,14 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
       }
     }
 
+    // Touch session mapping to extend TTL on each authenticated request
+    try {
+      const unifiedUserService = new UnifiedUserService(c.env);
+      await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
+    } catch (e) {
+      console.log('Failed to refresh session TTL:', e);
+    }
+
     // Store session data in context for use in handlers (backward compatibility)
     c.set('sessionData', userData.googleTokens);
     c.set('sessionId', sessionId);

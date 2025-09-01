@@ -68,6 +68,7 @@ Cloudflare 대시보드에서 다음 환경변수들을 설정:
 - `SOLAPI_CLIENT_SECRET`
 - `SOLAPI_REDIRECT_URL`
 - `FRONTEND_URL`
+- `EMAIL_HASH_SALT` (Unified user key salt; must be the SAME across environments)
 
 ### 5. 배포
 ```bash

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import jwt from 'jsonwebtoken';
 import { GoogleSheetsService } from '../services/googleSheets';
+import { UnifiedUserService } from '../services/unifiedUserService';
 import { requireGoogleAuth } from '../middleware/auth';
 import type { Env, ApiResponse, GoogleTokens, Variables, QRTokenPayload } from '../types';
 import crypto from 'crypto';
@@ -108,17 +109,20 @@ sheets.post('/connect', async (c) => {
 
     const sheetList = await sheetsService.getSheets(spreadsheetId);
     
-    // Store connected spreadsheet info in session (extend session data)
+    // Save connected spreadsheet info into unified user data (unified storage)
     const sessionId = c.get('sessionId') as string;
-    const extendedSession = {
-      ...sessionData,
-      connectedSpreadsheet: {
+    const unifiedUserService = new UnifiedUserService(c.env);
+    const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+
+    if (userData) {
+      userData.connectedSpreadsheet = {
         id: spreadsheetId,
         sheets: sheetList,
-      }
-    };
-    
-    await c.env.SESSIONS.put(sessionId, JSON.stringify(extendedSession), { expirationTtl: 86400 });
+      };
+      // Persist to unified storage and refresh session mapping
+      await unifiedUserService.saveUserData(userData);
+      await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
+    }
 
     return c.json({
       success: true,

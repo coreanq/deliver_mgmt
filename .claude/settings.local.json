@@ -55,7 +55,10 @@
       "Bash(pkill:*)",
       "WebFetch(domain:github.com)",
       "Bash(lsof:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(echo $LANG)",
+      "Bash(chcp:*)",
+      "Bash(cmd /c:*)"
     ]
   },
   "enabledMcpjsonServers": [

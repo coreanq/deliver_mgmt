@@ -25,3 +25,4 @@ preview_id = "c9bfc114990f4dae94195f588aa4248c"  # Replace with preview ID from:
 # SOLAPI_CLIENT_SECRET
 # SOLAPI_REDIRECT_URL
 # FRONTEND_URL
+# EMAIL_HASH_SALT  # Must be the SAME across environments (unified user key salt)

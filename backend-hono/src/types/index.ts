@@ -33,6 +33,7 @@ export interface UnifiedUserData {
   email: string;
   emailHash: string; // 보안을 위한 이메일 해시값
   googleTokens: GoogleTokens;
+  connectedSpreadsheet?: { id: string; name?: string; sheets?: any[] };
   solapiTokens?: {
     accessToken: string;
     refreshToken: string;
