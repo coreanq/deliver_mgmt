@@ -500,31 +500,14 @@ const loadDeliveryData = async (): Promise<void> => {
   error.value = '';
   
   try {
-    // Check if QR token is provided for additional security
+    // Check if QR token is provided
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     
     if (token) {
       // Store QR token for later use
       qrToken.value = token;
-      
-      // Verify QR token first
-      const verifyResponse = await fetch(
-        `${API_BASE_URL}/api/delivery/qr/verify/${token}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        }
-      );
-      
-      const verifyResult = await verifyResponse.json();
-      
-      if (!verifyResult.success || verifyResult.data.staffName !== staffName.value) {
-        error.value = '유효하지 않은 QR 코드입니다.';
-        return;
-      }
-      
-      console.log('QR token verified for staff:', staffName.value);
+      console.log('QR token found for staff:', staffName.value);
     }
     
     // Prepare headers for API request
