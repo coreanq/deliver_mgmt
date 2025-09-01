@@ -881,7 +881,7 @@ const connectedSheetName = ref<string>('');
 const solapiBalance = ref<string>('');
 
 // Automation data
-const automationEnabled = ref<boolean>(true);
+// const automationEnabled = ref<boolean>(true); // Currently not used
 const automationRules = ref<any[]>([]);
 const automationSaving = ref<boolean>(false);
 const automationTesting = ref<boolean>(false);
@@ -1275,7 +1275,7 @@ const disconnectSolapi = async (): Promise<void> => {
   try {
     await authStore.logoutSolapi();
     solapiBalance.value = '';
-    smsPricing.value = '';
+    // smsPricing.value = ''; // Variable not declared
     clearSmsForm(); // SMS 폼도 초기화
   } catch (error) {
     console.error('Failed to disconnect SOLAPI:', error);
@@ -1434,7 +1434,9 @@ const calendarDays = computed(() => {
   
   const days = [];
   const today = new Date();
+  // Allow selection of future dates for delivery planning
   const maxDate = new Date();
+  maxDate.setMonth(maxDate.getMonth() + 6); // Allow 6 months in advance
   
   for (let i = 0; i < 42; i++) {
     const date = new Date(startDate);
