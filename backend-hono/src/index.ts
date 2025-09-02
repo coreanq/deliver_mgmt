@@ -10,7 +10,6 @@ import sheetsRoutes from './routes/sheets';
 import solapiRoutes from './routes/solapi';
 import deliveryRoutes from './routes/delivery';
 import automationRoutes from './routes/automation';
-import migrationRoutes from './routes/migration';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -103,7 +102,6 @@ app.route('/api/sheets', sheetsRoutes);
 app.route('/api/solapi', solapiRoutes);
 app.route('/api/delivery', deliveryRoutes);
 app.route('/api/automation', automationRoutes);
-app.route('/api/migration', migrationRoutes);
 
 // 404 handler
 app.notFound((c) => {

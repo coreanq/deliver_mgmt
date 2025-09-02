@@ -257,7 +257,7 @@ FRONTEND_URL=http://localhost:5173
 
 **Implementation Pattern**:
 ```typescript
-// Each route file (auth.ts, solapi.ts, automation.ts, migration.ts)
+// Each route file (auth.ts, solapi.ts, automation.ts)
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Global middleware - creates one instance per request
@@ -424,15 +424,25 @@ This enables delivery staff to access their assigned data from separate mobile d
 ## Development Guidelines
 
 ### Project Coding Rules
-**IMPORTANT**: All development work must follow the comprehensive guidelines specified in `rules.md`. This includes:
-- Language and communication standards
-- SOLID principles implementation
-- Testing approach and requirements
-- Code modification rules
-- Session management principles
-- Task management procedures
+**IMPORTANT**: All development work must follow these comprehensive guidelines:
 
-For detailed specifications, see: [rules.md](./rules.md)
+#### Communication Standards
+- **Korean responses**: All explanations and responses in Korean
+- **English comments**: All code comments in English only
+
+#### SOLID Principles
+All code must strictly follow SOLID principles:
+- **SRP**: Single responsibility per class/module
+- **OCP**: Open for extension, closed for modification
+- **LSP**: Substitutable subclasses without breaking functionality
+- **ISP**: Small, focused interfaces over large ones
+- **DIP**: Depend on abstractions, not concrete implementations
+
+#### Critical Development Rules
+- **Code Comments**: Update comments when modifying code
+- **Feature Duplication**: Always check if feature already exists before adding
+- **Session Management**: Server-side only (KV storage), never local storage
+- **Task Tracking**: Update tasks.md when completing todos
 
 ### Testing Approach
 - **Critical**: Use Playwright MCP tools for browser automation, never `npx playwright test`
@@ -657,17 +667,12 @@ unified_user:${emailHash} → { googleTokens, solapiTokens, automationRules, ...
 
 ## Current Development Status
 
-### Active Branch: `solapi-up`
-- **Current State**: Development branch with latest SOLAPI and unified storage improvements
-- **Key Features**: Direct SMS integration, QR authentication fixes, unified user service optimizations
-- **Main Branch**: `main` (use for production releases)
-
-### Recent Commits (Current Branch)
-- `be69e2d`: QR code access session lookup fix (unified storage compatibility)
-- `4bbd2ef`: QR code Google authentication logic removal (mobile-friendly)
-- `35fb752`: Automation rule message length-based SMS/LMS auto-detection
-- `36ff775`: Google Apps Script webhook library addition
-- `736e299`: Unified session management and legacy code cleanup
+### Architecture Status
+- **Backend**: Hono-based Cloudflare Workers architecture (stable)
+- **Authentication**: Dual system (Google OAuth + QR tokens) implemented
+- **Storage**: Unified user data architecture with session delegation
+- **SMS Integration**: Direct SOLAPI integration (no webhook dependency)
+- **Testing**: Playwright E2E test suite available
 
 ### UnifiedUserService Refactoring (2024)
 **Problem**: Multiple instances of UnifiedUserService were being created per request (21+ instances), causing performance degradation and potential memory issues.
@@ -679,7 +684,7 @@ unified_user:${emailHash} → { googleTokens, solapiTokens, automationRules, ...
 
 **Files Modified**:
 - `src/types/index.ts`: Added Variables interface with unifiedUserService
-- `src/routes/{auth,solapi,automation,migration}.ts`: Added global middleware and converted to context-based access
+- `src/routes/{auth,solapi,automation}.ts`: Added global middleware and converted to context-based access
 - `src/services/automationService.ts`: Fixed variable scoping issues
 - `src/local.ts`: Enhanced KV namespace compatibility for development
 

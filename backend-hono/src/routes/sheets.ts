@@ -198,7 +198,7 @@ sheets.post('/connect', async (c) => {
     
     // Save connected spreadsheet info into unified user data (unified storage)
     const sessionId = c.get('sessionId') as string;
-    const unifiedUserService = new UnifiedUserService(c.env);
+    const unifiedUserService = c.get('unifiedUserService');
     const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
 
     if (userData) {
