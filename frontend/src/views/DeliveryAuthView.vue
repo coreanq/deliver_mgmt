@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
@@ -99,6 +99,9 @@ const verifying = ref(false);
 const qrError = ref('');
 const nameError = ref('');
 
+// Timer management for memory leak prevention
+let redirectTimer: number | null = null;
+
 // Form validation rules
 const rules = {
   required: (value: string): boolean | string => !!value || '이름을 입력해주세요.',
@@ -106,6 +109,13 @@ const rules = {
 
 onMounted(() => {
   verifyQRToken();
+});
+
+onBeforeUnmount(() => {
+  if (redirectTimer) {
+    clearTimeout(redirectTimer);
+    redirectTimer = null;
+  }
 });
 
 const verifyQRToken = async (): Promise<void> => {
@@ -153,7 +163,7 @@ const verifyName = async (): Promise<void> => {
     isNameVerified.value = true;
     
     // Redirect to delivery dashboard after 2 seconds
-    setTimeout(() => {
+    redirectTimer = window.setTimeout(() => {
       router.push('/delivery');
     }, 2000);
     

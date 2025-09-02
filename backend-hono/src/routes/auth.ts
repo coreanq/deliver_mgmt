@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import { GoogleAuthService } from '../services/googleAuth';
 import { UnifiedUserService } from '../services/unifiedUserService';
+import { safeConsoleError, createSafeErrorResponse } from '../utils/errorSanitizer';
 import type { Env, GoogleTokens, Variables } from '../types';
 
 const auth = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -46,16 +47,24 @@ auth.get('/google', async (c) => {
     }
 
     const googleAuth = new GoogleAuthService(c.env);
-    const authUrl = googleAuth.getAuthUrl();
     
-    console.log('Generated auth URL:', authUrl);
+    // Generate secure OAuth state parameter for CSRF protection
+    const oauthState = googleAuth.generateOAuthState();
+    
+    // Store state in KV for validation (5 minute TTL)
+    const stateKey = `oauth_state:${oauthState}`;
+    await c.env.SESSIONS.put(stateKey, 'valid', { expirationTtl: 300 });
+    
+    const authUrl = googleAuth.getAuthUrl(oauthState);
+    
+    console.log('Generated auth URL with state parameter');
     return c.redirect(authUrl);
   } catch (error: any) {
-    console.error('Google auth error:', error);
+    safeConsoleError('Google auth error:', error);
     return c.json({
       success: false,
       message: 'Google 로그인 URL 생성에 실패했습니다.',
-      error: error.message,
+      ...createSafeErrorResponse(error)
     }, 500);
   }
 });
@@ -74,6 +83,30 @@ auth.get('/google/callback', async (c) => {
         message: '인증 코드가 제공되지 않았습니다.',
       }, 400);
     }
+
+    // Validate OAuth state parameter for CSRF protection
+    if (!state) {
+      console.error('OAuth callback missing state parameter');
+      return c.json({
+        success: false,
+        message: '잘못된 OAuth 요청입니다.',
+      }, 400);
+    }
+
+    // Check if state exists in KV storage
+    const stateKey = `oauth_state:${state}`;
+    const storedState = await c.env.SESSIONS.get(stateKey);
+    
+    if (!storedState) {
+      console.error('OAuth state validation failed - state not found or expired');
+      return c.json({
+        success: false,
+        message: '만료되었거나 잘못된 OAuth 요청입니다.',
+      }, 400);
+    }
+
+    // Clean up used state
+    await c.env.SESSIONS.delete(stateKey);
 
     const googleAuth = new GoogleAuthService(c.env);
     const tokens = await googleAuth.getTokens(code);
@@ -139,20 +172,14 @@ auth.get('/google/callback', async (c) => {
     console.log('Redirecting to:', redirectUrl.toString());
     return c.redirect(redirectUrl.toString());
   } catch (error: any) {
-    console.error('Google OAuth callback error:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      code: c.req.query('code')?.substring(0, 10) + '...' // First 10 chars of code for debugging
-    });
+    safeConsoleError('Google OAuth callback error:', error);
     
     // For debugging: return JSON error instead of redirect
     return c.json({
       success: false,
       message: '서버 내부 오류가 발생했습니다.',
+      ...createSafeErrorResponse(error),
       debug: {
-        error: error.message,
         hasCode: !!c.req.query('code'),
         hasEnvVars: {
           GOOGLE_CLIENT_ID: !!c.env.GOOGLE_CLIENT_ID,
@@ -261,7 +288,7 @@ auth.get('/status', async (c) => {
         await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
         await unifiedUserService.updateGoogleTokens(userData.email, userData.googleTokens);
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
+        safeConsoleError('Token refresh failed:', refreshError);
         // Even if Google token refresh failed, check SOLAPI status
         const hasSolapiAuth = !!(userData.solapiTokens?.accessToken);
         return c.json({
@@ -313,7 +340,7 @@ auth.get('/status', async (c) => {
       }
     });
   } catch (error: any) {
-    console.error('Auth status check error:', error);
+    safeConsoleError('Auth status check error:', error);
     return c.json({
       success: true,
       data: {
@@ -368,11 +395,11 @@ auth.post('/google/logout', async (c) => {
       message: 'Google 연결이 해제되었습니다.',
     });
   } catch (error: any) {
-    console.error('Google logout error:', error);
+    safeConsoleError('Google logout error:', error);
     return c.json({
       success: false,
       message: 'Google 연결 해제 중 오류가 발생했습니다.',
-      error: error.message,
+      ...createSafeErrorResponse(error)
     }, 500);
   }
 });
@@ -411,11 +438,11 @@ auth.post('/logout', async (c) => {
       message: '로그아웃되었습니다.',
     });
   } catch (error: any) {
-    console.error('Logout error:', error);
+    safeConsoleError('Logout error:', error);
     return c.json({
       success: false,
       message: '로그아웃 중 오류가 발생했습니다.',
-      error: error.message,
+      ...createSafeErrorResponse(error)
     }, 500);
   }
 });

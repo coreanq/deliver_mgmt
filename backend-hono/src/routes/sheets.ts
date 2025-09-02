@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { GoogleSheetsService } from '../services/googleSheets';
 import { UnifiedUserService } from '../services/unifiedUserService';
 import { requireGoogleAuth } from '../middleware/auth';
+import { replaceTemplateVariables, calculateMessageBytes } from '../utils/secureTemplateEngine';
 import type { Env, ApiResponse, GoogleTokens, Variables, QRTokenPayload, DeliveryStatus } from '../types';
 import crypto from 'crypto';
 
@@ -72,23 +73,47 @@ sheets.use('*', async (c, next) => {
 
 // Apply auth middleware to all routes except status update and QR token staff access
 sheets.use('*', async (c, next) => {
-  // Skip Google auth for status update endpoint if QR token is present
+  const unifiedUserService = c.get('unifiedUserService');
+  
+  // Skip Google auth for status update endpoint if QR token is valid
   if (c.req.path.includes('/status') && c.req.method === 'PUT') {
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token');
     if (token) {
-      // Skip Google auth, handle QR token auth in the endpoint
-      await next();
-      return;
+      // Validate QR token before allowing bypass
+      try {
+        const verification = await verifyQRToken(token, null, c.env.JWT_SECRET, unifiedUserService);
+        if (verification.isValid && verification.sessionData) {
+          // Store validated session data for use in endpoint
+          c.set('sessionData', verification.sessionData);
+          c.set('qrTokenValidated', true);
+          await next();
+          return;
+        }
+      } catch (error) {
+        console.error('QR token validation error:', error);
+      }
+      // If QR token is invalid, fall through to Google auth
     }
   }
   
-  // Skip Google auth for staff data access if QR token is present
+  // Skip Google auth for staff data access if QR token is valid
   if (c.req.path.includes('/staff/') && c.req.method === 'GET') {
     const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token');
     if (token) {
-      // Skip Google auth, handle QR token auth in the endpoint
-      await next();
-      return;
+      // Validate QR token before allowing bypass
+      try {
+        const verification = await verifyQRToken(token, null, c.env.JWT_SECRET, unifiedUserService);
+        if (verification.isValid && verification.sessionData) {
+          // Store validated session data for use in endpoint
+          c.set('sessionData', verification.sessionData);
+          c.set('qrTokenValidated', true);
+          await next();
+          return;
+        }
+      } catch (error) {
+        console.error('QR token validation error:', error);
+      }
+      // If QR token is invalid, fall through to Google auth
     }
   }
   
@@ -775,16 +800,22 @@ async function sendSMSForRule(env: any, userData: any, rule: any, rowData: any, 
       return;
     }
 
-    // Replace template variables in message
-    let message = rule.actions.messageTemplate;
-    for (const [key, value] of Object.entries(rowData)) {
-      message = message.replace(new RegExp(`#{${key}}`, 'g'), String(value));
+    // Replace template variables in message (secure)
+    let message: string;
+    try {
+      message = replaceTemplateVariables(rule.actions.messageTemplate, rowData, {
+        maxLength: 1000,
+        allowedColumns: Object.keys(rowData)
+      });
+    } catch (error) {
+      console.error('Template replacement error:', error);
+      message = '메시지 처리 중 오류가 발생했습니다.';
     }
 
     console.log(`Sending SMS to ${recipientNumber}: ${message}`);
 
-    // Determine message type based on length (Korean characters count as 2 bytes)
-    const messageByteLength = new TextEncoder().encode(message).length;
+    // Determine message type based on byte length (Korean characters count as 2 bytes)
+    const messageByteLength = calculateMessageBytes(message);
     const messageType = messageByteLength > 90 ? 'LMS' : 'SMS';
     
     console.log(`Message length: ${messageByteLength} bytes, using type: ${messageType}`);

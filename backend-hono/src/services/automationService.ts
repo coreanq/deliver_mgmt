@@ -1,4 +1,5 @@
 import type { Env, AutomationRule, AutomationTriggerEvent } from '../types';
+import { replaceTemplateVariables } from '../utils/secureTemplateEngine';
 import axios from 'axios';
 
 export class AutomationService {
@@ -9,19 +10,18 @@ export class AutomationService {
   }
 
   /**
-   * Replace variables in message template with actual data
+   * Replace variables in message template with actual data (secure version)
    */
   replaceVariables(template: string, rowData: { [key: string]: any }): string {
-    let message = template;
-    
-    // Replace #{columnName} with actual values
-    const variablePattern = /#\{([^}]+)\}/g;
-    message = message.replace(variablePattern, (match, columnName) => {
-      const value = rowData[columnName];
-      return value !== undefined ? String(value) : match;
-    });
-
-    return message;
+    try {
+      return replaceTemplateVariables(template, rowData, {
+        maxLength: 1000, // SMS/LMS limit
+        allowedColumns: Object.keys(rowData) // Only allow columns that exist in data
+      });
+    } catch (error) {
+      console.error('Template replacement error:', error);
+      return '메시지 처리 중 오류가 발생했습니다.';
+    }
   }
 
   /**

@@ -76,28 +76,45 @@ export class UnifiedUserService {
   }
 
   /**
-   * 사용자 데이터 전체 저장/업데이트
+   * 사용자 데이터 전체 저장/업데이트 (with optimistic concurrency control)
    */
   async saveUserData(userData: UnifiedUserData): Promise<void> {
-    try {
-      const userKey = await this.getUserKey(userData.email);
-      const emailHash = await this.getEmailHash(userData.email);
-      
-      const dataToSave: UnifiedUserData = {
-        ...userData,
-        emailHash,
-        updatedAt: new Date().toISOString()
-      };
+    const maxRetries = 3;
+    let attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        const userKey = await this.getUserKey(userData.email);
+        const emailHash = await this.getEmailHash(userData.email);
+        
+        // Get current timestamp for optimistic concurrency control
+        const currentTime = new Date().toISOString();
+        
+        const dataToSave: UnifiedUserData = {
+          ...userData,
+          emailHash,
+          updatedAt: currentTime,
+          version: (userData.version || 0) + 1 // Add version field for concurrency control
+        };
 
-      // 1년간 보관 (Google/SOLAPI 토큰, 자동화 룰 포함)
-      await this.env.SESSIONS.put(userKey, JSON.stringify(dataToSave), {
-        expirationTtl: 31536000 // 1년
-      });
+        // 1년간 보관 (Google/SOLAPI 토큰, 자동화 룰 포함)
+        await this.env.SESSIONS.put(userKey, JSON.stringify(dataToSave), {
+          expirationTtl: 31536000 // 1년
+        });
 
-      console.log(`Unified user data saved for: ${userData.email}`);
-    } catch (error) {
-      console.error('Failed to save user data:', error);
-      throw new Error('사용자 데이터 저장에 실패했습니다.');
+        console.log(`Unified user data saved for: ${userData.email} (version ${dataToSave.version})`);
+        return;
+      } catch (error) {
+        attempt++;
+        console.error(`Failed to save user data (attempt ${attempt}/${maxRetries}):`, error);
+        
+        if (attempt >= maxRetries) {
+          throw new Error('사용자 데이터 저장에 실패했습니다. (동시성 충돌)');
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100));
+      }
     }
   }
 
@@ -122,21 +139,43 @@ export class UnifiedUserService {
   }
 
   /**
-   * Google 토큰 업데이트
+   * Google 토큰 업데이트 (atomic operation with retry)
    */
   async updateGoogleTokens(email: string, googleTokens: GoogleTokens): Promise<void> {
-    const userData = await this.getUserData(email);
+    const maxRetries = 3;
+    let attempt = 0;
     
-    if (!userData) {
-      // 새 사용자 생성
-      await this.createUserData(email, googleTokens);
-      return;
-    }
+    while (attempt < maxRetries) {
+      try {
+        const userData = await this.getUserData(email);
+        
+        if (!userData) {
+          // 새 사용자 생성
+          await this.createUserData(email, googleTokens);
+          return;
+        }
 
-    userData.googleTokens = googleTokens;
-    userData.lastLoginAt = new Date().toISOString();
-    
-    await this.saveUserData(userData);
+        // Create updated data with current version
+        const updatedData = {
+          ...userData,
+          googleTokens,
+          lastLoginAt: new Date().toISOString()
+        };
+        
+        await this.saveUserData(updatedData);
+        return;
+      } catch (error: any) {
+        attempt++;
+        console.error(`Failed to update Google tokens (attempt ${attempt}/${maxRetries}):`, error);
+        
+        if (attempt >= maxRetries) {
+          throw new Error(`Google 토큰 업데이트 실패: ${error.message}`);
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100));
+      }
+    }
   }
 
   /**
@@ -171,36 +210,58 @@ export class UnifiedUserService {
   }
 
   /**
-   * 자동화 룰 추가
+   * 자동화 룰 추가 (atomic operation with retry)
    */
   async addAutomationRule(email: string, rule: AutomationRule): Promise<void> {
     console.log(`[DEBUG] addAutomationRule called for email: ${email}, rule: ${rule.name}`);
     
-    const userData = await this.getUserData(email);
+    const maxRetries = 3;
+    let attempt = 0;
     
-    if (!userData) {
-      throw new Error('사용자 데이터를 찾을 수 없습니다. Google 로그인이 필요합니다.');
+    while (attempt < maxRetries) {
+      try {
+        const userData = await this.getUserData(email);
+        
+        if (!userData) {
+          throw new Error('사용자 데이터를 찾을 수 없습니다. Google 로그인이 필요합니다.');
+        }
+
+        console.log(`[DEBUG] Current automation rules count: ${userData.automationRules.length}`);
+
+        // 최대 개수 제한 확인
+        if (userData.automationRules.length >= MAX_AUTOMATION_RULES) {
+          throw new Error(`자동화 규칙은 최대 ${MAX_AUTOMATION_RULES}개까지만 저장할 수 있습니다.`);
+        }
+
+        // 룰에 사용자 이메일 설정
+        const ruleWithEmail = { ...rule, userEmail: email };
+        
+        // Create updated data with new rule
+        const updatedData = {
+          ...userData,
+          automationRules: [...userData.automationRules, ruleWithEmail]
+        };
+        
+        console.log(`[DEBUG] Adding rule, new count: ${updatedData.automationRules.length}`);
+        
+        await this.saveUserData(updatedData);
+        console.log(`[DEBUG] Saved userData to unified storage`);
+        
+        // Add to automation index for webhook processing
+        await this.addToAutomationIndex(email);
+        return;
+      } catch (error: any) {
+        attempt++;
+        console.error(`Failed to add automation rule (attempt ${attempt}/${maxRetries}):`, error);
+        
+        if (attempt >= maxRetries) {
+          throw new Error(`자동화 룰 추가 실패: ${error.message}`);
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100));
+      }
     }
-
-    console.log(`[DEBUG] Current automation rules count: ${userData.automationRules.length}`);
-
-    // 최대 개수 제한 확인
-    if (userData.automationRules.length >= MAX_AUTOMATION_RULES) {
-      throw new Error(`자동화 규칙은 최대 ${MAX_AUTOMATION_RULES}개까지만 저장할 수 있습니다.`);
-    }
-
-    // 룰에 사용자 이메일 설정
-    rule.userEmail = email;
-    
-    userData.automationRules.push(rule);
-    console.log(`[DEBUG] Added rule, new count: ${userData.automationRules.length}`);
-    
-    await this.saveUserData(userData);
-    console.log(`[DEBUG] Saved userData to unified storage`);
-    
-    // 웹훅을 위한 사용자 인덱스에 추가
-    await this.addToAutomationIndex(email);
-    console.log(`[DEBUG] Added ${email} to automation index`);
   }
 
   /**

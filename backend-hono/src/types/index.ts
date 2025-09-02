@@ -44,6 +44,7 @@ export interface UnifiedUserData {
   lastLoginAt: string;
   createdAt: string;
   updatedAt: string;
+  version?: number; // For optimistic concurrency control
 }
 
 
@@ -123,4 +124,5 @@ export interface Variables {
   sessionData: GoogleTokens;
   sessionId: string;
   unifiedUserService: import('../services/unifiedUserService').UnifiedUserService;
+  qrTokenValidated?: boolean; // Flag to indicate QR token was validated
 }

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { UnifiedUserService } from '../services/unifiedUserService';
+import { replaceTemplateVariables, calculateMessageBytes, validateMessageTemplate } from '../utils/secureTemplateEngine';
 import type { Env, ApiResponse, AutomationRule, AutomationTriggerEvent, Variables } from '../types';
 
 // Constants
@@ -123,16 +124,15 @@ async function executeAutomationAction(
 }
 
 function replaceVariables(template: string, rowData: { [key: string]: any }): string {
-  let message = template;
-  
-  // Replace #{columnName} with actual values
-  const variablePattern = /#\{([^}]+)\}/g;
-  message = message.replace(variablePattern, (match, columnName) => {
-    const value = rowData[columnName];
-    return value !== undefined ? String(value) : match;
-  });
-
-  return message;
+  try {
+    return replaceTemplateVariables(template, rowData, {
+      maxLength: 1000, // SMS/LMS limit
+      allowedColumns: Object.keys(rowData) // Only allow columns that exist in data
+    });
+  } catch (error) {
+    console.error('Template replacement error:', error);
+    return '메시지 처리 중 오류가 발생했습니다.';
+  }
 }
 
 async function sendSMS(
@@ -142,8 +142,8 @@ async function sendSMS(
   message: string
 ): Promise<boolean> {
   try {
-    // 메시지 길이에 따라 SMS/LMS 자동 선택
-    const messageBytes = Buffer.byteLength(message, 'utf8');
+    // 메시지 길이에 따라 SMS/LMS 자동 선택 (secure byte calculation)
+    const messageBytes = calculateMessageBytes(message);
     const messageType = messageBytes <= SMS_BYTE_LIMIT ? 'SMS' : 'LMS';
     
     console.log(`Message length: ${messageBytes} bytes, using type: ${messageType}`);
@@ -294,6 +294,23 @@ automation.post('/rules', async (c) => {
         success: false,
         message: '필수 필드가 누락되었습니다. (name, conditions, actions)',
       } as ApiResponse, 400);
+    }
+
+    // Validate message template for security
+    if (actions.messageTemplate) {
+      const validation = validateMessageTemplate(actions.messageTemplate);
+      if (!validation.isValid) {
+        return c.json({
+          success: false,
+          message: '메시지 템플릿이 유효하지 않습니다.',
+          errors: validation.errors,
+        } as ApiResponse, 400);
+      }
+      
+      // Log warnings but don't block creation
+      if (validation.warnings.length > 0) {
+        console.warn('Message template warnings:', validation.warnings);
+      }
     }
 
     // 구조적 개선: 세션 기반 통합 데이터에서 사용자 정보 조회

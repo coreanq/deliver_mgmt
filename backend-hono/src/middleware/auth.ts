@@ -3,6 +3,7 @@ import { getCookie } from 'hono/cookie';
 import type { Env, GoogleTokens, Variables } from '../types';
 import { GoogleAuthService } from '../services/googleAuth';
 import { UnifiedUserService } from '../services/unifiedUserService';
+import { safeConsoleError } from '../utils/errorSanitizer';
 
 // 구조적 개선: 임시 세션 헬퍼 함수 제거됨
 // sessionId를 직접 통합 데이터 키로 사용
@@ -21,8 +22,12 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
       }, 401);
     }
 
-    // 구조적 개선: 세션 기반 통합 데이터 직접 조회
-    const unifiedUserService = new UnifiedUserService(c.env);
+    // Use existing UnifiedUserService instance from context or create new one
+    let unifiedUserService = c.get('unifiedUserService');
+    if (!unifiedUserService) {
+      unifiedUserService = new UnifiedUserService(c.env);
+      c.set('unifiedUserService', unifiedUserService);
+    }
     const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
 
     if (!userData || !userData.googleTokens.accessToken) {
@@ -49,7 +54,7 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
         await unifiedUserService.updateGoogleTokens(userData.email, userData.googleTokens);
         console.log('Token refreshed successfully');
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
+        safeConsoleError('Token refresh failed:', refreshError);
         return c.json({
           success: false,
           message: '인증 토큰 갱신에 실패했습니다. 다시 로그인해주세요.',
@@ -71,7 +76,7 @@ export async function requireGoogleAuth(c: Context<{ Bindings: Env; Variables: V
 
     await next();
   } catch (error: any) {
-    console.error('Auth middleware error:', error);
+    safeConsoleError('Auth middleware error:', error);
     return c.json({
       success: false,
       message: '인증 처리 중 오류가 발생했습니다.',

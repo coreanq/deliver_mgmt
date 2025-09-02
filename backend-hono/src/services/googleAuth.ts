@@ -3,8 +3,10 @@ import type { Env } from '../types';
 
 export class GoogleAuthService {
   private oauth2Client;
+  private env: Env;
 
   constructor(env: Env) {
+    this.env = env;
     this.oauth2Client = new google.auth.OAuth2(
       env.GOOGLE_CLIENT_ID,
       env.GOOGLE_CLIENT_SECRET,
@@ -13,9 +15,50 @@ export class GoogleAuthService {
   }
 
   /**
-   * Generate Google OAuth2 authorization URL
+   * Generate secure OAuth state parameter
    */
-  getAuthUrl(): string {
+  generateOAuthState(): string {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Validate OAuth state parameter
+   */
+  async validateOAuthState(state: string, storedState: string): Promise<boolean> {
+    if (!state || !storedState) return false;
+    
+    // Use crypto.subtle for timing-safe comparison
+    const encoder = new TextEncoder();
+    const stateBuffer = encoder.encode(state);
+    const storedStateBuffer = encoder.encode(storedState);
+    
+    if (stateBuffer.length !== storedStateBuffer.length) return false;
+    
+    try {
+      const stateKey = await crypto.subtle.importKey(
+        'raw', stateBuffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const storedStateKey = await crypto.subtle.importKey(
+        'raw', storedStateBuffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      
+      const dummyData = encoder.encode('validation');
+      const signature1 = await crypto.subtle.sign('HMAC', stateKey, dummyData);
+      const signature2 = await crypto.subtle.sign('HMAC', storedStateKey, dummyData);
+      
+      return new Uint8Array(signature1).every((val, i) => val === new Uint8Array(signature2)[i]);
+    } catch (error) {
+      console.error('OAuth state validation error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Generate Google OAuth2 authorization URL with state parameter
+   */
+  getAuthUrl(state?: string): string {
     const scopes = [
       'https://www.googleapis.com/auth/spreadsheets',
       'https://www.googleapis.com/auth/drive.readonly',
@@ -26,6 +69,7 @@ export class GoogleAuthService {
       access_type: 'offline',
       scope: scopes,
       prompt: 'consent',
+      state: state, // Include state for CSRF protection
     });
   }
 

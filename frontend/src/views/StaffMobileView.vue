@@ -347,7 +347,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { API_BASE_URL } from '@/config/api';
 
@@ -635,7 +635,7 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
       console.log(`Status updated for row ${rowIndex}: ${newStatus}`);
       showToast(`배송 상태가 "${newStatus}"로 변경되었습니다!`);
       // Light refresh so UNDO remains visible briefly
-      setTimeout(() => { loadDeliveryData(); }, 800);
+      createTimer(() => { loadDeliveryData(); }, 800);
       
       // 데이터 로딩 완료 후 스크롤 위치 복원
       await nextTick();
@@ -741,7 +741,7 @@ const showToast = (message: string, type: 'success' | 'error' = 'success'): void
   toastType.value = type;
   toastVisible.value = true;
   
-  setTimeout(() => {
+  createTimer(() => {
     toastVisible.value = false;
   }, 3000);
 };
@@ -751,19 +751,47 @@ onMounted(() => {
   loadDeliveryData();
 });
 
+// Clean up all timers when component unmounts
+onBeforeUnmount(() => {
+  // Clear all pending SMS timers
+  Object.keys(pendingSmsTimers.value).forEach(key => {
+    clearPendingSmsTimer(parseInt(key));
+  });
+  
+  // Clear any remaining timers
+  allTimers.value.forEach(timerId => {
+    clearTimeout(timerId);
+  });
+  
+  allTimers.value.clear();
+  console.log('StaffMobileView: All timers cleaned up on unmount');
+});
+
 // UNDO & quick actions
 const undoVisible = ref(false);
 const lastUpdatedRowIndex = ref<number | null>(null);
 const lastPreviousStatus = ref<string>('');
 const lastAppliedStatus = ref<string>('');
 
-// Delayed-SMS scheduling per row
+// Timer management for memory leak prevention
+const allTimers = ref<Set<number>>(new Set());
 const pendingSmsTimers = ref<Record<number, number>>({});
+
+const createTimer = (callback: () => void, delay: number): number => {
+  const timerId = window.setTimeout(callback, delay);
+  allTimers.value.add(timerId);
+  return timerId;
+};
+
+const clearTimer = (timerId: number): void => {
+  clearTimeout(timerId);
+  allTimers.value.delete(timerId);
+};
 
 const clearPendingSmsTimer = (rowIndex: number): void => {
   const timers = pendingSmsTimers.value;
   if (timers[rowIndex]) {
-    clearTimeout(timers[rowIndex]);
+    clearTimer(timers[rowIndex]);
     delete timers[rowIndex];
   }
 };
@@ -773,7 +801,7 @@ const scheduleDelayedSms = (rowIndex: number, status: string): void => {
   clearPendingSmsTimer(rowIndex);
   // Match snackbar timeout (5s) + small buffer
   const delayMs = 5200;
-  pendingSmsTimers.value[rowIndex] = window.setTimeout(async () => {
+  const timerId = createTimer(async () => {
     try {
       // If the row's current status is still the same, trigger SMS only
       const idx = deliveryOrders.value.findIndex(o => o.rowIndex === rowIndex);
@@ -796,6 +824,8 @@ const scheduleDelayedSms = (rowIndex: number, status: string): void => {
       clearPendingSmsTimer(rowIndex);
     }
   }, delayMs);
+  
+  pendingSmsTimers.value[rowIndex] = timerId;
 };
 
 const sanitizePhone = (value: string): string => (value || '').replace(/[^\d+]/g, '');
@@ -826,7 +856,7 @@ const openNaverMap = (address: string): void => {
       window.location.href = mobileUrl;
       
       // 2초 후에도 페이지가 변경되지 않으면 웹으로 이동
-      setTimeout(() => {
+      createTimer(() => {
         if (document.hasFocus()) {
           window.open(webUrl, '_blank');
         }
@@ -859,7 +889,7 @@ const openKakaoMap = (address: string): void => {
       window.location.href = mobileUrl;
       
       // 2초 후에도 페이지가 변경되지 않으면 웹으로 이동
-      setTimeout(() => {
+      createTimer(() => {
         if (document.hasFocus()) {
           window.open(webUrl, '_blank');
         }
