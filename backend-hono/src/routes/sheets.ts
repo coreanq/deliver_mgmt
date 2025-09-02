@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { GoogleSheetsService } from '../services/googleSheets';
 import { UnifiedUserService } from '../services/unifiedUserService';
 import { requireGoogleAuth } from '../middleware/auth';
-import type { Env, ApiResponse, GoogleTokens, Variables, QRTokenPayload } from '../types';
+import type { Env, ApiResponse, GoogleTokens, Variables, QRTokenPayload, DeliveryStatus } from '../types';
 import crypto from 'crypto';
 
 const sheets = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -504,7 +504,11 @@ sheets.put('/data/:date/status', async (c) => {
   }
 
   try {
-    const { rowIndex, status } = await c.req.json();
+    const body = await c.req.json();
+    const rowIndex = body.rowIndex as number;
+    const status = body.status as string;
+    const suppressSms = Boolean(body.suppressSms);
+    const triggerSmsOnly = Boolean(body.triggerSmsOnly);
 
     if (!rowIndex || !status) {
       return c.json({
@@ -642,28 +646,49 @@ sheets.put('/data/:date/status', async (c) => {
     
     const firstSheetName = sheets[0].title;
 
-    await sheetsService.updateDeliveryStatus(
-      dateSpreadsheet.id,
-      firstSheetName,
-      rowIndex,
-      status
-    );
-    
-    // Check automation rules and send SMS directly
-    try {
-      const unifiedUserService = c.get('unifiedUserService');
-      await checkAndSendAutomationSMS(
-        c.env,
-        unifiedUserService,
+    if (triggerSmsOnly) {
+      // Only trigger SMS automation without updating the sheet
+      try {
+        const unifiedUserService = c.get('unifiedUserService');
+        await checkAndSendAutomationSMS(
+          c.env,
+          unifiedUserService,
+          dateSpreadsheet.id,
+          firstSheetName,
+          rowIndex,
+          status,
+          sheetsService
+        );
+      } catch (smsError) {
+        console.error('SMS automation failed (triggerSmsOnly):', smsError);
+      }
+    } else {
+      await sheetsService.updateDeliveryStatus(
         dateSpreadsheet.id,
         firstSheetName,
         rowIndex,
-        status,
-        sheetsService
+        status as DeliveryStatus
       );
-    } catch (smsError) {
-      console.error('SMS automation failed:', smsError);
-      // Don't fail the status update if SMS fails
+      // Check automation rules and send SMS directly (skip when explicitly suppressed)
+      if (!suppressSms) {
+        try {
+          const unifiedUserService = c.get('unifiedUserService');
+          await checkAndSendAutomationSMS(
+            c.env,
+            unifiedUserService,
+            dateSpreadsheet.id,
+            firstSheetName,
+            rowIndex,
+            status,
+            sheetsService
+          );
+        } catch (smsError) {
+          console.error('SMS automation failed:', smsError);
+          // Don't fail the status update if SMS fails
+        }
+      } else {
+        console.log('[Status Update] SMS suppressed by client request');
+      }
     }
     
     return c.json({

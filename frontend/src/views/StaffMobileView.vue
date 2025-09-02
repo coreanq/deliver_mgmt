@@ -589,6 +589,9 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
   // 현재 스크롤 위치 저장
   const scrollPosition = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
   
+  // Clear any pending SMS for this row before updating to a new status
+  clearPendingSmsTimer(rowIndex);
+
   updatingOrders.value[rowIndex] = true;
   
   // Optimistic update
@@ -621,6 +624,7 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
         body: JSON.stringify({
           rowIndex: rowIndex,
           status: newStatus,
+          suppressSms: true,
         }),
       }
     );
@@ -639,6 +643,13 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
         top: scrollPosition,
         behavior: 'smooth'
       });
+
+      // Schedule delayed SMS trigger after UNDO window if not undone
+      try {
+        scheduleDelayedSms(rowIndex, newStatus);
+      } catch (e) {
+        console.warn('Failed to schedule delayed SMS:', e);
+      }
     } else {
       error.value = result.message || '상태 업데이트에 실패했습니다.';
       showToast('상태 업데이트에 실패했습니다.', 'error');
@@ -746,27 +757,129 @@ const lastUpdatedRowIndex = ref<number | null>(null);
 const lastPreviousStatus = ref<string>('');
 const lastAppliedStatus = ref<string>('');
 
+// Delayed-SMS scheduling per row
+const pendingSmsTimers = ref<Record<number, number>>({});
+
+const clearPendingSmsTimer = (rowIndex: number): void => {
+  const timers = pendingSmsTimers.value;
+  if (timers[rowIndex]) {
+    clearTimeout(timers[rowIndex]);
+    delete timers[rowIndex];
+  }
+};
+
+const scheduleDelayedSms = (rowIndex: number, status: string): void => {
+  // Clear any previous timer for the same row
+  clearPendingSmsTimer(rowIndex);
+  // Match snackbar timeout (5s) + small buffer
+  const delayMs = 5200;
+  pendingSmsTimers.value[rowIndex] = window.setTimeout(async () => {
+    try {
+      // If the row's current status is still the same, trigger SMS only
+      const idx = deliveryOrders.value.findIndex(o => o.rowIndex === rowIndex);
+      if (idx >= 0) {
+        const current = (deliveryOrders.value[idx] as any)[statusColumn.value];
+        if (current === status) {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (qrToken.value) headers['Authorization'] = `Bearer ${qrToken.value}`;
+          await fetch(`${API_BASE_URL}/api/sheets/data/${dateString.value}/status`, {
+            method: 'PUT',
+            headers,
+            credentials: 'include',
+            body: JSON.stringify({ rowIndex, status, triggerSmsOnly: true })
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Delayed SMS trigger failed:', e);
+    } finally {
+      clearPendingSmsTimer(rowIndex);
+    }
+  }, delayMs);
+};
+
 const sanitizePhone = (value: string): string => (value || '').replace(/[^\d+]/g, '');
 const callPhone = (value: string): void => {
   const num = sanitizePhone(value);
   if (!num) return;
   window.location.href = `tel:${num}`;
 };
+// 모바일 기기 감지 함수
+const isMobileDevice = (): boolean => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 const openNaverMap = (address: string): void => {
   if (!address) return;
-  const url = `https://map.naver.com/v5/search/${encodeURIComponent(address)}`;
-  window.open(url, '_blank');
+  
+  const encodedAddress = encodeURIComponent(address);
+  
+  if (isMobileDevice()) {
+    // 모바일: 네이버 지도 앱 URL Scheme
+    const mobileUrl = `nmap://search?query=${encodedAddress}&appname=delivery_mgmt`;
+    
+    // 앱이 설치되지 않은 경우를 대비한 웹 URL
+    const webUrl = `https://m.map.naver.com/search2/search.naver?query=${encodedAddress}`;
+    
+    try {
+      // 먼저 앱 실행 시도
+      window.location.href = mobileUrl;
+      
+      // 2초 후에도 페이지가 변경되지 않으면 웹으로 이동
+      setTimeout(() => {
+        if (document.hasFocus()) {
+          window.open(webUrl, '_blank');
+        }
+      }, 2000);
+    } catch (error) {
+      // 앱 실행 실패 시 웹으로 이동
+      window.open(webUrl, '_blank');
+    }
+  } else {
+    // PC: 웹 URL
+    const webUrl = `https://map.naver.com/p/search/${encodedAddress}`;
+    window.open(webUrl, '_blank');
+  }
 };
 
 const openKakaoMap = (address: string): void => {
   if (!address) return;
-  const url = `https://map.kakao.com/?q=${encodeURIComponent(address)}`;
-  window.open(url, '_blank');
+  
+  const encodedAddress = encodeURIComponent(address);
+  
+  if (isMobileDevice()) {
+    // 모바일: 카카오맵 앱 URL Scheme
+    const mobileUrl = `kakaomap://search?q=${encodedAddress}`;
+    
+    // 앱이 설치되지 않은 경우를 대비한 웹 URL
+    const webUrl = `https://m.map.kakao.com/actions/searchView?q=${encodedAddress}`;
+    
+    try {
+      // 먼저 앱 실행 시도
+      window.location.href = mobileUrl;
+      
+      // 2초 후에도 페이지가 변경되지 않으면 웹으로 이동
+      setTimeout(() => {
+        if (document.hasFocus()) {
+          window.open(webUrl, '_blank');
+        }
+      }, 2000);
+    } catch (error) {
+      // 앱 실행 실패 시 웹으로 이동
+      window.open(webUrl, '_blank');
+    }
+  } else {
+    // PC: 웹 URL
+    const webUrl = `https://map.kakao.com/link/search/${encodedAddress}`;
+    window.open(webUrl, '_blank');
+  }
 };
 const undoLastStatusChange = async (): Promise<void> => {
   if (lastUpdatedRowIndex.value == null) { undoVisible.value = false; return; }
   const rowIndex = lastUpdatedRowIndex.value;
   const prev = lastPreviousStatus.value;
+  // Cancel any pending SMS for this row
+  clearPendingSmsTimer(rowIndex);
   const idx = deliveryOrders.value.findIndex(o => o.rowIndex === rowIndex);
   if (idx >= 0) { (deliveryOrders.value[idx] as any)[statusColumn.value] = prev; }
   undoVisible.value = false;
@@ -774,7 +887,7 @@ const undoLastStatusChange = async (): Promise<void> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (qrToken.value) headers['Authorization'] = `Bearer ${qrToken.value}`;
     await fetch(`${API_BASE_URL}/api/sheets/data/${dateString.value}/status`, {
-      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ rowIndex, status: prev })
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ rowIndex, status: prev, suppressSms: true })
     });
     showToast('이전 상태로 되돌렸습니다.');
   } catch (e) {
