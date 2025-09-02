@@ -713,12 +713,15 @@ sheets.put('/data/:date/status', async (c) => {
         }
       } else {
         console.log('[Status Update] SMS suppressed by client request');
-        // Clean up any other holds for this row (undo scenario)
+        // Clean up any other holds for this row (undo scenario),
+        // but keep the hold for the current status so delayed trigger can work.
         try {
           const prefix = `sms_hold:${date}:${rowIndex}:`;
           const list = await c.env.SESSIONS.list({ prefix });
           for (const k of list.keys) {
-            await c.env.SESSIONS.delete(k.name);
+            if (k.name !== smsHoldKey) {
+              await c.env.SESSIONS.delete(k.name);
+            }
           }
         } catch (e) {
           console.warn('Failed to cleanup SMS holds on suppress:', e);
