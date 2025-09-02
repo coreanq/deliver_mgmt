@@ -887,7 +887,7 @@ const undoLastStatusChange = async (): Promise<void> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (qrToken.value) headers['Authorization'] = `Bearer ${qrToken.value}`;
     await fetch(`${API_BASE_URL}/api/sheets/data/${dateString.value}/status`, {
-      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ rowIndex, status: prev, suppressSms: true })
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ rowIndex, status: prev, suppressSms: true, isUndo: true })
     });
     showToast('이전 상태로 되돌렸습니다.');
   } catch (e) {

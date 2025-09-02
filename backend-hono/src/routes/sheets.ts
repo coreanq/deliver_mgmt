@@ -509,6 +509,7 @@ sheets.put('/data/:date/status', async (c) => {
     const status = body.status as string;
     const suppressSms = Boolean(body.suppressSms);
     const triggerSmsOnly = Boolean(body.triggerSmsOnly);
+    const isUndo = Boolean(body.isUndo);
 
     if (!rowIndex || !status) {
       return c.json({
@@ -682,17 +683,20 @@ sheets.put('/data/:date/status', async (c) => {
         status as DeliveryStatus
       );
       // If client requested suppression, place a short-lived hold so a later trigger can decide
-      if (suppressSms) {
+      // BUT not for UNDO operations - UNDO should not create any SMS holds
+      if (suppressSms && !isUndo) {
         try {
           await c.env.SESSIONS.put(
             smsHoldKey,
             JSON.stringify({ status, createdAt: Date.now() }),
-            { expirationTtl: 20 }
+            { expirationTtl: 60 }
           );
           console.log('[Status Update] SMS immediate send suppressed; hold placed');
         } catch (e) {
           console.warn('Failed to place SMS hold:', e);
         }
+      } else if (isUndo) {
+        console.log('[Status Update] UNDO operation - no SMS hold created');
       }
       // Check automation rules and send SMS directly (skip when explicitly suppressed)
       if (!suppressSms) {
