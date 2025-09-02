@@ -43,9 +43,10 @@
 
     <!-- Loading State -->
     <v-row v-if="loading" class="mb-4">
-      <v-col cols="12" class="text-center">
-        <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-        <p class="mt-4">데이터 로딩 중...</p>
+      <v-col cols="12">
+        <v-skeleton-loader type="card" class="mb-3" />
+        <v-skeleton-loader type="card" class="mb-3" />
+        <v-skeleton-loader type="card" class="mb-3" />
       </v-col>
     </v-row>
 
@@ -158,13 +159,24 @@
               <div class="info-content">
                 <div class="info-header">
                   <p class="info-label">배송지:</p>
-                  <button 
-                    class="copy-btn"
-                    @click="copyToClipboard(getAddressValue(order), '배송지')"
-                  >
-                    <v-icon size="12">mdi-content-copy</v-icon>
-                    복사
-                  </button>
+                  <div class="info-actions">
+                    <button 
+                      class="copy-btn"
+                      @click="copyToClipboard(getAddressValue(order), '배송지')"
+                      aria-label="배송지 복사"
+                    >
+                      <v-icon size="12">mdi-content-copy</v-icon>
+                      복사
+                    </button>
+                    <button 
+                      class="copy-btn"
+                      @click="openMap(getAddressValue(order))"
+                      aria-label="지도 열기"
+                    >
+                      <v-icon size="12">mdi-map</v-icon>
+                      지도
+                    </button>
+                  </div>
                 </div>
                 <p class="address-text">
                   {{ getAddressValue(order) || '-' }}
@@ -183,13 +195,24 @@
                 <p class="info-label">고객 연락처:</p>
                 <div class="contact-row">
                   <span class="phone-number">{{ getPhoneValue(order) || '-' }}</span>
-                  <button 
-                    class="copy-btn"
-                    @click="copyToClipboard(getPhoneValue(order), '고객 연락처')"
-                  >
-                    <v-icon size="12">mdi-content-copy</v-icon>
-                    복사
-                  </button>
+                  <div class="info-actions">
+                    <button 
+                      class="copy-btn"
+                      @click="callPhone(getPhoneValue(order))"
+                      aria-label="전화 걸기"
+                    >
+                      <v-icon size="12">mdi-phone</v-icon>
+                      전화
+                    </button>
+                    <button 
+                      class="copy-btn"
+                      @click="copyToClipboard(getPhoneValue(order), '고객 연락처')"
+                      aria-label="연락처 복사"
+                    >
+                      <v-icon size="12">mdi-content-copy</v-icon>
+                      복사
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -309,6 +332,13 @@
     </div>
   </div>
   </div>
+  <!-- UNDO Snackbar -->
+  <v-snackbar v-model="undoVisible" :timeout="5000" location="bottom" color="grey-darken-3">
+    상태가 "{{ lastAppliedStatus }}"(으)로 변경되었습니다.
+    <template #actions>
+      <v-btn color="warning" variant="text" @click="undoLastStatusChange">되돌리기</v-btn>
+    </template>
+  </v-snackbar>
 </template>
 
 <script setup lang="ts">
@@ -556,6 +586,17 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
   
   updatingOrders.value[rowIndex] = true;
   
+  // Optimistic update
+  const localIndex = deliveryOrders.value.findIndex(o => o.rowIndex === rowIndex);
+  const prevStatus = localIndex >= 0 ? (deliveryOrders.value[localIndex] as any)[statusColumn.value] : undefined;
+  if (localIndex >= 0) {
+    (deliveryOrders.value[localIndex] as any)[statusColumn.value] = newStatus;
+  }
+  lastUpdatedRowIndex.value = rowIndex;
+  lastPreviousStatus.value = prevStatus || '';
+  lastAppliedStatus.value = newStatus;
+  undoVisible.value = true;
+  
   try {
     // Prepare headers with QR token if available
     const requestHeaders: { [key: string]: string } = {
@@ -584,8 +625,8 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
     if (result.success) {
       console.log(`Status updated for row ${rowIndex}: ${newStatus}`);
       showToast(`배송 상태가 "${newStatus}"로 변경되었습니다!`);
-      // Refresh data from server to sync with spreadsheet
-      await loadDeliveryData();
+      // Light refresh so UNDO remains visible briefly
+      setTimeout(() => { loadDeliveryData(); }, 800);
       
       // 데이터 로딩 완료 후 스크롤 위치 복원
       await nextTick();
@@ -596,10 +637,20 @@ const updateOrderStatus = async (order: any, newStatus: string): Promise<void> =
     } else {
       error.value = result.message || '상태 업데이트에 실패했습니다.';
       showToast('상태 업데이트에 실패했습니다.', 'error');
+      // rollback optimistic update
+      if (typeof localIndex !== 'undefined' && localIndex >= 0 && typeof prevStatus !== 'undefined') {
+        (deliveryOrders.value[localIndex] as any)[statusColumn.value] = prevStatus as string;
+      }
+      undoVisible.value = false;
     }
   } catch (err) {
     console.error('Failed to update status:', err);
     error.value = '상태 업데이트 중 오류가 발생했습니다.';
+    // rollback optimistic update
+    if (typeof localIndex !== 'undefined' && localIndex >= 0 && typeof prevStatus !== 'undefined') {
+      (deliveryOrders.value[localIndex] as any)[statusColumn.value] = prevStatus as string;
+    }
+    undoVisible.value = false;
   } finally {
     updatingOrders.value[rowIndex] = false;
   }
@@ -683,6 +734,45 @@ const showToast = (message: string, type: 'success' | 'error' = 'success'): void
 onMounted(() => {
   loadDeliveryData();
 });
+
+// UNDO & quick actions
+const undoVisible = ref(false);
+const lastUpdatedRowIndex = ref<number | null>(null);
+const lastPreviousStatus = ref<string>('');
+const lastAppliedStatus = ref<string>('');
+
+const sanitizePhone = (value: string): string => (value || '').replace(/[^\d+]/g, '');
+const callPhone = (value: string): void => {
+  const num = sanitizePhone(value);
+  if (!num) return;
+  window.location.href = `tel:${num}`;
+};
+const openMap = (address: string): void => {
+  if (!address) return;
+  const url = `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+  window.open(url, '_blank');
+};
+const undoLastStatusChange = async (): Promise<void> => {
+  if (lastUpdatedRowIndex.value == null) { undoVisible.value = false; return; }
+  const rowIndex = lastUpdatedRowIndex.value;
+  const prev = lastPreviousStatus.value;
+  const idx = deliveryOrders.value.findIndex(o => o.rowIndex === rowIndex);
+  if (idx >= 0) { (deliveryOrders.value[idx] as any)[statusColumn.value] = prev; }
+  undoVisible.value = false;
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (qrToken.value) headers['Authorization'] = `Bearer ${qrToken.value}`;
+    await fetch(`${API_BASE_URL}/api/sheets/data/${dateString.value}/status`, {
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify({ rowIndex, status: prev })
+    });
+    showToast('이전 상태로 되돌렸습니다.');
+  } catch (e) {
+    console.error('Failed to undo status:', e);
+    showToast('되돌리기에 실패했습니다.', 'error');
+  } finally {
+    lastUpdatedRowIndex.value = null; lastPreviousStatus.value = ''; lastAppliedStatus.value = '';
+  }
+};
 </script>
 
 <style scoped>
@@ -983,6 +1073,11 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+}
+
+.info-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* 주소 텍스트 */

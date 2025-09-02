@@ -985,6 +985,9 @@ const staffList = ref<{ name: string }[]>([
 // Calendar and data management
 const selectedDate = ref<Date | null>(null);
 const selectedDateString = ref<string>('');
+// Abort/cancel handling for concurrent sheet loads
+let sheetLoadAbort: AbortController | null = null;
+let sheetLoadSeq = 0;
 const sheetData = ref<any[]>([]);
 const sheetDataByStaff = ref<{ [staffName: string]: any[] }>({});
 const dynamicHeaders = ref<string[]>([]);
@@ -1514,7 +1517,6 @@ const selectDate = (date: any): void => {
   
   selectedDate.value = date.date;
   selectedDateString.value = formatDateToYYYYMMDD(date.date);
-  loadSheetData(selectedDateString.value);
 };
 
 const formatDateToYYYYMMDD = (date: Date): string => {
@@ -1546,7 +1548,12 @@ const getSessionHeaders = (): HeadersInit => {
 
 const loadSheetData = async (dateString: string): Promise<void> => {
   if (!dateString) return;
-  
+
+  const mySeq = ++sheetLoadSeq;
+  if (sheetLoadAbort) { try { sheetLoadAbort.abort(); } catch { /* noop */ } }
+  sheetLoadAbort = new AbortController();
+  const signal = sheetLoadAbort.signal;
+
   dataLoading.value = true;
   try {
     // Load data grouped by staff
@@ -1554,11 +1561,13 @@ const loadSheetData = async (dateString: string): Promise<void> => {
       method: 'GET',
       credentials: 'include',
       headers: getSessionHeaders(),
+      signal,
     });
     
     const staffResult = await staffResponse.json();
     
     if (staffResult.success) {
+      if (mySeq !== sheetLoadSeq) return;
       sheetDataByStaff.value = staffResult.data.ordersByStaff || {};
       dynamicHeaders.value = staffResult.headers || [];
       currentSpreadsheetId.value = staffResult.data.spreadsheetId || ''; // spreadsheetId 저장
@@ -1586,11 +1595,13 @@ const loadSheetData = async (dateString: string): Promise<void> => {
         method: 'GET',
         credentials: 'include',
         headers: getSessionHeaders(),
+        signal,
       });
       
       const result = await response.json();
       
       if (result.success) {
+        if (mySeq !== sheetLoadSeq) return;
         sheetData.value = result.data.orders || result.data || [];
         dynamicHeaders.value = result.headers || [];
         currentSpreadsheetId.value = result.data.spreadsheetId || ''; // spreadsheetId 저장
@@ -1609,14 +1620,18 @@ const loadSheetData = async (dateString: string): Promise<void> => {
         console.warn('No data found for date:', dateString, result.message);
       }
     }
-  } catch (error) {
-    console.error('Failed to load sheet data:', error);
-    sheetData.value = [];
-    sheetDataByStaff.value = {};
-    dynamicHeaders.value = [];
-    staffList.value = [];
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      // previous request aborted
+    } else {
+      console.error('Failed to load sheet data:', error);
+      sheetData.value = [];
+      sheetDataByStaff.value = {};
+      dynamicHeaders.value = [];
+      staffList.value = [];
+    }
   } finally {
-    dataLoading.value = false;
+    if (mySeq === sheetLoadSeq) dataLoading.value = false;
   }
 };
 

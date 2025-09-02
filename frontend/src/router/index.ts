@@ -16,11 +16,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Admin',
     component: () => import('../views/AdminView.vue'),
   },
-  {
-    path: '/delivery',
-    name: 'Delivery',
-    component: () => import('../views/DeliveryView.vue'),
-  },
+  // Delivery (legacy) and Test routes are dev-only; injected below
   {
     path: '/delivery/auth',
     name: 'DeliveryAuth',
@@ -32,16 +28,27 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/StaffMobileView.vue'),
   },
   {
-    path: '/test',
-    name: 'Test',
-    component: () => import('../views/TestView.vue'),
-  },
-  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('../views/NotFoundView.vue'),
   },
 ];
+
+// Conditionally include dev-only routes
+if (import.meta.env.DEV) {
+  routes.splice(routes.length - 1, 0,
+    {
+      path: '/delivery',
+      name: 'Delivery',
+      component: () => import('../views/DeliveryView.vue'),
+    },
+    {
+      path: '/test',
+      name: 'Test',
+      component: () => import('../views/TestView.vue'),
+    }
+  );
+}
 
 const router = createRouter({
   history: createWebHistory(),

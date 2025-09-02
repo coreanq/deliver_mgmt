@@ -115,9 +115,12 @@ app.notFound((c) => {
 
 // Error handler
 app.onError((err, c) => {
-  console.error('Error:', err);
+  const correlationId = `ERR-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  console.error(`[${correlationId}] Error:`, err);
   return c.json({
     success: false,
+    code: 'INTERNAL_ERROR',
+    correlationId,
     message: '서버 내부 오류가 발생했습니다.',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined,
   }, 500);
