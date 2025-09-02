@@ -1,5 +1,28 @@
 import type { Env, UnifiedUserData, GoogleTokens, AutomationRule } from '../types';
 
+// Constants
+const MAX_AUTOMATION_RULES = 20;
+
+/**
+ * 타입 가드 함수들
+ */
+function isUnifiedUserData(obj: any): obj is UnifiedUserData {
+  return obj && 
+         typeof obj === 'object' && 
+         typeof obj.email === 'string' && 
+         typeof obj.emailHash === 'string' &&
+         obj.googleTokens &&
+         typeof obj.createdAt === 'string';
+}
+
+function isSessionMetadata(obj: any): obj is { email: string; sessionId: string; createdAt: string } {
+  return obj && 
+         typeof obj === 'object' && 
+         typeof obj.email === 'string' && 
+         typeof obj.sessionId === 'string' && 
+         typeof obj.createdAt === 'string';
+}
+
 /**
  * 통합 사용자 데이터 관리 서비스
  * Google 인증정보, SOLAPI 인증정보, 자동화 룰을 하나의 키로 관리
@@ -39,7 +62,13 @@ export class UnifiedUserService {
       
       if (!userData) return null;
       
-      return JSON.parse(userData) as UnifiedUserData;
+      const parsed = JSON.parse(userData);
+      if (!isUnifiedUserData(parsed)) {
+        console.error('Invalid user data structure:', parsed);
+        return null;
+      }
+      
+      return parsed;
     } catch (error) {
       console.error('Failed to get user data:', error);
       return null;
@@ -155,9 +184,9 @@ export class UnifiedUserService {
 
     console.log(`[DEBUG] Current automation rules count: ${userData.automationRules.length}`);
 
-    // 최대 20개 제한 확인
-    if (userData.automationRules.length >= 20) {
-      throw new Error('자동화 규칙은 최대 20개까지만 저장할 수 있습니다.');
+    // 최대 개수 제한 확인
+    if (userData.automationRules.length >= MAX_AUTOMATION_RULES) {
+      throw new Error(`자동화 규칙은 최대 ${MAX_AUTOMATION_RULES}개까지만 저장할 수 있습니다.`);
     }
 
     // 룰에 사용자 이메일 설정
@@ -228,8 +257,12 @@ export class UnifiedUserService {
       const sessionData = await this.env.SESSIONS.get(sessionId);
       if (!sessionData) return null;
       
-      const session = JSON.parse(sessionData);
-      return session.email || null;
+      const parsed = JSON.parse(sessionData);
+      if (!isSessionMetadata(parsed)) {
+        console.error('Invalid session metadata structure:', parsed);
+        return null;
+      }
+      return parsed.email;
     } catch (error) {
       console.error('Failed to get email from session:', error);
       return null;
@@ -288,6 +321,71 @@ export class UnifiedUserService {
   }
 
   /**
+   * 관리자 세션 인덱스 관리 - 보안 최적화를 위해 추가
+   */
+  async addAdminSessionToIndex(email: string, sessionId: string): Promise<void> {
+    try {
+      const indexKey = 'admin_sessions_index';
+      const sessionData = {
+        email,
+        sessionId,
+        createdAt: new Date().toISOString()
+      };
+      
+      await this.env.SESSIONS.put(`${indexKey}:${email}`, JSON.stringify(sessionData), {
+        expirationTtl: 86400 // 24시간
+      });
+    } catch (error) {
+      console.error('Failed to add admin session to index:', error);
+    }
+  }
+
+  async getValidAdminSession(): Promise<GoogleTokens | null> {
+    try {
+      const indexPrefix = 'admin_sessions_index:';
+      const kvKeys = await this.env.SESSIONS.list({ prefix: indexPrefix });
+      
+      for (const key of kvKeys.keys) {
+        try {
+          const sessionDataStr = await this.env.SESSIONS.get(key.name);
+          if (!sessionDataStr) continue;
+          
+          const parsed = JSON.parse(sessionDataStr);
+          if (!isSessionMetadata(parsed)) {
+            console.error('Invalid admin session metadata structure:', parsed);
+            continue;
+          }
+          const userData = await this.getUserData(parsed.email);
+          
+          if (userData?.googleTokens?.accessToken && userData.googleTokens?.refreshToken) {
+            // 토큰 만료 확인
+            const expiryDate = userData.googleTokens.expiryDate;
+            if (!expiryDate || new Date(expiryDate) > new Date()) {
+              return userData.googleTokens;
+            }
+          }
+        } catch (e) {
+          console.error(`Error checking admin session ${key.name}:`, e);
+          continue;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get valid admin session:', error);
+      return null;
+    }
+  }
+
+  async removeAdminSessionFromIndex(email: string): Promise<void> {
+    try {
+      const indexKey = `admin_sessions_index:${email}`;
+      await this.env.SESSIONS.delete(indexKey);
+    } catch (error) {
+      console.error('Failed to remove admin session from index:', error);
+    }
+  }
+
+  /**
    * 웹훅용 자동화 사용자 인덱스에 추가
    */
   private async addToAutomationIndex(email: string): Promise<void> {
@@ -297,7 +395,13 @@ export class UnifiedUserService {
       let userEmails: string[] = [];
       
       if (indexData) {
-        userEmails = JSON.parse(indexData);
+        const parsed = JSON.parse(indexData);
+        if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+          userEmails = parsed;
+        } else {
+          console.error('Invalid automation index structure, resetting:', parsed);
+          userEmails = [];
+        }
       }
       
       // 이미 있으면 추가하지 않음
@@ -323,8 +427,12 @@ export class UnifiedUserService {
       
       if (!indexData) return;
       
-      let userEmails: string[] = JSON.parse(indexData);
-      userEmails = userEmails.filter(userEmail => userEmail !== email.toLowerCase());
+      const parsed = JSON.parse(indexData);
+      if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'string')) {
+        console.error('Invalid automation index structure, cannot remove:', parsed);
+        return;
+      }
+      const userEmails = parsed.filter(userEmail => userEmail !== email.toLowerCase());
       
       await this.env.SESSIONS.put(indexKey, JSON.stringify(userEmails), {
         expirationTtl: 31536000 // 1년
@@ -345,7 +453,12 @@ export class UnifiedUserService {
       
       if (!indexData) return [];
       
-      return JSON.parse(indexData) as string[];
+      const parsed = JSON.parse(indexData);
+      if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'string')) {
+        console.error('Invalid automation user emails structure:', parsed);
+        return [];
+      }
+      return parsed;
     } catch (error) {
       console.error('Failed to get automation user emails:', error);
       return [];
@@ -413,8 +526,12 @@ export class UnifiedUserService {
       
       if (!sessionData) return null;
       
-      const session = JSON.parse(sessionData);
-      const email = session.email;
+      const parsed = JSON.parse(sessionData);
+      if (!isSessionMetadata(parsed)) {
+        console.error('Invalid session metadata structure:', parsed);
+        return null;
+      }
+      const email = parsed.email;
       
       if (!email) return null;
       

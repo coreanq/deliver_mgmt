@@ -58,6 +58,8 @@ export interface QRTokenPayload {
   staffName: string;
   timestamp: number;
   hash: string;
+  date?: string;
+  exp?: number; // JWT standard expiration field
 }
 
 // Automation Types

@@ -6,6 +6,62 @@ import { requireGoogleAuth } from '../middleware/auth';
 import type { Env, ApiResponse, GoogleTokens, Variables, QRTokenPayload, DeliveryStatus } from '../types';
 import crypto from 'crypto';
 
+/**
+ * Common QR token verification function
+ */
+async function verifyQRToken(
+  token: string,
+  expectedStaff: string | null,
+  jwtSecret: string,
+  unifiedUserService: any
+): Promise<{ isValid: boolean; sessionData?: GoogleTokens; error?: string }> {
+  try {
+    // Verify and decode JWT token
+    const decoded = jwt.verify(token, jwtSecret) as QRTokenPayload;
+    
+    // Verify token age (24 hours max)
+    const now = Date.now();
+    const tokenAge = now - decoded.timestamp;
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    
+    if (tokenAge > maxAge) {
+      return { isValid: false, error: '토큰이 만료되었습니다.' };
+    }
+    
+    // Verify hash
+    const expectedHash = crypto
+      .createHash('sha256')
+      .update(`${decoded.staffName}-${decoded.timestamp}`)
+      .digest('hex');
+
+    if (decoded.hash !== expectedHash) {
+      return { isValid: false, error: '유효하지 않은 토큰입니다.' };
+    }
+    
+    // Verify staff name matches (only if expectedStaff is provided)
+    if (expectedStaff && decoded.staffName !== expectedStaff) {
+      return { isValid: false, error: '토큰의 담당자 정보가 일치하지 않습니다.' };
+    }
+    
+    // Get valid admin session
+    const adminSessionData = await unifiedUserService.getValidAdminSession();
+    if (!adminSessionData) {
+      return { 
+        isValid: false, 
+        error: '유효한 관리자 세션을 찾을 수 없습니다. 관리자가 먼저 Google 인증을 완료해주세요.' 
+      };
+    }
+    
+    return { isValid: true, sessionData: adminSessionData };
+    
+  } catch (error: any) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return { isValid: false, error: '유효하지 않거나 만료된 토큰입니다.' };
+    }
+    throw error;
+  }
+}
+
 const sheets = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Global middleware - creates one instance per request
@@ -340,107 +396,32 @@ sheets.get('/date/:date/staff/:staffName', async (c) => {
 
     if (token) {
       console.log(`QR token provided for staff access: ${staffName}`);
-      // QR token authentication
+      // Use common QR token verification function
       try {
-        const decoded = jwt.verify(token, c.env.JWT_SECRET || 'fallback-jwt-secret') as QRTokenPayload;
+        const unifiedUserService = c.get('unifiedUserService');
+        const verificationResult = await verifyQRToken(
+          token,
+          staffName,
+          c.env.JWT_SECRET || 'fallback-jwt-secret',
+          unifiedUserService
+        );
         
-        // Additional validation
-        const now = Date.now();
-        const tokenAge = now - decoded.timestamp;
-        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-        
-        if (tokenAge > maxAge) {
+        if (!verificationResult.isValid) {
           return c.json({
             success: false,
-            message: '토큰이 만료되었습니다.',
+            message: verificationResult.error || 'QR 토큰 검증에 실패했습니다.',
           } as ApiResponse, 401);
         }
-
-        // Verify hash
-        const expectedHash = crypto
-          .createHash('sha256')
-          .update(`${decoded.staffName}-${decoded.timestamp}`)
-          .digest('hex');
-
-        if (decoded.hash !== expectedHash) {
-          return c.json({
-            success: false,
-            message: '유효하지 않은 토큰입니다.',
-          } as ApiResponse, 401);
-        }
-
-        // Verify staff name matches token
-        if (decoded.staffName !== staffName) {
-          return c.json({
-            success: false,
-            message: '토큰의 담당자 정보가 일치하지 않습니다.',
-          } as ApiResponse, 401);
-        }
-
-        // For QR token, we need to find an active admin session using UnifiedUserService
-        let adminSessionData = null;
         
-        try {
-          const unifiedUserService = c.get('unifiedUserService');
-          const kvKeys = await c.env.SESSIONS.list();
-          
-          console.log(`Searching for admin session among ${kvKeys.keys.length} sessions`);
-          
-          for (const key of kvKeys.keys) {
-            try {
-              const sessionDataStr = await c.env.SESSIONS.get(key.name);
-              if (sessionDataStr) {
-                const sessionMetadata = JSON.parse(sessionDataStr);
-                console.log(`Checking session ${key.name}:`, { email: sessionMetadata.email });
-                
-                // Get full user data from unified storage
-                if (sessionMetadata.email) {
-                  const userData = await unifiedUserService.getUserData(sessionMetadata.email);
-                  if (userData && userData.googleTokens?.accessToken && userData.googleTokens?.refreshToken) {
-                    // Verify the token is not expired
-                    const expiryDate = userData.googleTokens.expiryDate;
-                    if (!expiryDate || new Date(expiryDate) > new Date()) {
-                      adminSessionData = userData.googleTokens;
-                      console.log(`Found valid admin session for: ${sessionMetadata.email}`);
-                      break;
-                    } else {
-                      console.log(`Admin session expired for: ${sessionMetadata.email}`);
-                    }
-                  }
-                }
-              }
-            } catch (e) {
-              console.error(`Error parsing session ${key.name}:`, e);
-              continue;
-            }
-          }
-          
-          if (!adminSessionData) {
-            return c.json({
-              success: false,
-              message: '유효한 관리자 세션을 찾을 수 없습니다. 관리자가 먼저 Google 인증을 완료해주세요.',
-            } as ApiResponse, 401);
-          }
-          
-          sessionData = adminSessionData;
-          console.log(`Using admin Google tokens for QR token access: ${staffName}`);
-          
-        } catch (error: any) {
-          console.error('Failed to find admin session:', error);
-          return c.json({
-            success: false,
-            message: '관리자 인증 확인 중 오류가 발생했습니다.',
-          } as ApiResponse, 500);
-        }
+        sessionData = verificationResult.sessionData;
+        console.log(`Using admin Google tokens for QR token access: ${staffName}`);
         
       } catch (error: any) {
-        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-          return c.json({
-            success: false,
-            message: '유효하지 않거나 만료된 토큰입니다.',
-          } as ApiResponse, 401);
-        }
-        throw error;
+        console.error('Failed to verify QR token:', error);
+        return c.json({
+          success: false,
+          message: '토큰 검증 중 오류가 발생했습니다.',
+        } as ApiResponse, 500);
       }
     } else {
       // Google OAuth authentication (existing logic)
@@ -523,99 +504,32 @@ sheets.put('/data/:date/status', async (c) => {
     let sessionData: any;
 
     if (token) {
-      // QR token authentication
+      // Use common QR token verification function (no staff name check for status updates)
       try {
-        const decoded = jwt.verify(token, c.env.JWT_SECRET || 'fallback-jwt-secret') as QRTokenPayload;
+        const unifiedUserService = c.get('unifiedUserService');
+        const verificationResult = await verifyQRToken(
+          token,
+          null, // No staff name check for status updates
+          c.env.JWT_SECRET || 'fallback-jwt-secret',
+          unifiedUserService
+        );
         
-        // Additional validation
-        const now = Date.now();
-        const tokenAge = now - decoded.timestamp;
-        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-        
-        if (tokenAge > maxAge) {
+        if (!verificationResult.isValid) {
           return c.json({
             success: false,
-            message: '토큰이 만료되었습니다.',
+            message: verificationResult.error || 'QR 토큰 검증에 실패했습니다.',
           } as ApiResponse, 401);
         }
-
-        // Verify hash
-        const expectedHash = crypto
-          .createHash('sha256')
-          .update(`${decoded.staffName}-${decoded.timestamp}`)
-          .digest('hex');
-
-        if (decoded.hash !== expectedHash) {
-          return c.json({
-            success: false,
-            message: '유효하지 않은 토큰입니다.',
-          } as ApiResponse, 401);
-        }
-
-        // For QR token, we need to find an active admin session using UnifiedUserService
-        let adminSessionData = null;
         
-        try {
-          const unifiedUserService = new UnifiedUserService(c.env);
-          const kvKeys = await c.env.SESSIONS.list();
-          
-          console.log(`[Status Update] Searching for admin session among ${kvKeys.keys.length} sessions`);
-          
-          for (const key of kvKeys.keys) {
-            try {
-              const sessionDataStr = await c.env.SESSIONS.get(key.name);
-              if (sessionDataStr) {
-                const sessionMetadata = JSON.parse(sessionDataStr);
-                console.log(`[Status Update] Checking session ${key.name}:`, { email: sessionMetadata.email });
-                
-                // Get full user data from unified storage
-                if (sessionMetadata.email) {
-                  const userData = await unifiedUserService.getUserData(sessionMetadata.email);
-                  if (userData && userData.googleTokens?.accessToken && userData.googleTokens?.refreshToken) {
-                    // Verify the token is not expired
-                    const expiryDate = userData.googleTokens.expiryDate;
-                    if (!expiryDate || new Date(expiryDate) > new Date()) {
-                      adminSessionData = userData.googleTokens;
-                      console.log(`[Status Update] Found valid admin session for: ${sessionMetadata.email}`);
-                      break;
-                    } else {
-                      console.log(`[Status Update] Admin session expired for: ${sessionMetadata.email}`);
-                    }
-                  }
-                }
-              }
-            } catch (e) {
-              console.error(`[Status Update] Error parsing session ${key.name}:`, e);
-              continue;
-            }
-          }
-          
-          if (!adminSessionData) {
-            return c.json({
-              success: false,
-              message: '유효한 관리자 세션을 찾을 수 없습니다. 관리자가 먼저 Google 인증을 완료해주세요.',
-            } as ApiResponse, 401);
-          }
-          
-          sessionData = adminSessionData;
-          console.log(`[Status Update] Using admin Google tokens for QR token`);
-          
-        } catch (error: any) {
-          console.error('Failed to find admin session:', error);
-          return c.json({
-            success: false,
-            message: '관리자 인증 확인 중 오류가 발생했습니다.',
-          } as ApiResponse, 500);
-        }
+        sessionData = verificationResult.sessionData;
+        console.log(`[Status Update] Using admin Google tokens for QR token`);
         
       } catch (error: any) {
-        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-          return c.json({
-            success: false,
-            message: '유효하지 않거나 만료된 토큰입니다.',
-          } as ApiResponse, 401);
-        }
-        throw error;
+        console.error('Failed to verify QR token:', error);
+        return c.json({
+          success: false,
+          message: '토큰 검증 중 오류가 발생했습니다.',
+        } as ApiResponse, 500);
       }
     } else {
       // Google OAuth authentication (existing logic)

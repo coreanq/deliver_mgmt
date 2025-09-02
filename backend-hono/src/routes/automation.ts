@@ -3,6 +3,10 @@ import { getCookie } from 'hono/cookie';
 import { UnifiedUserService } from '../services/unifiedUserService';
 import type { Env, ApiResponse, AutomationRule, AutomationTriggerEvent, Variables } from '../types';
 
+// Constants
+const MAX_AUTOMATION_RULES = 20;
+const SMS_BYTE_LIMIT = 90; // SMS vs LMS threshold
+
 const automation = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // UnifiedUserService 전역 설정
@@ -140,7 +144,7 @@ async function sendSMS(
   try {
     // 메시지 길이에 따라 SMS/LMS 자동 선택
     const messageBytes = Buffer.byteLength(message, 'utf8');
-    const messageType = messageBytes <= 90 ? 'SMS' : 'LMS';
+    const messageType = messageBytes <= SMS_BYTE_LIMIT ? 'SMS' : 'LMS';
     
     console.log(`Message length: ${messageBytes} bytes, using type: ${messageType}`);
     
@@ -324,10 +328,10 @@ automation.post('/rules', async (c) => {
     }
 
     try {
-      // 구조적 개선: 세션 기반 자동화 규칙 추가 (자동으로 20개 제한 체크)
+      // 구조적 개선: 세션 기반 자동화 규칙 추가 (자동으로 최대 제한 체크)
       await unifiedUserService.addAutomationRuleBySession(sessionId, newRule);
     } catch (error: any) {
-      if (error.message.includes('최대 20개')) {
+      if (error.message.includes(`최대 ${MAX_AUTOMATION_RULES}개`)) {
         return c.json({
           success: false,
           message: error.message,

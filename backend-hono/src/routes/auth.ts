@@ -117,6 +117,9 @@ auth.get('/google/callback', async (c) => {
     // 기존 이메일 기반 데이터도 업데이트 (웹훅 호환성 유지)
     await unifiedUserService.updateGoogleTokens(userEmail, googleTokens);
 
+    // 관리자 세션 인덱스에 추가 (보안 최적화)
+    await unifiedUserService.addAdminSessionToIndex(userEmail, sessionId);
+
     // Set secure httpOnly session cookie with SameSite=None for cross-domain
     console.log('Setting secure session cookie:', { sessionId: sessionId.substring(0, 8) + '...', httpOnly: true, secure: true });
     
@@ -384,6 +387,13 @@ auth.post('/logout', async (c) => {
     if (sessionId) {
       // 구조적 개선: 세션 기반 통합 데이터 정리
       const unifiedUserService = c.get('unifiedUserService');
+      
+      // 세션 데이터에서 이메일 추출하여 관리자 인덱스에서 제거
+      const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+      if (userData?.email) {
+        await unifiedUserService.removeAdminSessionFromIndex(userData.email);
+      }
+      
       await unifiedUserService.cleanupSessionData(sessionId);
     }
 
