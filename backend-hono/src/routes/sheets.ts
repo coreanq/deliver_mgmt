@@ -19,46 +19,30 @@ async function verifyQRToken(
   try {
     
     // Verify and decode JWT token
-    const decoded = jwt.verify(token, jwtSecret) as any;
+    const decoded = jwt.verify(token, jwtSecret) as QRTokenPayload;
     
-    // Check for new JWT format (with iat/exp) or old format (with timestamp/hash)
-    if (decoded.iat && decoded.exp) {
-      // New JWT format: { staffName, date, iat, exp }
-      
-      // JWT library already handles expiration check, so no need to manually check
-      // Verify staff name matches (only if expectedStaff is provided)
-      if (expectedStaff && decoded.staffName !== expectedStaff) {
-        return { isValid: false, error: '토큰의 담당자 정보가 일치하지 않습니다.' };
-      }
-    } else if (decoded.timestamp && decoded.hash) {
-      // Old format: { staffName, timestamp, hash }
-      
-      // Verify token age (24 hours max)
-      const now = Date.now();
-      const tokenAge = now - decoded.timestamp;
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-      
-      if (tokenAge > maxAge) {
-        return { isValid: false, error: '토큰이 만료되었습니다.' };
-      }
-      
-      // Verify hash
-      const expectedHash = crypto
-        .createHash('sha256')
-        .update(`${decoded.staffName}-${decoded.timestamp}`)
-        .digest('hex');
+    // Verify token age (24 hours max)
+    const now = Date.now();
+    const tokenAge = now - decoded.timestamp;
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    
+    if (tokenAge > maxAge) {
+      return { isValid: false, error: '토큰이 만료되었습니다.' };
+    }
+    
+    // Verify hash
+    const expectedHash = crypto
+      .createHash('sha256')
+      .update(`${decoded.staffName}-${decoded.timestamp}`)
+      .digest('hex');
 
-      if (decoded.hash !== expectedHash) {
-        return { isValid: false, error: '유효하지 않은 토큰입니다.' };
-      }
-      
-      // Verify staff name matches (only if expectedStaff is provided)
-      if (expectedStaff && decoded.staffName !== expectedStaff) {
-        return { isValid: false, error: '토큰의 담당자 정보가 일치하지 않습니다.' };
-      }
-    } else {
-      console.log(`[QR Token] Unknown token format:`, decoded);
-      return { isValid: false, error: '알 수 없는 토큰 형식입니다.' };
+    if (decoded.hash !== expectedHash) {
+      return { isValid: false, error: '유효하지 않은 토큰입니다.' };
+    }
+    
+    // Verify staff name matches (only if expectedStaff is provided)
+    if (expectedStaff && decoded.staffName !== expectedStaff) {
+      return { isValid: false, error: '토큰의 담당자 정보가 일치하지 않습니다.' };
     }
     
     // Get valid admin session
@@ -70,11 +54,9 @@ async function verifyQRToken(
       };
     }
     
-    console.log(`[QR Token] Verification successful for staff: ${decoded.staffName}`);
     return { isValid: true, sessionData: adminSessionData };
     
   } catch (error: any) {
-    console.log(`[QR Token] Error in verification: ${error.name}: ${error.message}`);
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
       return { isValid: false, error: '유효하지 않거나 만료된 토큰입니다.' };
     }
