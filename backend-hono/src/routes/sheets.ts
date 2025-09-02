@@ -646,19 +646,31 @@ sheets.put('/data/:date/status', async (c) => {
     
     const firstSheetName = sheets[0].title;
 
+    // Build KV key for short-lived SMS hold window
+    const statusKeyPart = encodeURIComponent(status);
+    const smsHoldKey = `sms_hold:${date}:${rowIndex}:${statusKeyPart}`;
+
     if (triggerSmsOnly) {
-      // Only trigger SMS automation without updating the sheet
+      // Only trigger SMS automation without updating the sheet.
+      // Guard with KV hold: send only if a hold exists (not canceled/expired).
       try {
-        const unifiedUserService = c.get('unifiedUserService');
-        await checkAndSendAutomationSMS(
-          c.env,
-          unifiedUserService,
-          dateSpreadsheet.id,
-          firstSheetName,
-          rowIndex,
-          status,
-          sheetsService
-        );
+        const hold = await c.env.SESSIONS.get(smsHoldKey);
+        if (!hold) {
+          console.log('[Status Update] triggerSmsOnly: no hold present, skipping SMS');
+        } else {
+          // Delete the hold first to avoid duplicate sends
+          await c.env.SESSIONS.delete(smsHoldKey);
+          const unifiedUserService = c.get('unifiedUserService');
+          await checkAndSendAutomationSMS(
+            c.env,
+            unifiedUserService,
+            dateSpreadsheet.id,
+            firstSheetName,
+            rowIndex,
+            status,
+            sheetsService
+          );
+        }
       } catch (smsError) {
         console.error('SMS automation failed (triggerSmsOnly):', smsError);
       }
@@ -669,6 +681,19 @@ sheets.put('/data/:date/status', async (c) => {
         rowIndex,
         status as DeliveryStatus
       );
+      // If client requested suppression, place a short-lived hold so a later trigger can decide
+      if (suppressSms) {
+        try {
+          await c.env.SESSIONS.put(
+            smsHoldKey,
+            JSON.stringify({ status, createdAt: Date.now() }),
+            { expirationTtl: 20 }
+          );
+          console.log('[Status Update] SMS immediate send suppressed; hold placed');
+        } catch (e) {
+          console.warn('Failed to place SMS hold:', e);
+        }
+      }
       // Check automation rules and send SMS directly (skip when explicitly suppressed)
       if (!suppressSms) {
         try {
@@ -688,6 +713,16 @@ sheets.put('/data/:date/status', async (c) => {
         }
       } else {
         console.log('[Status Update] SMS suppressed by client request');
+        // Clean up any other holds for this row (undo scenario)
+        try {
+          const prefix = `sms_hold:${date}:${rowIndex}:`;
+          const list = await c.env.SESSIONS.list({ prefix });
+          for (const k of list.keys) {
+            await c.env.SESSIONS.delete(k.name);
+          }
+        } catch (e) {
+          console.warn('Failed to cleanup SMS holds on suppress:', e);
+        }
       }
     }
     
