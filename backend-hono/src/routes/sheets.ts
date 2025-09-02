@@ -17,6 +17,7 @@ async function verifyQRToken(
   unifiedUserService: any
 ): Promise<{ isValid: boolean; sessionData?: GoogleTokens; error?: string }> {
   try {
+    
     // Verify and decode JWT token
     const decoded = jwt.verify(token, jwtSecret) as QRTokenPayload;
     
@@ -98,8 +99,12 @@ sheets.use('*', async (c, next) => {
   
   // Skip Google auth for staff data access if QR token is valid
   if (c.req.path.includes('/staff/') && c.req.method === 'GET') {
-    const token = c.req.header('Authorization')?.replace('Bearer ', '') || c.req.query('token');
+    const authHeader = c.req.header('Authorization');
+    const queryToken = c.req.query('token');
+    
+    const token = authHeader?.replace('Bearer ', '') || queryToken;
     if (token) {
+      
       // Validate QR token before allowing bypass
       try {
         const verification = await verifyQRToken(token, null, c.env.JWT_SECRET, unifiedUserService);
@@ -109,11 +114,12 @@ sheets.use('*', async (c, next) => {
           c.set('qrTokenValidated', true);
           await next();
           return;
+        } else {
         }
       } catch (error) {
-        console.error('QR token validation error:', error);
       }
       // If QR token is invalid, fall through to Google auth
+    } else {
     }
   }
   

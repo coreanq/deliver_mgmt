@@ -419,10 +419,11 @@ export class UnifiedUserService {
           const userData = await this.getUserData(parsed.email);
           
           if (userData?.googleTokens?.accessToken && userData.googleTokens?.refreshToken) {
-            // 토큰 만료 확인
+            // 토큰 만료 확인 - expiryDate가 없거나 현재 시간보다 나중이면 유효함
             const expiryDate = userData.googleTokens.expiryDate;
-            if (!expiryDate || new Date(expiryDate) > new Date()) {
+            if (!expiryDate || new Date(expiryDate).getTime() > Date.now()) {
               return userData.googleTokens;
+            } else {
             }
           }
         } catch (e) {

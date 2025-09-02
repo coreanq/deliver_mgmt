@@ -101,6 +101,7 @@ delivery.post('/qr/generate-mobile/:staffName/:date', async (c) => {
     // JWT payload
     const payload: QRTokenPayload = {
       staffName,
+      date,
       timestamp,
       hash,
     };
