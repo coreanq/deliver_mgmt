@@ -169,12 +169,17 @@
                       복사
                     </button>
                     <button 
-                      class="copy-btn"
-                      @click="openMap(getAddressValue(order))"
+                      class="copy-btn naver-btn"
+                      @click="openNaverMap(getAddressValue(order))"
                       aria-label="지도 열기"
                     >
                       <v-icon size="12">mdi-map</v-icon>
-                      지도
+                    </button>
+                    <button 
+                      class="copy-btn kakao-btn"
+                      @click="openKakaoMap(getAddressValue(order))"
+                    >
+                      <v-icon size="12">mdi-map</v-icon>
                     </button>
                   </div>
                 </div>
@@ -195,7 +200,7 @@
                 <p class="info-label">고객 연락처:</p>
                 <div class="contact-row">
                   <span class="phone-number">{{ getPhoneValue(order) || '-' }}</span>
-                  <div class="info-actions">
+                  <div class="info-actions reverse-actions">
                     <button 
                       class="copy-btn"
                       @click="callPhone(getPhoneValue(order))"
@@ -747,9 +752,15 @@ const callPhone = (value: string): void => {
   if (!num) return;
   window.location.href = `tel:${num}`;
 };
-const openMap = (address: string): void => {
+const openNaverMap = (address: string): void => {
   if (!address) return;
-  const url = `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+  const url = `https://map.naver.com/v5/search/${encodeURIComponent(address)}`;
+  window.open(url, '_blank');
+};
+
+const openKakaoMap = (address: string): void => {
+  if (!address) return;
+  const url = `https://map.kakao.com/?q=${encodeURIComponent(address)}`;
   window.open(url, '_blank');
 };
 const undoLastStatusChange = async (): Promise<void> => {
@@ -1078,6 +1089,28 @@ const undoLastStatusChange = async (): Promise<void> => {
 .info-actions {
   display: flex;
   gap: 8px;
+}
+
+.info-actions.reverse-actions {
+  flex-direction: row-reverse;
+}
+
+/* Map button labels: force visible text */
+.naver-btn, .kakao-btn {
+  font-size: 0; /* hide existing mojibake text nodes */
+}
+.naver-btn .v-icon, .kakao-btn .v-icon {
+  font-size: 12px; /* keep icon visible */
+}
+.naver-btn::after {
+  content: '네이버 지도';
+  font-size: 12px;
+  margin-left: 4px;
+}
+.kakao-btn::after {
+  content: '카카오 지도';
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 /* 주소 텍스트 */
