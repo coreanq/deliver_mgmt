@@ -1103,12 +1103,12 @@ const undoLastStatusChange = async (): Promise<void> => {
   font-size: 12px; /* keep icon visible */
 }
 .naver-btn::after {
-  content: '네이버 지도';
+  content: '네이버';
   font-size: 12px;
   margin-left: 4px;
 }
 .kakao-btn::after {
-  content: '카카오 지도';
+  content: '카카오';
   font-size: 12px;
   margin-left: 4px;
 }
