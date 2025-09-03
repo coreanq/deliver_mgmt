@@ -76,7 +76,7 @@ export class GoogleAuthService {
   /**
    * Exchange authorization code for tokens
    */
-  async getTokens(code: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async getTokens(code: string): Promise<{ accessToken: string; refreshToken: string; expiryDate: number }> {
     try {
       const { tokens } = await this.oauth2Client.getToken(code);
       
@@ -84,11 +84,18 @@ export class GoogleAuthService {
         throw new Error('Failed to obtain access or refresh token');
       }
 
-      console.log('Google OAuth tokens obtained successfully');
+      // Use actual expiry_date from Google response, fallback to 1 hour if not provided
+      const expiryDate = tokens.expiry_date || (Date.now() + (60 * 60 * 1000));
+
+      console.log('Google OAuth tokens obtained successfully', {
+        expiryDate: new Date(expiryDate).toISOString(),
+        expiresInSeconds: Math.floor((expiryDate - Date.now()) / 1000)
+      });
       
       return {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
+        expiryDate
       };
     } catch (error) {
       console.error('Failed to exchange code for tokens:', error);
@@ -123,7 +130,7 @@ export class GoogleAuthService {
   /**
    * Refresh access token if needed
    */
-  async refreshAccessToken(): Promise<string> {
+  async refreshAccessToken(): Promise<{ accessToken: string; expiryDate: number }> {
     try {
       const { credentials } = await this.oauth2Client.refreshAccessToken();
       
@@ -131,8 +138,18 @@ export class GoogleAuthService {
         throw new Error('Failed to refresh access token');
       }
 
-      console.log('Google access token refreshed successfully');
-      return credentials.access_token;
+      // Use actual expiry_date from Google response, fallback to 1 hour if not provided
+      const expiryDate = credentials.expiry_date || (Date.now() + (60 * 60 * 1000));
+
+      console.log('Google access token refreshed successfully', {
+        expiryDate: new Date(expiryDate).toISOString(),
+        expiresInSeconds: Math.floor((expiryDate - Date.now()) / 1000)
+      });
+      
+      return {
+        accessToken: credentials.access_token,
+        expiryDate
+      };
     } catch (error) {
       console.error('Failed to refresh access token:', error);
       throw new Error('Google 인증 토큰 갱신에 실패했습니다.');

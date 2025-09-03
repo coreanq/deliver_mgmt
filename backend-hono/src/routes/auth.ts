@@ -127,7 +127,7 @@ auth.get('/google/callback', async (c) => {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       connectedAt: new Date().toISOString(),
-      expiryDate: Date.now() + (18 * 60 * 60 * 1000), // 18 hours from now
+      expiryDate: tokens.expiryDate, // Use actual expiry from Google OAuth response
       email: userEmail,
     };
 
@@ -279,10 +279,10 @@ auth.get('/status', async (c) => {
     if (needsRefresh && userData.googleTokens.refreshToken) {
       try {
         googleAuth.setCredentials(userData.googleTokens.accessToken!, userData.googleTokens.refreshToken!);
-        const newAccessToken = await googleAuth.refreshAccessToken();
+        const refreshResult = await googleAuth.refreshAccessToken();
         
-        userData.googleTokens.accessToken = newAccessToken;
-        userData.googleTokens.expiryDate = Date.now() + (18 * 60 * 60 * 1000); // 18 hours from now
+        userData.googleTokens.accessToken = refreshResult.accessToken;
+        userData.googleTokens.expiryDate = refreshResult.expiryDate; // Use actual expiry from Google response
         
         // 세션 기반 데이터와 이메일 기반 데이터 모두 업데이트
         await unifiedUserService.saveSessionBasedUserData(sessionId, userData);
