@@ -179,9 +179,149 @@ function onEdit(e) {
 - [x] ~~Google Apps Script 웹훅 설정~~ (불필요 - 직접 SMS 통합으로 대체)
 - [x] SMS 자동 발송 확인 (직접 통합으로 즉시 발송)
 
+## Google OAuth2 토큰 갱신 테스트 (2025-09-03 업데이트)
+
+### 토큰 갱신 시스템 테스트 시나리오
+
+#### 1. 자동 토큰 갱신 테스트
+**목적**: 백엔드에서 토큰 만료 5분 전 자동 갱신 확인
+
+1. **테스트 설정**:
+   - 개발자 도구에서 Application > Storage > Cookies 확인
+   - `sessionId` 쿠키 존재 확인
+   - 백엔드 로그에서 토큰 갱신 로그 모니터링
+
+2. **테스트 수행**:
+   - 관리자 페이지에서 API 요청 실행 (달력 날짜 선택 등)
+   - 백엔드 콘솔에서 다음 로그 확인:
+   ```
+   Google access token refreshed successfully {
+     expiryDate: "2025-09-03T10:15:30.000Z",
+     expiresInSeconds: 3599
+   }
+   Token refreshed successfully
+   ```
+
+3. **예상 결과**:
+   - 토큰 만료 5분 전 자동 갱신
+   - 실제 Google OAuth2 응답의 `expiry_date` 사용 (1시간)
+   - 사용자는 갱신 과정을 인지하지 못함
+
+#### 2. 장기간 미접속 후 재방문 테스트
+**목적**: Refresh Token을 통한 자동 토큰 갱신 확인
+
+1. **테스트 설정**:
+   - Google OAuth2 로그인 완료 후 브라우저 종료
+   - 1시간 이상 대기 (Access Token 만료)
+   - 브라우저 재시작 및 사이트 접속
+
+2. **테스트 수행**:
+   - `http://localhost:5173/admin` 직접 접속
+   - 첫 번째 API 요청 시 자동 토큰 갱신 확인
+   - 백엔드 로그 모니터링:
+   ```
+   Google access token refreshed successfully {
+     expiryDate: "2025-09-03T11:30:45.000Z",
+     expiresInSeconds: 3599
+   }
+   ```
+
+3. **예상 결과**:
+   - 재로그인 없이 자동으로 새 Access Token 발급
+   - 기존 데이터(자동화 규칙 등) 모두 유지
+   - 정상적인 서비스 이용 가능
+
+#### 3. 토큰 갱신 실패 처리 테스트
+**목적**: Refresh Token 만료 시 적절한 에러 처리 확인
+
+1. **테스트 설정** (시뮬레이션):
+   - KV Storage에서 사용자 데이터의 `refreshToken` 제거
+   - 또는 Google 계정에서 앱 연결 해제
+
+2. **테스트 수행**:
+   - API 요청 실행
+   - 백엔드에서 401 Unauthorized 응답 확인
+   - 프론트엔드에서 로그인 페이지 리다이렉트 확인
+
+3. **예상 결과**:
+   ```json
+   {
+     "success": false,
+     "message": "인증 토큰 갱신에 실패했습니다. 다시 로그인해주세요."
+   }
+   ```
+
+#### 4. 실제 만료 시간 검증 테스트
+**목적**: 하드코딩된 18시간 대신 Google 실제 응답 사용 확인
+
+1. **테스트 방법**:
+   - 백엔드 로그에서 토큰 갱신 시 출력되는 만료 시간 확인
+   - 실제 Google OAuth2 표준 1시간 만료 시간 반영 확인
+
+2. **백엔드 로그 확인**:
+   ```
+   Google OAuth tokens obtained successfully {
+     expiryDate: "2025-09-03T12:00:00.000Z",
+     expiresInSeconds: 3600  // 정확히 1시간 (3600초)
+   }
+   ```
+
+3. **검증 포인트**:
+   - `expiresInSeconds`가 3600 (1시간)인지 확인
+   - 이전의 잘못된 18시간 설정이 사용되지 않는지 확인
+
+### 토큰 갱신 관련 Playwright E2E 테스트 케이스
+
+#### Test Case: Google OAuth2 Token Auto-Refresh
+```javascript
+test('Google OAuth2 token should auto-refresh before expiry', async ({ page }) => {
+  // 1. Login and verify initial token
+  await page.goto('/admin');
+  await page.click('text=Google 스프레드시트 연결하기');
+  // ... OAuth flow completion
+  
+  // 2. Verify token refresh on API calls
+  const responsePromise = page.waitForResponse('/api/sheets/**');
+  await page.click('[data-testid="calendar-date"]');
+  const response = await responsePromise;
+  
+  // 3. Verify successful API response (token was refreshed if needed)
+  expect(response.status()).toBe(200);
+});
+
+test('Long-term session persistence after token expiry', async ({ page, context }) => {
+  // 1. Complete OAuth login
+  await page.goto('/admin');
+  // ... complete OAuth flow
+  
+  // 2. Store session cookies and close browser
+  const cookies = await context.cookies();
+  const sessionCookie = cookies.find(c => c.name === 'sessionId');
+  expect(sessionCookie).toBeTruthy();
+  
+  await context.close();
+  
+  // 3. Simulate new session with expired access token
+  const newContext = await browser.newContext();
+  await newContext.addCookies(cookies);
+  const newPage = await newContext.newPage();
+  
+  // 4. Verify auto-refresh works on first API call
+  await newPage.goto('/admin');
+  const responsePromise = newPage.waitForResponse('/api/auth/status');
+  const response = await responsePromise;
+  
+  expect(response.status()).toBe(200);
+  const data = await response.json();
+  expect(data.success).toBe(true);
+  expect(data.data.google).toBe(true);
+});
+```
+
 ### 알려진 이슈
 
 1. **CORS 이슈**: 로컬 개발 환경에서 간헐적 발생 가능
 2. **Google Sheets API 지연**: 대용량 데이터 처리 시 응답 지연 가능
 3. **SOLAPI 잔액 부족**: SMS 발송 실패 원인
 4. **웹훅 URL**: 프로덕션 환경에서는 HTTPS URL 필요
+5. **토큰 갱신 테스트**: Google OAuth2 테스트 환경에서는 실제 1시간 대기가 어려움

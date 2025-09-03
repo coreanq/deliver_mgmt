@@ -321,6 +321,21 @@ await unifiedUserService.getAutomationRulesBySession(sessionId); // → getAutom
 - **Session tracking**: Google tokens stored with `expiryDate` for lifecycle management
 - **Secure Storage**: httpOnly cookies (frontend) + KV storage (backend)
 - **Token Lifecycle**: 1-hour access tokens, persistent refresh tokens
+- **Real-time Expiry Management** (2025 Update):
+  - Uses actual `expiry_date` from Google OAuth2 response instead of hardcoded values
+  - `getTokens()` returns `{accessToken, refreshToken, expiryDate}` from Google API
+  - `refreshAccessToken()` returns `{accessToken, expiryDate}` with real expiry time
+  - Fallback to 1-hour if Google doesn't provide expiry_date
+- **Request-Based Auto-Refresh**:
+  - Every API request triggers token expiry check in `requireGoogleAuth` middleware
+  - Transparent refresh - user never notices token renewal
+  - Long-term session persistence - works after days/weeks without re-login
+- **Auto-Refresh Sequence**:
+  ```
+  User Request → requireGoogleAuth → shouldRefreshToken(expiryDate)
+  → (if 5min before expiry) → Google OAuth2 API → New Access Token
+  → Update KV Storage → Continue with Original Request
+  ```
 - **Required Scopes**: 
   ```typescript
   const scopes = [
