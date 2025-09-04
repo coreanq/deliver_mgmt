@@ -23,7 +23,7 @@ sequenceDiagram
     B->>B: GoogleAuthService.getAuthUrl() 호출
     B->>B: 환경변수 검증 (CLIENT_ID, SECRET, REDIRECT_URL)
     B->>G: 구글 OAuth2 인증 페이지로 리다이렉트
-    Note right of G: scope: spreadsheets, drive.readonly<br/>access_type: offline<br/>prompt: consent
+    Note right of G: scope: spreadsheets, drive.readonly, userinfo.email<br/>access_type: offline, prompt: consent<br/>state: CSRF 방어용 랜덤 토큰(5분 TTL 검증)
     
     Note over U,G: 3. 사용자 인증 (구글 사이트)
     G->>U: 로그인 페이지 표시
@@ -44,11 +44,12 @@ sequenceDiagram
     G->>G: Redirect URI 검증
     G->>B: {access_token, refresh_token, expires_in}
     
-    Note over B,KV: 6. 세션 생성 및 저장
+    Note over B,KV: 6. 세션 생성 및 저장 (통합 저장 구조)
     B->>B: generateSecureSessionId() - 32바이트 랜덤
     B->>B: GoogleTokens 객체 생성
-    Note right of B: {accessToken, refreshToken,<br/>connectedAt, expiryDate}
-    B->>KV: KV.put(sessionId, tokenData, {TTL: 86400})
+    Note right of B: {accessToken, refreshToken,<br/>connectedAt, expiryDate, email}
+    B->>KV: KV.put(unified_user:emailHash, userData, {TTL: 1y})
+    B->>KV: KV.put(session_user:sessionId, {email, sessionId}, {TTL: 1d})
     
     Note over B,F: 7. 보안 쿠키 설정 및 리다이렉트
     B->>B: setCookie(sessionId, httpOnly+secure+SameSite=None)
@@ -60,10 +61,11 @@ sequenceDiagram
     Note right of F: 쿠키 자동 전송:<br/>sessionId=abc123...
     
     Note over B,KV: 9. 세션 검증 및 토큰 새로고침
-    B->>B: getCookie('sessionId') 추출
-    B->>KV: KV.get(sessionId)
-    KV->>B: GoogleTokens 반환
-    B->>B: shouldRefreshToken() 체크 (5분 전 새로고침)
+    B->>B: getCookie('sessionId') 추출 (또는 X-Session-ID/쿼리)
+    B->>KV: KV.get(session_user:sessionId) → email 조회
+    B->>KV: KV.get(unified_user:emailHash)
+    KV->>B: userData.googleTokens 반환
+    B->>B: shouldRefreshToken() 체크 (만료 5분 전 새로고침)
     
     alt 토큰 새로고침 필요
         B->>G: POST /oauth2/v4/token<br/>{refresh_token, grant_type: refresh_token}
@@ -83,10 +85,11 @@ sequenceDiagram
     Note over F,F: 12. URL 정리 (보안)
     F->>F: window.history.replaceState() - OAuth 파라미터 제거
     
-    Note over U,GS: 13. 배송 담당자 QR 인증 및 상태 변경
+    Note over U,GS: 13. 배송 담당자 QR 인증 및 상태 변경 (관리자 세션 풀)
     F->>F: generateQR(staffName) 실행
     F->>B: POST /api/delivery/qr/generate-mobile/{staff}/{date}
-    B->>KV: KV.get(adminSessionId) - 관리자 토큰 사용
+    B->>KV: KV.get(admin_sessions_index:email) 또는 인덱스 조회
+    B->>B: UnifiedUserService.getValidAdminSession()로 유효 토큰 획득
     B->>B: JWT 토큰 생성 {staffName, date, exp: 24h}
     B->>F: QR 이미지 + JWT URL 반환
     
@@ -104,12 +107,13 @@ sequenceDiagram
     GS->>B: 해당 담당자 배송 데이터 반환
     B->>F: 필터링된 배송 주문 목록
     
-    Note over F,B: 16. 배송 상태 업데이트 (담당자 액션)
+    Note over F,B: 16. 배송 상태 업데이트 (담당자 액션, 직접 SMS 연동)
     U->>F: "배송 출발" 버튼 클릭 (모바일)
     F->>B: PUT /api/sheets/data/{date}/status
     Note right of F: Authorization: Bearer JWT_TOKEN<br/>{rowIndex, newStatus: "배송 출발"}
     B->>B: QR JWT 토큰 재검증
-    B->>KV: KV.get(adminSessionId) - 관리자 토큰 재사용
+    B->>B: QR 토큰 → 관리자 세션 풀 토큰 사용
+    B->>KV: (필요 시) UnifiedUserService로 유효 토큰 재확인
     B->>GS: PUT /v4/spreadsheets/{id}/values<br/>Authorization: Bearer admin_access_token
     Note right of GS: Google Sheets 실시간 업데이트
     GS->>B: 업데이트 완료 확인
@@ -142,6 +146,24 @@ function generateSecureSessionId(): string {
 }
 ```
 
+세션 저장 구조(2025 업데이트)
+```text
+// 세션 메타데이터 (1일 TTL)
+session_user:${sessionId} → { email, sessionId, createdAt }
+
+// 통합 사용자 데이터 (1년 TTL, 단일 소스)
+unified_user:${sha256(email+SALT)} → {
+  email, emailHash,
+  googleTokens: { accessToken, refreshToken, expiryDate, connectedAt, email },
+  solapiTokens?,
+  automationRules: [...],
+  createdAt, updatedAt
+}
+
+// 관리자 세션 인덱스(24시간 TTL)
+admin_sessions_index:${email} → { email, sessionId, createdAt }
+```
+
 ### 3. 쿠키 보안 설정
 ```typescript
 // auth.ts:99-105
@@ -155,13 +177,19 @@ setCookie(c, 'sessionId', sessionId, {
 ```
 
 ### 4. 토큰 자동 새로고침
+- **실제 만료시간 사용**: Google OAuth 응답의 `expiry_date` 사용(없으면 1시간 기본값)
 - **5분 전 새로고침**: 토큰 만료 5분 전 자동 갱신
 - **Refresh Token**: 서버에서만 관리, 브라우저 노출 없음
 - **실패 시 재인증**: refresh 실패 시 자동으로 인증 해제
 
+### 5. OAuth2 CSRF 방어(state)
+- **생성**: 랜덤 32바이트 state 생성 후 `oauth_state:{state}`에 5분 TTL로 저장
+- **검증**: 콜백에서 state 존재 여부 확인(없으면 400), 사용 후 즉시 삭제
+- **효과**: CSRF 및 오리진 변조 방지
+
 ## SessionID 공유 플로우 상세 분석
 
-### 7단계: 보안 쿠키 설정 및 리다이렉트 상세 플로우
+### 7단계: 보안 쿠키 설정 및 리다이렉트 상세 플로우 (통합 저장 구조 반영)
 
 ```mermaid
 sequenceDiagram
@@ -172,13 +200,14 @@ sequenceDiagram
 
     Note over B,F: SessionID 생성 및 공유 과정
     
-    Note over B,KV: A. KV Storage에 토큰 저장
+    Note over B,KV: A. KV Storage에 통합 데이터/세션 저장
     B->>B: sessionId = generateSecureSessionId()
-    B->>B: tokenData = {accessToken, refreshToken}
-    B->>KV: KV.put(sessionId, tokenData, TTL=86400)
+    B->>B: userData = {email, googleTokens, ...}
+    B->>KV: KV.put(unified_user:emailHash, userData, TTL=1y)
+    B->>KV: KV.put(session_user:sessionId, {email, sessionId}, TTL=1d)
     KV-->>B: 저장 완료 확인
     
-    Note over B,U: B. httpOnly 쿠키 설정
+    Note over B,U: B. httpOnly 쿠키 설정 (Secure + SameSite=None)
     B->>U: Set-Cookie: sessionId=abc123...
     Note right of U: 브라우저에 쿠키 저장<br/>HttpOnly, Secure, SameSite=None
     
@@ -186,17 +215,17 @@ sequenceDiagram
     B->>F: 302 Redirect /admin?auth=success&sessionId=...
     Note right of F: URL에 sessionId 포함<br/>(JavaScript 코드 실행)
     
-    Note over F,B: D. Frontend 인증 상태 확인
+    Note over F,B: D. Frontend 인증 상태 확인 (쿠키 또는 X-Session-ID)
     F->>F: onMounted() 실행 (JavaScript)
     F->>F: URLSearchParams 체크 (JavaScript)
     F->>B: GET /api/auth/status (withCredentials)
-    U->>B: Cookie: sessionId=abc123... (브라우저 자동 전송)
+    U->>B: Cookie: sessionId=abc123... (자동) 또는 Header: X-Session-ID: abc123...
     
     Note over B,KV: E. 세션 검증 및 응답
-    B->>B: getCookie('sessionId') 추출
-    B->>KV: KV.get(sessionId)
-    KV-->>B: GoogleTokens 반환
-    B->>B: 토큰 유효성 검증
+    B->>B: getCookie('sessionId') 또는 X-Session-ID 추출
+    B->>KV: KV.get(session_user:sessionId) → email 확인
+    B->>KV: KV.get(unified_user:emailHash) → userData 반환
+    B->>B: 토큰 유효성 검증/필요 시 새로고침
     B->>F: {success: true, data: {google: true}}
     
     Note over F,F: F. URL 정리 및 상태 업데이트
@@ -205,7 +234,7 @@ sequenceDiagram
     F->>F: UI 업데이트: "연결됨"
 ```
 
-### SessionID를 Frontend와 공유하는 3가지 방법
+### SessionID를 Frontend와 공유하는 방법
 
 #### 방법 1: httpOnly Cookie (기본 방법) - **보안 강화**
 ```typescript
@@ -235,32 +264,28 @@ GET /api/auth/status HTTP/1.1
 Cookie: sessionId=b08a7222097ff0cfba8a3772fbaddf1932f2178fe27012ef7b34c53a28a35873
 ```
 
-#### 방법 2: Authorization Header (Brave 대안) - **보안 취약**
+#### 방법 2: X-Session-ID Header (Brave 대안)
 ```typescript
-// Frontend: sessionId 값을 직접 관리해야 함
-const sessionId = getSessionIdFromSomewhere(); // 어디서든 받아야 함
-axios.get('/api/auth/status', {
-  headers: {
-    'Authorization': `Bearer ${sessionId}`  // 수동 설정 필요
-  }
+// Frontend: 콜백 리다이렉트 URL의 sessionId를 일시적으로 전달 (저장 금지)
+const sessionId = new URLSearchParams(location.search).get('sessionId');
+await axios.get('/api/auth/status', {
+  headers: { 'X-Session-ID': sessionId ?? '' },
+  withCredentials: true
 });
 
-// Backend: auth.ts:148-150 (추가 지원)
-const authHeader = c.req.header('Authorization');
-const authSessionId = authHeader?.startsWith('Bearer ') 
-  ? authHeader.substring(7) : null;
+// Backend: 다음 우선순위로 세션 확인
+// 1) Cookie 'sessionId' → 2) Header 'X-Session-ID' → 3) Query 'sessionId'
 ```
 
-**보안 위험**:
-- ❌ **XSS 취약**: Frontend JavaScript에서 sessionId 접근 가능
-- ❌ **수동 관리**: 매 요청마다 개발자가 직접 헤더 설정
-- ❌ **코드 노출**: 소스코드나 localStorage에 sessionId 저장 필요
-- ❌ **메모리 덤프**: JavaScript 힙에서 sessionId 추출 가능
+**주의사항**:
+- ⚠️ **임시 대응**: Brave/로컬에서 쿠키가 설정되지 않는 경우에 한함
+- ⚠️ **보관 금지**: localStorage 보관 금지, URL 파라미터는 즉시 제거
+- ⚠️ **노출면 증가**: httpOnly 쿠키 대비 공격면 증가 → 최소화
 
 **HTTP 요청 예시**:
 ```http
 GET /api/auth/status HTTP/1.1
-Authorization: Bearer b08a7222097ff0cfba8a3772fbaddf1932f2178fe27012ef7b34c53a28a35873
+X-Session-ID: b08a7222097ff0cfba8a3772fbaddf1932f2178fe27012ef7b34c53a28a35873
 ```
 
 #### 방법 3: URL 파라미터 (임시 방법)
@@ -277,31 +302,32 @@ const urlParams = new URLSearchParams(window.location.search);
 
 ### 보안 비교표
 
-| 특징 | httpOnly Cookie | Authorization Header | URL Parameter |
+| 특징 | httpOnly Cookie | X-Session-ID Header | URL Parameter |
 |------|----------------|---------------------|---------------|
 | **XSS 방어** | ✅ JavaScript 접근 차단 | ❌ JavaScript 필요 | ❌ JavaScript 접근 |
 | **자동 전송** | ✅ `withCredentials: true` | ❌ 수동 설정 필요 | ❌ 임시 방법 |
 | **브라우저 호환** | ❌ Brave 차단 | ✅ 모든 브라우저 | ✅ 모든 브라우저 |
 | **Frontend 격리** | ✅ 값 몰라도 됨 | ❌ 값 관리 필요 | ❌ URL에서 추출 |
-| **물리적 보안** | ❌ 쿠키 파일 노출 | ❌ 코드/storage 노출 | ❌ 브라우저 히스토리 |
+| **물리적 보안** | ❌ 쿠키 파일 노출 | ❌ 코드/메모리 노출 | ❌ 브라우저 히스토리 |
 
-**권장 방식**: **httpOnly Cookie**가 보안상 가장 안전하며, Authorization Header는 **Brave 브라우저 대응용**으로만 사용
+**권장 방식**: **httpOnly Cookie**가 보안상 가장 안전하며, X-Session-ID 헤더는 **Brave/로컬 대응용**으로만 사용
 
 ### Backend에서 sessionId 확인 위치
 
-**Backend 처리 순서** (`auth.ts:146-160`):
+**Backend 처리 순서** (실제 구현):
 ```typescript
 // 1. 다중 소스에서 sessionId 추출 시도
 const cookieSessionId = getCookie(c, 'sessionId');           // 쿠키에서
 const headerSessionId = c.req.header('X-Session-ID');        // 헤더에서
 const querySessionId = c.req.query('sessionId');             // URL 파라미터에서
-const authSessionId = authHeader?.substring(7);              // Authorization 헤더에서
 
 // 2. 우선순위별 sessionId 선택
-const sessionId = cookieSessionId || headerSessionId || querySessionId || authSessionId;
+const sessionId = cookieSessionId || headerSessionId || querySessionId;
 
-// 3. KV에서 토큰 검증
-const sessionData = await getSession(sessionId, c.env);
+// 3. 통합 저장소에서 사용자 데이터 조회
+const unifiedUserService = c.get('unifiedUserService');
+const userData = await unifiedUserService.getSessionBasedUserData(sessionId);
+// userData?.googleTokens 로 인증 판단 및 필요 시 토큰 자동 갱신
 ```
 
 **브라우저 쿠키 확인 위치**:
@@ -311,7 +337,7 @@ const sessionData = await getSession(sessionId, c.env);
 
 ## SessionID 보안 심층 분석
 
-### httpOnly Cookie vs Authorization Header 보안 비교
+### httpOnly Cookie vs X-Session-ID Header 보안 비교
 
 #### httpOnly Cookie 방식의 보안 메커니즘
 ```typescript
@@ -329,13 +355,11 @@ const response = await axios.get('/api/auth/status', {
 2. **브라우저 레벨**: 쿠키 파일과 개발자 도구에서만 확인 가능
 3. **JavaScript 레벨**: `document.cookie` 접근 완전 차단 (XSS 방어)
 
-#### Authorization Header 방식의 보안 위험
+#### X-Session-ID Header 방식의 주의사항
 ```typescript
-// Frontend: sessionId를 JavaScript에서 직접 관리
-const sessionId = localStorage.getItem('sessionId'); // 보안 위험!
-const response = await axios.get('/api/auth/status', {
-  headers: { 'Authorization': `Bearer ${sessionId}` }
-});
+// Frontend: localStorage 보관 금지, URL 파라미터를 즉시 제거하고 1회성으로만 사용
+const sessionId = new URLSearchParams(location.search).get('sessionId');
+await axios.get('/api/auth/status', { headers: { 'X-Session-ID': sessionId ?? '' } });
 ```
 
 **노출 지점**:
@@ -357,11 +381,11 @@ try {
   console.log('XSS 공격 실패'); // sessionId 탈취 불가 ✅
 }
 
-// Authorization Header 방식  
-const sessionId = localStorage.getItem('sessionId'); // 탈취 성공! ❌
+// X-Session-ID Header 방식  
+const sessionId = localStorage.getItem('sessionId'); // 금지: 저장 시 탈취 가능 ❌
 const maliciousRequest = await fetch('/api/malicious', {
-  headers: { 'Authorization': `Bearer ${sessionId}` }
-}); // 공격자가 sessionId로 API 호출 가능 ❌
+  headers: { 'X-Session-ID': sessionId }
+}); // 저장 시 탈취 가능하므로 저장 금지 ❌
 ```
 
 #### 2. 물리적 접근 공격
@@ -372,7 +396,7 @@ sqlite3 ~/.config/google-chrome/Default/Cookies \
   "SELECT value FROM cookies WHERE name='sessionId'"
 # → sessionId 노출 가능 ⚠️
 
-# Authorization Header 방식
+# X-Session-ID Header 방식
 # localStorage 직접 읽기
 sqlite3 ~/.config/google-chrome/Default/Local\ Storage/leveldb/*.ldb
 # → sessionId 노출 가능 ⚠️
@@ -384,8 +408,8 @@ sqlite3 ~/.config/google-chrome/Default/Local\ Storage/leveldb/*.ldb
 document.cookie; // sessionId 보이지 않음 ✅
 // 하지만 Application → Cookies에서는 확인 가능 ⚠️
 
-// Authorization Header 방식  
-localStorage.getItem('sessionId'); // sessionId 완전 노출 ❌
+// X-Session-ID Header 방식  
+localStorage.getItem('sessionId'); // 저장하면 노출 ❌ (저장 금지)
 ```
 
 ### SessionID 핵심 보안 특징
@@ -407,11 +431,11 @@ setCookie(c, 'sessionId', sessionId, {
   maxAge: 86400       // 24시간 제한
 });
 
-// 2. Authorization Header는 Brave 대응용만
+// 2. X-Session-ID Header는 Brave/로컬 대응용만
 // 3. localStorage 사용 금지 (보안 위험)
 ```
 
-**결론**: httpOnly Cookie가 **원격 XSS 공격**에 대해 훨씬 안전하며, Authorization Header는 브라우저 호환성을 위한 대안으로만 사용해야 합니다.
+**결론**: httpOnly Cookie가 **원격 XSS 공격**에 대해 훨씬 안전하며, X-Session-ID 헤더는 브라우저/로컬 호환을 위한 대안으로만 사용해야 합니다.
 
 ### Cross-Domain 통신 보안
 
@@ -539,8 +563,9 @@ Brave는 강화된 프라이버시로 cross-domain 쿠키를 차단합니다:
 ### Development (로컬)
 - **Frontend**: `http://localhost:5173`
 - **Backend**: `http://localhost:5001`
-- **세션 저장**: In-memory Map
-- **쿠키**: `sameSite: 'Lax'` (동일 호스트)
+- **세션 저장**: In-memory Map (백엔드 `src/local.ts`)
+- **쿠키**: `sameSite: 'None'; secure: true` (HTTP 환경에서는 브라우저가 쿠키를 저장하지 않을 수 있음)
+- **대응**: 이 경우 콜백 리다이렉트의 `sessionId`를 헤더 `X-Session-ID`로 1회성 전달 후 URL 파라미터 즉시 제거
 
 ### Production (CloudFlare)
 - **Frontend**: `https://deliver-mgmt.pages.dev`
