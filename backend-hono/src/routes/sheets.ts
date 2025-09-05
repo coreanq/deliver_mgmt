@@ -82,7 +82,12 @@ sheets.use('*', async (c, next) => {
     if (token) {
       // Validate QR token before allowing bypass
       try {
-        const verification = await verifyQRToken(token, null, c.env.JWT_SECRET, unifiedUserService);
+        const verification = await verifyQRToken(
+          token,
+          null,
+          c.env.JWT_SECRET || 'fallback-jwt-secret',
+          unifiedUserService
+        );
         if (verification.isValid && verification.sessionData) {
           // Store validated session data for use in endpoint
           c.set('sessionData', verification.sessionData);
@@ -107,7 +112,12 @@ sheets.use('*', async (c, next) => {
       
       // Validate QR token before allowing bypass
       try {
-        const verification = await verifyQRToken(token, null, c.env.JWT_SECRET, unifiedUserService);
+        const verification = await verifyQRToken(
+          token,
+          null,
+          c.env.JWT_SECRET || 'fallback-jwt-secret',
+          unifiedUserService
+        );
         if (verification.isValid && verification.sessionData) {
           // Store validated session data for use in endpoint
           c.set('sessionData', verification.sessionData);
