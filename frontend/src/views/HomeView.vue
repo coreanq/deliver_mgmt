@@ -162,9 +162,9 @@
     <!-- Footer -->
     <footer class="gamma-footer">
       <div class="footer-content">
-        <a href="https://gamma.app" class="gamma-link">
-          Made with Gamma
-        </a>
+        <span class="coupang-disclaimer">
+          이 웹사이트는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
+        </span>
         <button class="report-btn">Report this page</button>
       </div>
     </footer>
@@ -175,7 +175,6 @@
 // Home page component - Gamma-style landing page
 
 import { useRouter } from 'vue-router'
-import { onMounted } from 'vue'
 
 const router = useRouter()
 
@@ -567,14 +566,9 @@ const navigateToAdmin = () => {
   align-items: center;
 }
 
-.gamma-link {
+.coupang-disclaimer {
   color: #6b7280;
-  text-decoration: none;
   font-size: 0.875rem;
-}
-
-.gamma-link:hover {
-  color: #374151;
 }
 
 .report-btn {
