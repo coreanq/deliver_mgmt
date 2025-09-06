@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
     "backend:dev": "cd backend-hono && npm run local",
-    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:dev": "cd frontend && npm run dev -- --host 0.0.0.0",
     "build": "if [ \"$BUILD_TARGET\" = \"hono\" ]; then npm run backend:build; else npm run frontend:build; fi",
     "build:frontend": "cd frontend && npm ci && npm run build",
     "build:full": "npm run backend:build && npm run frontend:build",

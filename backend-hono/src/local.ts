@@ -64,7 +64,8 @@ function createMockContext() {
 }
 
 const port = 5001;
-console.log(`Hono server is running on port ${port}`);
+const hostname = '0.0.0.0'; // 외부 접속 허용
+console.log(`Hono server is running on http://${hostname}:${port}`);
 
 serve({
   fetch: (req) => {
@@ -72,4 +73,5 @@ serve({
     return app.fetch(req, mockEnv);
   },
   port,
+  hostname,
 });

@@ -175,6 +175,7 @@
 // Home page component - Gamma-style landing page
 
 import { useRouter } from 'vue-router'
+import { onMounted } from 'vue'
 
 const router = useRouter()
 
@@ -185,6 +186,8 @@ const handleDemoClick = () => {
 const navigateToAdmin = () => {
   router.push('/admin')
 }
+
+// 쿠팡 광고는 App.vue에서 처리됨
 </script>
 
 <style scoped>
