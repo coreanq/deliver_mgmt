@@ -182,17 +182,8 @@ const handleDemoClick = () => {
   document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })
 }
 
-const handleContact = () => {
-  // Contact functionality
-  alert('문의 기능은 준비 중입니다.')
-}
-
 const navigateToAdmin = () => {
   router.push('/admin')
-}
-
-const navigateToDelivery = () => {
-  router.push('/delivery/auth')
 }
 </script>
 
