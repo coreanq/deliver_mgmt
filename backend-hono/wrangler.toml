@@ -6,10 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 NODE_ENV = "production"
 GOOGLE_CLIENT_ID = "80696117268-nk74sskpu2uerfajr7enr0084tusje4g.apps.googleusercontent.com"
-GOOGLE_REDIRECT_URL = "https://deliver-manager.com/api/auth/google/callback"
-FRONTEND_URL = "https://deliver-mgmt.pages.dev"
+GOOGLE_REDIRECT_URL ="https://deliver-mgmt-backend.coreanq.workers.dev/api/auth/google/callback"
+FRONTEND_URL = "https://deliver-manager.com"
 SOLAPI_CLIENT_ID="CIDDSMB8ODYD3UOQ"
-SOLAPI_REDIRECT_URL="https://deliver-manager.com/api/solapi/auth/callback"
+SOLAPI_REDIRECT_URL ="https://deliver-mgmt-backend.coreanq.workers.dev/api/solapi/auth/callback"
 SOLAPI_API_BASE_URL="https://api.solapi.com"
 
 [[kv_namespaces]]
