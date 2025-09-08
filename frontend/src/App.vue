@@ -32,6 +32,9 @@
     </div>
     
     <v-app-bar app color="primary" dark>
+      <template #prepend>
+        <img src="/logo.png" alt="Deliver Manager" height="28" style="border-radius:6px" />
+      </template>
       <v-app-bar-title>배송 관리 시스템</v-app-bar-title>
     </v-app-bar>
 
@@ -95,4 +98,3 @@ const onCoupangAd2Error = () => {
   padding-top: 168px !important; /* 104px (광고 2개) + 64px (헤더) */
 }
 </style>
-
