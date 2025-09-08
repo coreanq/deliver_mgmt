@@ -4,7 +4,7 @@
     <header class="header-nav">
       <div class="nav-links">
         <a href="#" class="nav-link">여기 클릭</a>
-        <a href="#" class="nav-link">여기 클릭</a>
+        <router-link to="/privacy" class="nav-link">개인정보 처리방침</router-link>
       </div>
     </header>
 
@@ -159,13 +159,17 @@
       </div>
     </section>
 
+    <!-- Privacy Policy Section moved to dedicated /privacy page -->
+
     <!-- Footer -->
     <footer class="gamma-footer">
       <div class="footer-content">
         <span class="coupang-disclaimer">
           이 웹사이트는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
         </span>
-        <button class="report-btn">Report this page</button>
+        <div class="footer-actions">
+          <router-link to="/privacy" class="footer-link">개인정보 처리방침</router-link>
+        </div>
       </div>
     </footer>
   </div>
@@ -258,6 +262,22 @@ const navigateToAdmin = () => {
   bottom: 0;
   background: linear-gradient(135deg, rgba(235, 208, 251, 0.9) 10%, rgba(255, 204, 239, 0.9) 90%);
   z-index: 1;
+}
+
+/* Footer minor layout */
+.footer-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.footer-link {
+  color: #666;
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  color: #000;
 }
 
 .hero-content {
