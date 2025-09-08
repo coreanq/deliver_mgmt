@@ -72,15 +72,31 @@ export const useAuthStore = defineStore('auth', () => {
       console.log('Checking auth status...');
       console.log('API_BASE_URL:', API_BASE_URL);
       console.log('Document cookies:', document.cookie);
-      
-      // Session is now managed via httpOnly cookies automatically
+
+      // Fallback for browsers blocking cross-site Set-Cookie on redirects (e.g., Brave/Safari)
+      // If sessionId exists in URL (from backend redirect), forward it via X-Session-ID once
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionIdFromUrl = urlParams.get('sessionId') || undefined;
+
+      // Session is primarily managed via httpOnly cookies; include header as fallback
       const response = await axios.get(`${API_BASE_URL}/api/auth/status`, {
-        withCredentials: true
+        withCredentials: true,
+        headers: sessionIdFromUrl ? { 'X-Session-ID': sessionIdFromUrl } : undefined,
       });
       
       console.log('Auth status response:', response.data);
       
       if (response.data.success) {
+        // Clean up URL params after successful handoff
+        if (sessionIdFromUrl) {
+          try {
+            const cleanedUrl = new URL(window.location.href);
+            cleanedUrl.searchParams.delete('sessionId');
+            window.history.replaceState({}, document.title, cleanedUrl.pathname + cleanedUrl.search + cleanedUrl.hash);
+          } catch (e) {
+            // no-op
+          }
+        }
         // Set Google authentication status
         isGoogleAuthenticated.value = true;
         
@@ -107,7 +123,8 @@ export const useAuthStore = defineStore('auth', () => {
       // Check SOLAPI authentication status separately
       try {
         const solapiResponse = await axios.get(`${API_BASE_URL}/api/solapi/auth/status`, {
-          withCredentials: true
+          withCredentials: true,
+          headers: sessionIdFromUrl ? { 'X-Session-ID': sessionIdFromUrl } : undefined,
         });
         
         console.log('SOLAPI status response:', solapiResponse.data);
