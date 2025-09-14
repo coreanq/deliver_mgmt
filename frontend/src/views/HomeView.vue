@@ -50,7 +50,7 @@
             </div>
             <div class="step-content">
               <h3>템플릿으로 구글 스프레드시트 만들기</h3>
-              <p>미리 준비된 템플릿을 복사하여 나만의 배송 관리 시트를 즉시 생성. 컴리명, 주소, 전화번호 등 필수 컴럼이 자동 설정됩니다.</p>
+              <p>미리 준비된 템플릿을 복사하여 나만의 배송 관리 시트를 즉시 생성. 배송지 주소, 고객명, 전화번호 등 필수 컴럼이 자동 설정됩니다.</p>
             </div>
             <div class="step-action">
               <a href="https://docs.google.com/spreadsheets/d/1jStufou_pvD1csax9EE7l3qqjUIAk0EIgyw67OhqWx8/edit?usp=sharing" target="_blank" class="step-btn step-btn-primary">템플릿 사용하기</a>
