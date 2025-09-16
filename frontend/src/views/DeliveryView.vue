@@ -114,7 +114,7 @@
       </v-col>
     </v-row>
 
-    <!-- Refresh button -->
+    <!-- Refresh button - positioned above feedback button -->
     <v-fab
       icon="mdi-refresh"
       location="bottom end"
@@ -122,6 +122,7 @@
       color="primary"
       @click="refreshOrders"
       :loading="refreshing"
+      style="bottom: 80px !important;"
     />
   </v-container>
 </template>

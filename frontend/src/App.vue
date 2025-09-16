@@ -41,6 +41,9 @@
     <v-main>
       <router-view />
     </v-main>
+
+    <!-- Global Floating Feedback Button -->
+    <FloatingFeedbackButton />
   </v-app>
   
 </template>
@@ -48,6 +51,7 @@
 <script setup lang="ts">
 // App component - main layout with Coupang Partners iframe ads
 import { ref } from 'vue'
+import FloatingFeedbackButton from './components/FloatingFeedbackButton.vue'
 
 const coupangIframe = ref<HTMLIFrameElement | null>(null)
 const coupangIframe2 = ref<HTMLIFrameElement | null>(null)

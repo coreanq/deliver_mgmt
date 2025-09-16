@@ -16,7 +16,7 @@
             <h1 class="hero-title">배민·쿠팡이츠 수수료 <br/>부담 없는<br/>당일 배송 관리</h1>
             <p class="hero-subtitle">
               <strong>배달의 민족</strong>, <strong>쿠팡이츠</strong> <br/>높은 수수료가 부담되시나요?<br/>
-              <strong>템플릿</strong> → <strong>구글 시트</strong> → <strong>SMS 발송</strong>으로<br/>
+              <strong>배송 담당자 지정</strong> → <strong>배송 완료</strong> → <strong>완료 SMS 발송</strong>으로<br/>
               중간 수수료 없이 직접 운영하는 스마트한 당일 배송 솔루션
             </p>
             <div class="hero-buttons">
@@ -237,11 +237,6 @@
 
     <!-- Privacy Policy Section moved to dedicated /privacy page -->
 
-    <!-- Floating Action Button -->
-    <div class="floating-action-btn" @click="navigateToAdmin">
-      <v-icon size="28" color="white">mdi-rocket-launch</v-icon>
-      <span class="fab-text">수수료 탈출</span>
-    </div>
 
     <!-- Footer -->
     <footer class="gamma-footer">
@@ -854,57 +849,6 @@ const navigateToAdmin = () => {
   text-decoration: underline;
 }
 
-/* Floating Action Button */
-.floating-action-btn {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 1000;
-  background: linear-gradient(135deg, #ff3bbe 0%, #af41f0 100%);
-  color: white;
-  border-radius: 60px;
-  padding: 1rem 2rem;
-  box-shadow: 0 8px 32px rgba(215, 58, 215, 0.4);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-weight: 600;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  border: none;
-  backdrop-filter: blur(10px);
-  animation: pulse 2s infinite;
-}
-
-.floating-action-btn:hover {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 16px 48px rgba(215, 58, 215, 0.6);
-  animation: none;
-}
-
-.fab-text {
-  font-weight: 600;
-  letter-spacing: -0.025em;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 8px 32px rgba(215, 58, 215, 0.4);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 12px 40px rgba(215, 58, 215, 0.6);
-  }
-}
-
-/* Hide FAB on small screens to avoid conflicts */
-@media (max-width: 768px) {
-  .floating-action-btn {
-    display: none;
-  }
-}
 
 /* Footer */
 .gamma-footer {

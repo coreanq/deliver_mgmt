@@ -65,5 +65,10 @@
   "enabledMcpjsonServers": [
     "context7",
     "playwright"
-  ]
-}
+  ], 
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  }
+
+  }
+ 
