@@ -1,0 +1,37 @@
+name = "deliver-mgmt-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 빌드 시 BUILD_DATE 자동 업데이트 (macOS/Linux 호환)
+[build]
+command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; else sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; fi"
+
+[vars]
+BUILD_DATE = "25/01/01 00:00"
+RESEND_FROM_EMAIL = "noreply@try-dabble.com"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "deliver-mgmt-db"
+database_id = "7cf87799-fd84-4327-bd49-8bdb58ce1542"
+
+# R2 Storage (배송 사진)
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "deliver-mgmt-photos"
+
+# KV Namespace (캐시)
+[[kv_namespaces]]
+binding = "KV-DELIVER-MGMT"
+id = "96cd08ccdeba45e8a9d13286c9797767"
+
+# Cron Triggers (데이터 정리)
+[triggers]
+crons = ["0 0 * * *"]
+
+# 환경변수 (wrangler secret으로 설정)
+# RESEND_API_KEY
+# JWT_SECRET
+# AI_GATEWAY_TOKEN

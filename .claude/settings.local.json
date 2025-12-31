@@ -62,12 +62,14 @@
       "Bash(echo $LANG)",
       "Bash(chcp:*)",
       "Bash(cmd /c:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Skill(frontend-design:frontend-design)",
+      "Bash(ls:*)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "context7",
     "playwright"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
