@@ -40,7 +40,7 @@
 - backend cloudflare worker 사용
 - AI api 호출 시 cloudflare ai gateway Universal Endpoint + BYOK 방식으로 수정 (cf-aig-auth 헤더 사용)
   - const host = "https://gateway.ai.cloudflare.com";
-  - const endpoint = "/v1/37820b7e32b164918dd5bcb58e628ff1/soulcro-gateway/compat";
+  - const endpoint = "/v1/37820b7e32b164918dd5bcb58e628ff1/[ai_gateway_way_name]/compat";
 - wrangler 4 이상 사용
 
 # 폴더 구조 

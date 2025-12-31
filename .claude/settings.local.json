@@ -64,7 +64,9 @@
       "Bash(cmd /c:*)",
       "Bash(tasklist:*)",
       "Skill(frontend-design:frontend-design)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git checkout:*)",
+      "Bash(cat:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -4,14 +4,35 @@ export interface Env {
   DB: D1Database;
   // R2 Storage
   STORAGE: R2Bucket;
-  // KV Namespace
-  KV_DELIVER_MGMT: KVNamespace;
+  // KV Namespace (wrangler.toml: KV-DELIVER-MGMT)
+  'KV-DELIVER-MGMT': KVNamespace;
   // 환경 변수
   RESEND_API_KEY: string;
   RESEND_FROM_EMAIL: string;
   JWT_SECRET: string;
-  AI_GATEWAY_TOKEN: string;
   BUILD_DATE: string;
+  // AI Gateway (wrangler secret)
+  AI_GATEWAY_ACCOUNT_ID: string;
+  AI_GATEWAY_NAME: string;
+  CF_AIG_TOKEN: string;
+  // Coupang API (wrangler secret)
+  COUPANG_ACCESS_KEY: string;
+  COUPANG_SECRET_KEY: string;
+}
+
+// AI Provider 타입
+export type AIProvider = 'grok' | 'openai' | 'claude';
+
+// AI 호출 옵션
+export interface AICallOptions {
+  provider?: AIProvider;
+  maxTokens?: number;
+}
+
+// AI 호출 결과 타입
+export interface AICallResult {
+  text: string;
+  cacheHit: boolean;
 }
 
 // JWT 페이로드 타입

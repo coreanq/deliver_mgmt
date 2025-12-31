@@ -27,11 +27,23 @@ bucket_name = "deliver-mgmt-photos"
 binding = "KV-DELIVER-MGMT"
 id = "96cd08ccdeba45e8a9d13286c9797767"
 
-# Cron Triggers (데이터 정리)
+# Cron Triggers (데이터 정리 - 매일 새벽 3시 UTC)
 [triggers]
-crons = ["0 0 * * *"]
+crons = ["0 3 * * *"]
 
-# 환경변수 (wrangler secret으로 설정)
-# RESEND_API_KEY
-# JWT_SECRET
-# AI_GATEWAY_TOKEN
+# ============================================
+# 환경변수 (wrangler secret put <KEY>로 설정)
+# ============================================
+#
+# 인증 관련
+# wrangler secret put JWT_SECRET          # JWT 토큰 서명용 비밀키
+# wrangler secret put RESEND_API_KEY      # Resend 이메일 API 키
+#
+# AI Gateway (Cloudflare AI Gateway + BYOK)
+# wrangler secret put AI_GATEWAY_ACCOUNT_ID  # Cloudflare Account ID
+# wrangler secret put AI_GATEWAY_NAME        # AI Gateway 이름
+# wrangler secret put CF_AIG_TOKEN           # AI Provider API 키 (xAI/OpenAI/Anthropic)
+#
+# Coupang API
+# wrangler secret put COUPANG_ACCESS_KEY  # 쿠팡 API Access Key
+# wrangler secret put COUPANG_SECRET_KEY  # 쿠팡 API Secret Key

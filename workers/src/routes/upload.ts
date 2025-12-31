@@ -2,12 +2,9 @@ import { Hono } from 'hono';
 import type { Env, FieldMapping, MappingPattern } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId, getDateString, getTodayKST } from '../lib/utils';
+import { callAI } from '../services/ai';
 
 const upload = new Hono<{ Bindings: Env }>();
-
-// AI Gateway 엔드포인트
-const AI_GATEWAY_HOST = 'https://gateway.ai.cloudflare.com';
-const AI_GATEWAY_ENDPOINT = '/v1/37820b7e32b164918dd5bcb58e628ff1/soulcro-gateway/compat';
 
 // 엑셀 파싱 (클라이언트에서 파싱 후 데이터만 전송)
 upload.post('/parse', async (c) => {
@@ -103,9 +100,10 @@ upload.post('/mapping/suggest', async (c) => {
       }
     }
 
-    // AI 매핑 추천 요청
-    const prompt = `You are a data mapping assistant for a delivery management system.
-Given the following Excel headers and sample data, suggest the best mapping to the target fields.
+    // AI 매핑 추천 요청 (Grok 4.1 Fast Reasoning 사용)
+    const systemPrompt = `You are a data mapping assistant for a delivery management system.
+Given Excel headers and sample data, suggest the best mapping to the target fields.
+Response ONLY in valid JSON format, no markdown or code blocks.
 
 Target fields:
 - recipientName: 수령인 이름 (required)
@@ -117,17 +115,7 @@ Target fields:
 - staffName: 배송담당자 이름 (optional)
 - deliveryDate: 배송 날짜 (optional, YYYY-MM-DD format)
 
-Excel headers: ${JSON.stringify(headers)}
-Sample data: ${JSON.stringify(sampleRows?.slice(0, 3) || [])}
-
-Response in JSON format:
-{
-  "mappings": [
-    { "sourceColumn": "excel header name", "targetField": "target field name", "confidence": 0.0-1.0 }
-  ]
-}
-
-Only include mappings you are confident about. Consider Korean variations like:
+Consider Korean variations:
 - 이름, 성명, 수령인 → recipientName
 - 연락처, 전화, 휴대폰, 핸드폰 → recipientPhone
 - 주소, 배송지 → recipientAddress
@@ -137,32 +125,18 @@ Only include mappings you are confident about. Consider Korean variations like:
 - 담당자, 배송자 → staffName
 - 날짜, 배송일 → deliveryDate`;
 
-    const response = await fetch(`${AI_GATEWAY_HOST}${AI_GATEWAY_ENDPOINT}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'cf-aig-authorization': `Bearer ${c.env.AI_GATEWAY_TOKEN}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-      }),
-    });
+    const userMessage = `Excel headers: ${JSON.stringify(headers)}
+Sample data: ${JSON.stringify(sampleRows?.slice(0, 3) || [])}
 
-    if (!response.ok) {
-      console.error('AI Gateway error:', await response.text());
-      return c.json({ success: false, error: 'AI service error' }, 500);
-    }
+Response format:
+{"mappings":[{"sourceColumn":"header","targetField":"field","confidence":0.9}]}`;
 
-    const aiResult = await response.json() as {
-      choices: Array<{ message: { content: string } }>;
-    };
-    const content = aiResult.choices[0]?.message?.content;
+    const aiResult = await callAI(c.env, systemPrompt, userMessage, { provider: 'grok', maxTokens: 500 });
 
-    if (!content) {
-      return c.json({ success: false, error: 'AI response error' }, 500);
+    // JSON 파싱 (마크다운 코드블록 제거)
+    let content = aiResult.text.trim();
+    if (content.startsWith('```')) {
+      content = content.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     }
 
     const parsed = JSON.parse(content) as {
@@ -174,6 +148,7 @@ Only include mappings you are confident about. Consider Korean variations like:
       data: {
         suggestions: parsed.mappings,
         fromCache: false,
+        cacheHit: aiResult.cacheHit,
       },
     });
   } catch (error) {
