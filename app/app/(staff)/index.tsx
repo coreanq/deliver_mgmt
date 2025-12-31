@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import Constants from 'expo-constants';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,7 +24,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import type { Delivery, DeliveryStatus } from '@/types';
-import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS } from '@/constants';
+import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, API_BASE_URL } from '@/constants';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -233,6 +234,11 @@ export default function StaffDeliveryList() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<'all' | DeliveryStatus>('all');
+  const [serverBuildDate, setServerBuildDate] = useState<string>('');
+
+  // 앱 버전 및 빌드 정보
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const appBuildDate = Constants.expoConfig?.extra?.buildDate || '';
 
   const fetchDeliveries = useCallback(async () => {
     if (!staff?.name) return;
@@ -253,6 +259,22 @@ export default function StaffDeliveryList() {
   useEffect(() => {
     fetchDeliveries();
   }, [fetchDeliveries]);
+
+  // 서버 빌드 날짜 조회
+  useEffect(() => {
+    const fetchServerInfo = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/health`);
+        const data = await response.json();
+        if (data.buildDate) {
+          setServerBuildDate(data.buildDate);
+        }
+      } catch (error) {
+        // 서버 정보 조회 실패 시 무시
+      }
+    };
+    fetchServerInfo();
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -342,6 +364,29 @@ export default function StaffDeliveryList() {
               <Rect x="14" y="14" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
             </Svg>
             <Text style={[styles.headerBtnText, { color: isDark ? '#888' : '#64748b' }]}>QR</Text>
+          </Pressable>
+          {/* 메인 화면 버튼 */}
+          <Pressable
+            onPress={() => router.replace('/')}
+            style={[styles.headerBtnWithLabel, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                stroke={isDark ? '#888' : '#64748b'}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M9 22V12h6v10"
+                stroke={isDark ? '#888' : '#64748b'}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+            <Text style={[styles.headerBtnText, { color: isDark ? '#888' : '#64748b' }]}>메인</Text>
           </Pressable>
         </View>
       </Animated.View>
@@ -452,7 +497,12 @@ export default function StaffDeliveryList() {
           ))
         )}
 
-        <View style={{ height: 40 }} />
+        {/* 버전 정보 */}
+        <View style={styles.versionContainer}>
+          <Text style={[styles.versionText, { color: isDark ? '#444' : '#94a3b8' }]}>
+            App v{appVersion} ({appBuildDate}) {serverBuildDate ? `| Server ${serverBuildDate}` : ''}
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -710,6 +760,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
+    fontWeight: '500',
+  },
+  versionContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  versionText: {
+    fontSize: 11,
     fontWeight: '500',
   },
 });

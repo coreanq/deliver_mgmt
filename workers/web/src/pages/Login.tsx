@@ -190,9 +190,11 @@ export default function Login() {
                 )}
               </button>
 
-              <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-                테스트: dev@test.com 또는 dev@example.com
-              </p>
+              {!import.meta.env.PROD && (
+                <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+                  테스트: dev@test.com 또는 dev@example.com
+                </p>
+              )}
             </form>
           ) : (
             <div className="text-center py-8">

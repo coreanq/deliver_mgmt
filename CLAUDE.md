@@ -78,8 +78,9 @@ BUILD_DATE = "25/01/01 00:00"  # placeholder (sed가 교체함)
 
 > **참고**: macOS(BSD sed)는 `-i ''`, Linux(GNU sed)는 `-i`를 사용하므로 `uname`으로 OS 판별
 
-- GitHub push → Cloudflare 자동 배포 시에도 적용
-- 로컬 `npm run deploy` 시에도 적용
+- 하단에 버전 정보 기입 
+  App v1.0.0 (26/01/01 01:00)  ← Expo OTA 업데이트 시점도 반영되야함 
+  Server 26/01/01 00:38         ← Worker 배포 시점
 
 # doamin
 - try-dabble.com

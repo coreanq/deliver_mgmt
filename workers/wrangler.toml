@@ -14,7 +14,7 @@ not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
 [vars]
-BUILD_DATE = "26/01/01 00:25"
+BUILD_DATE = "26/01/01 00:41"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"
 # Magic Link 베이스 URL
 MAGIC_LINK_BASE_URL = "deliver-mgmt-worker.coreanq.workers.dev"
