@@ -67,6 +67,17 @@ auth.post('/magic-link/send', async (c) => {
   }
 
   try {
+    // 1분 재전송 제한 체크
+    const recentToken = await c.env.DB.prepare(
+      'SELECT created_at FROM magic_link_tokens WHERE email = ? AND created_at > datetime("now", "-1 minute") ORDER BY created_at DESC LIMIT 1'
+    )
+      .bind(email.toLowerCase())
+      .first<{ created_at: string }>();
+
+    if (recentToken) {
+      return c.json({ success: false, error: '1분 후에 다시 시도해주세요.' }, 429);
+    }
+
     // Magic Link 토큰 생성
     const token = generateRandomToken(32);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15분
@@ -78,7 +89,7 @@ auth.post('/magic-link/send', async (c) => {
       .bind(generateId(), email.toLowerCase(), token, expiresAt)
       .run();
 
-    // Magic Link URL 생성
+    // Magic Link URL 생성 (웹 verify 페이지에서 모바일 감지 후 앱으로 리다이렉트)
     const magicLinkUrl = `${c.env.MAGIC_LINK_BASE_URL}/auth/verify?token=${token}`;
 
     // 이메일 발송

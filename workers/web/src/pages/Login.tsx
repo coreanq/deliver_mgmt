@@ -36,11 +36,36 @@ export default function Login() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Magic Link 토큰 검증
+  // Magic Link 토큰 검증 (모바일이면 앱으로 리다이렉트 시도)
   useEffect(() => {
     const token = searchParams.get('token');
     if (token) {
-      verifyToken(token);
+      // 모바일 기기 감지 (User-Agent + 화면 크기 + 터치 기능)
+      const userAgentMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const smallScreen = window.innerWidth <= 768;
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+      // User-Agent가 모바일이고 작은 화면일 때만 모바일로 판단
+      const isMobile = userAgentMobile && smallScreen;
+
+      if (isMobile) {
+        // 앱 딥링크로 리다이렉트 시도
+        const deepLink = `deliver-mgmt://auth/verify?token=${token}`;
+
+        // 딥링크 시도 후 일정 시간 내에 페이지가 안 바뀌면 웹에서 처리
+        const timeout = setTimeout(() => {
+          verifyToken(token);
+        }, 2000);
+
+        // 딥링크 시도
+        window.location.href = deepLink;
+
+        // 페이지 이탈 시 타임아웃 취소
+        window.addEventListener('pagehide', () => clearTimeout(timeout), { once: true });
+      } else {
+        // PC는 웹에서 처리
+        verifyToken(token);
+      }
     }
   }, [searchParams]);
 
