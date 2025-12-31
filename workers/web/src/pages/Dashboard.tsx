@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
+import DeliveryDatePicker from '../components/DeliveryDatePicker';
 
 interface Delivery {
   id: string;
-  staff_name: string | null;
-  recipient_name: string;
-  recipient_phone: string;
-  recipient_address: string;
-  product_name: string;
+  staffName: string | null;
+  recipientName: string;
+  recipientPhone: string;
+  recipientAddress: string;
+  productName: string;
   quantity: number;
   status: 'pending' | 'in_transit' | 'completed';
-  delivery_date: string;
+  deliveryDate: string;
 }
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
@@ -113,17 +114,17 @@ export default function Dashboard() {
 
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Date Picker & Stats */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="input-field w-auto"
-            />
-          </div>
+        {/* Date Picker */}
+        <div className="mb-6">
+          <DeliveryDatePicker
+            value={selectedDate}
+            onChange={setSelectedDate}
+            description="해당 날짜의 배송 현황을 조회합니다"
+          />
+        </div>
 
+        {/* Stats */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 mb-8">
           <div className="flex gap-4">
             <div className="card px-4 py-3 flex items-center gap-3">
               <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
@@ -184,19 +185,19 @@ export default function Dashboard() {
                 {deliveries.map((delivery) => (
                   <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {delivery.recipient_name}
+                      {delivery.recipientName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {delivery.recipient_phone}
+                      {delivery.recipientPhone}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                      {delivery.recipient_address}
+                      {delivery.recipientAddress}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {delivery.product_name} x {delivery.quantity}
+                      {delivery.productName} x {delivery.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {delivery.staff_name || '-'}
+                      {delivery.staffName || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[delivery.status]}`}>

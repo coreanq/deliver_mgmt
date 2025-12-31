@@ -67,9 +67,10 @@ Worker 배포 시 빌드 날짜를 자동으로 기록하고 앱에서 표시
 ### 1. wrangler.toml 설정
 
 ```toml
-# 빌드 시 BUILD_DATE 자동 업데이트 (macOS/Linux 호환)
+# 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드 (macOS/Linux 호환)
 [build]
-command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; else sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; fi"
+command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; else sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; fi && cd web && npm install && npm run build"
+
 
 [vars]
 BUILD_DATE = "25/01/01 00:00"  # placeholder (sed가 교체함)

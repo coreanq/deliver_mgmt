@@ -3,16 +3,18 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드 (Linux 전용)
+# 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드 (macOS/Linux 호환)
 [build]
-command = "sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml && cd web && npm install && npm run build"
+command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; else sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; fi && cd web && npm install && npm run build"
 
 # Static Assets (웹 페이지 서빙)
 [assets]
 directory = "./web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 
 [vars]
-BUILD_DATE = "25/01/01 00:00"
+BUILD_DATE = "25/12/31 20:17"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"
 # 테스트 이메일 (프로덕션에서 비활성화: Cloudflare Dashboard에서 ""로 설정)
 TEST_EMAILS = "dev@test.com,dev@example.com"

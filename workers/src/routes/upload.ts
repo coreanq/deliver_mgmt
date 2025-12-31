@@ -171,11 +171,12 @@ upload.post('/save', async (c) => {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
 
-  const { headers, rows, mapping, deliveryDate } = await c.req.json<{
+  const { headers, rows, mapping, deliveryDate, overwrite } = await c.req.json<{
     headers: string[];
     rows: Record<string, string>[];
     mapping: FieldMapping;
     deliveryDate?: string;
+    overwrite?: boolean;
   }>();
 
   if (!rows || rows.length === 0 || !mapping) {
@@ -190,26 +191,61 @@ upload.post('/save', async (c) => {
   const targetDate = deliveryDate || getTodayKST();
 
   try {
-    // 매핑 패턴 저장
-    await c.env.DB.prepare(
-      `INSERT INTO mapping_patterns (id, admin_id, source_headers, field_mapping)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(admin_id) DO UPDATE SET
-       source_headers = excluded.source_headers,
-       field_mapping = excluded.field_mapping,
-       use_count = use_count + 1,
-       updated_at = datetime("now")`
+    // 해당 날짜에 기존 데이터 확인
+    const existingData = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM deliveries WHERE admin_id = ? AND delivery_date = ?'
     )
-      .bind(
-        generateId(),
-        payload.sub,
-        JSON.stringify(headers),
-        JSON.stringify(mapping)
-      )
-      .run();
+      .bind(payload.sub, targetDate)
+      .first<{ count: number }>();
 
-    // 배송 데이터 삽입
-    let insertedCount = 0;
+    const existingCount = existingData?.count || 0;
+
+    // 기존 데이터가 있고 덮어쓰기 확인을 받지 않은 경우
+    if (existingCount > 0 && !overwrite) {
+      return c.json({
+        success: false,
+        needsConfirmation: true,
+        existingCount,
+        deliveryDate: targetDate,
+        error: `해당 날짜(${targetDate})에 ${existingCount}건의 기존 데이터가 있습니다.`,
+      });
+    }
+
+    // 덮어쓰기 확인된 경우 기존 데이터 삭제
+    if (existingCount > 0 && overwrite) {
+      await c.env.DB.prepare(
+        'DELETE FROM deliveries WHERE admin_id = ? AND delivery_date = ?'
+      )
+        .bind(payload.sub, targetDate)
+        .run();
+    }
+    // 매핑 패턴 저장 (기존 패턴 확인 후 INSERT/UPDATE)
+    const existingPattern = await c.env.DB.prepare(
+      'SELECT id FROM mapping_patterns WHERE admin_id = ? AND source_headers = ?'
+    )
+      .bind(payload.sub, JSON.stringify(headers))
+      .first<{ id: string }>();
+
+    if (existingPattern) {
+      // 기존 패턴 업데이트
+      await c.env.DB.prepare(
+        `UPDATE mapping_patterns SET field_mapping = ?, use_count = use_count + 1, updated_at = datetime("now") WHERE id = ?`
+      )
+        .bind(JSON.stringify(mapping), existingPattern.id)
+        .run();
+    } else {
+      // 새 패턴 삽입
+      await c.env.DB.prepare(
+        `INSERT INTO mapping_patterns (id, admin_id, source_headers, field_mapping) VALUES (?, ?, ?, ?)`
+      )
+        .bind(generateId(), payload.sub, JSON.stringify(headers), JSON.stringify(mapping))
+        .run();
+    }
+
+    // 배송 데이터 준비 (배치 저장용)
+    const statements: ReturnType<typeof c.env.DB.prepare>[] = [];
+    let validRowCount = 0;
+
     for (const row of rows) {
       const recipientName = row[mapping.recipientName];
       const recipientPhone = row[mapping.recipientPhone];
@@ -226,11 +262,11 @@ upload.post('/save', async (c) => {
       const staffName = mapping.staffName ? row[mapping.staffName] || null : null;
       const rowDate = mapping.deliveryDate ? row[mapping.deliveryDate] || targetDate : targetDate;
 
-      await c.env.DB.prepare(
-        `INSERT INTO deliveries (id, admin_id, staff_name, recipient_name, recipient_phone, recipient_address, product_name, quantity, memo, delivery_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-        .bind(
+      statements.push(
+        c.env.DB.prepare(
+          `INSERT INTO deliveries (id, admin_id, staff_name, recipient_name, recipient_phone, recipient_address, product_name, quantity, memo, delivery_date)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
           generateId(),
           payload.sub,
           staffName,
@@ -242,15 +278,22 @@ upload.post('/save', async (c) => {
           memo,
           rowDate
         )
-        .run();
-
-      insertedCount++;
+      );
+      validRowCount++;
     }
+
+    // 유효한 데이터가 없으면 에러
+    if (statements.length === 0) {
+      return c.json({ success: false, error: '저장할 유효한 데이터가 없습니다.' }, 400);
+    }
+
+    // 배치로 한번에 저장 (원자성 보장 - 하나라도 실패하면 전체 롤백)
+    await c.env.DB.batch(statements);
 
     return c.json({
       success: true,
       data: {
-        insertedCount,
+        insertedCount: validRowCount,
         totalRows: rows.length,
         deliveryDate: targetDate,
       },

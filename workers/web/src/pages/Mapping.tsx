@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUploadStore } from '../stores/upload';
 import { useAuthStore } from '../stores/auth';
+import DeliveryDatePicker from '../components/DeliveryDatePicker';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
 
@@ -25,6 +26,11 @@ export default function Mapping() {
   const [isSaving, setIsSaving] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
   const [error, setError] = useState('');
+  const [aiError, setAiError] = useState<{ show: boolean; canRetry: boolean }>({ show: false, canRetry: false });
+  const [confirmOverwrite, setConfirmOverwrite] = useState<{ show: boolean; existingCount: number }>({
+    show: false,
+    existingCount: 0,
+  });
 
   // 데이터가 없으면 업로드 페이지로 리다이렉트
   useEffect(() => {
@@ -40,9 +46,17 @@ export default function Mapping() {
     }
   }, [headers]);
 
-  const fetchMappingSuggestion = async () => {
+  const fetchMappingSuggestion = async (retryCount = 0): Promise<void> => {
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 30000; // 30초 타임아웃
+
     setIsLoadingSuggestion(true);
+    setAiError({ show: false, canRetry: false });
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
       const response = await fetch(`${API_BASE}/api/upload/mapping/suggest`, {
         method: 'POST',
         headers: {
@@ -53,7 +67,10 @@ export default function Mapping() {
           headers,
           sampleRows: rows.slice(0, 3),
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const result = await response.json();
       if (result.success && result.data.suggestions) {
@@ -64,15 +81,32 @@ export default function Mapping() {
           }
         }
         setMapping(newMapping);
+        setAiError({ show: false, canRetry: false });
+      } else {
+        throw new Error(result.error || 'AI 매핑 추천 실패');
       }
     } catch (err) {
-      console.error('Mapping suggestion error:', err);
+      console.error(`Mapping suggestion error (attempt ${retryCount + 1}/${MAX_RETRIES}):`, err);
+
+      if (retryCount < MAX_RETRIES - 1) {
+        // 재시도 (1초 딜레이)
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return fetchMappingSuggestion(retryCount + 1);
+      } else {
+        // 3번 실패 - 수동 매핑 안내
+        setAiError({ show: true, canRetry: false });
+      }
     } finally {
       setIsLoadingSuggestion(false);
     }
   };
 
-  const handleSave = async () => {
+  const handleRetryAiMapping = () => {
+    setAiError({ show: false, canRetry: false });
+    fetchMappingSuggestion(0);
+  };
+
+  const handleSave = async (overwrite = false) => {
     // 필수 필드 확인
     const missingFields = TARGET_FIELDS.filter(
       (field) => field.required && !mapping[field.key]
@@ -85,6 +119,7 @@ export default function Mapping() {
 
     setIsSaving(true);
     setError('');
+    setConfirmOverwrite({ show: false, existingCount: 0 });
 
     try {
       const response = await fetch(`${API_BASE}/api/upload/save`, {
@@ -98,6 +133,7 @@ export default function Mapping() {
           rows,
           mapping,
           deliveryDate,
+          overwrite,
         }),
       });
 
@@ -109,6 +145,9 @@ export default function Mapping() {
             message: `${result.data.insertedCount}건의 배송 데이터를 저장했습니다.`,
           },
         });
+      } else if (result.needsConfirmation) {
+        // 기존 데이터 덮어쓰기 확인 필요
+        setConfirmOverwrite({ show: true, existingCount: result.existingCount });
       } else {
         setError(result.error || '저장에 실패했습니다.');
       }
@@ -118,6 +157,14 @@ export default function Mapping() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleConfirmOverwrite = () => {
+    handleSave(true);
+  };
+
+  const handleCancelOverwrite = () => {
+    setConfirmOverwrite({ show: false, existingCount: 0 });
   };
 
   return (
@@ -136,7 +183,7 @@ export default function Mapping() {
               돌아가기
             </Link>
 
-            <button onClick={handleSave} disabled={isSaving} className="btn-primary">
+            <button onClick={() => handleSave(false)} disabled={isSaving} className="btn-primary">
               {isSaving ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
@@ -144,7 +191,7 @@ export default function Mapping() {
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  저장하기 ({rows.length}건)
+                  저장하기
                 </>
               )}
             </button>
@@ -158,7 +205,6 @@ export default function Mapping() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">컬럼 매핑</h1>
           <p className="text-gray-500 dark:text-gray-400">
             엑셀 컬럼을 배송 데이터 필드에 매핑하세요.
-            {isLoadingSuggestion && ' AI가 분석 중...'}
           </p>
         </div>
 
@@ -169,16 +215,35 @@ export default function Mapping() {
           </div>
         )}
 
+        {/* AI 매핑 실패 안내 */}
+        {aiError.show && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl dark:bg-amber-900/20 dark:border-amber-800">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-amber-800 dark:text-amber-200 font-medium">AI 매핑 추천을 불러올 수 없습니다</p>
+                <p className="text-amber-600 dark:text-amber-400 text-sm mt-1">
+                  네트워크 연결을 확인하거나, 아래에서 직접 컬럼을 매핑해주세요.
+                </p>
+                <button
+                  onClick={handleRetryAiMapping}
+                  className="mt-3 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-700 dark:text-amber-200 rounded-lg text-sm font-medium transition-colors"
+                >
+                  다시 시도
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Delivery Date */}
-        <div className="card p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            배송일 (엑셀에 날짜가 없는 경우)
-          </label>
-          <input
-            type="date"
+        <div className="mb-6">
+          <DeliveryDatePicker
             value={deliveryDate}
-            onChange={(e) => setDeliveryDate(e.target.value)}
-            className="input-field w-auto"
+            onChange={setDeliveryDate}
+            description="이 날짜로 모든 배송 데이터가 저장됩니다"
           />
         </div>
 
@@ -248,6 +313,92 @@ export default function Mapping() {
           </div>
         )}
       </main>
+
+      {/* 전체 화면 로딩 오버레이 (AI 분석 중 또는 저장 중) */}
+      {(isLoadingSuggestion || isSaving) && !confirmOverwrite.show && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center">
+            <div className="relative mx-auto w-16 h-16 mb-6">
+              <div className="absolute inset-0 bg-primary-100 dark:bg-primary-900/50 rounded-xl"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                {isLoadingSuggestion ? (
+                  <svg className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                )}
+              </div>
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary-500 rounded-full animate-ping"></div>
+            </div>
+
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              {isLoadingSuggestion ? 'AI가 분석 중입니다' : '데이터 저장 중'}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
+              {isLoadingSuggestion
+                ? '엑셀 헤더와 샘플 데이터를 분석하여 최적의 매핑을 추천합니다...'
+                : '배송 데이터를 저장하고 있습니다...'}
+            </p>
+
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-3 border-primary-200 border-t-primary-600"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 덮어쓰기 확인 모달 */}
+      {confirmOverwrite.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">기존 데이터 덮어쓰기</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{deliveryDate}</p>
+              </div>
+            </div>
+
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              해당 날짜에 <span className="font-bold text-amber-600 dark:text-amber-400">{confirmOverwrite.existingCount}건</span>의 기존 배송 데이터가 있습니다.
+              <br />
+              기존 데이터를 삭제하고 새 데이터로 덮어쓰시겠습니까?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelOverwrite}
+                className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleConfirmOverwrite}
+                disabled={isSaving}
+                className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isSaving ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    덮어쓰기
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
