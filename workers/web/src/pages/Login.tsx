@@ -57,7 +57,10 @@ export default function Login() {
 
       if (result.success && result.data) {
         login(result.data.admin, result.data.token);
-        navigate('/');
+        // 이메일 링크로 열린 새 탭이면 닫기 시도, 안 되면 대시보드로 이동
+        window.close();
+        // window.close()가 안 되는 경우 (직접 열린 탭)
+        setTimeout(() => navigate('/'), 100);
       } else {
         setError(result.error || '링크가 만료되었거나 유효하지 않습니다.');
       }
