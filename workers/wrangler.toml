@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드
+# 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드 (Linux 전용)
 [build]
-command = "node scripts/update-build-date.mjs && cd web && rm -rf node_modules && npm install && npm run build"
+command = "sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml && cd web && npm cache clean --force && rm -rf node_modules && npm install && npm run build"
 
 # Static Assets (웹 페이지 서빙)
 [assets]
