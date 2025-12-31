@@ -1,4 +1,7 @@
 {
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(npm run dev:*)",
@@ -65,10 +68,6 @@
   "enabledMcpjsonServers": [
     "context7",
     "playwright"
-  ], 
-  "env": {
-    "DISABLE_AUTOUPDATER": "1"
-  }
-
-  }
- 
+  ],
+  "enableAllProjectMcpServers": true
+}
