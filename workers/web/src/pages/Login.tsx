@@ -21,6 +21,21 @@ export default function Login() {
     }
   }, [isAuthenticated, navigate]);
 
+  // 다른 탭에서 로그인 완료 시 감지 (storage 이벤트)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth-storage' && e.newValue) {
+        const data = JSON.parse(e.newValue);
+        if (data.state?.isAuthenticated) {
+          window.location.href = '/';
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   // Magic Link 토큰 검증
   useEffect(() => {
     const token = searchParams.get('token');
@@ -142,7 +157,7 @@ export default function Login() {
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    Magic Link 발송
+                    이메일로 로그인
                   </>
                 )}
               </button>
@@ -162,7 +177,7 @@ export default function Login() {
                 이메일을 확인하세요!
               </h2>
               <p className="text-gray-500 dark:text-gray-400 mb-6">
-                {email}로<br />Magic Link를 보냈습니다.
+                {email}로<br />로그인 링크를 보냈습니다.
               </p>
               <button
                 onClick={() => setIsSent(false)}
