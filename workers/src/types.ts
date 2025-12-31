@@ -63,15 +63,6 @@ export interface Admin {
   updated_at: string;
 }
 
-// 배송담당자 정보
-export interface Staff {
-  id: string;
-  admin_id: string;
-  name: string;
-  created_at: string;
-  updated_at: string;
-}
-
 // 배송 정보
 export interface Delivery {
   id: string;

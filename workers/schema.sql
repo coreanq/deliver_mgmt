@@ -25,20 +25,6 @@ CREATE TABLE IF NOT EXISTS magic_link_tokens (
 CREATE INDEX IF NOT EXISTS idx_magic_link_token ON magic_link_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_magic_link_email ON magic_link_tokens(email);
 
--- 배송담당자 테이블
-CREATE TABLE IF NOT EXISTS staff (
-  id TEXT PRIMARY KEY,
-  admin_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
-);
-
--- 배송담당자 인덱스
-CREATE INDEX IF NOT EXISTS idx_staff_admin_id ON staff(admin_id);
-CREATE INDEX IF NOT EXISTS idx_staff_name ON staff(name);
-
 -- 배송 테이블
 CREATE TABLE IF NOT EXISTS deliveries (
   id TEXT PRIMARY KEY,
