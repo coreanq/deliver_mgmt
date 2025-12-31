@@ -18,7 +18,6 @@ export default function AdminLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="index" />
       <Stack.Screen name="qr-generate" />
-      <Stack.Screen name="settings" />
     </Stack>
   );
 }

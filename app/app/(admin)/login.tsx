@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Keyboard,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -169,9 +171,13 @@ export default function AdminLoginScreen() {
     : ['#f0f4f8', '#e8eef5', '#f0f4f8'] as const;
 
   return (
-    <LinearGradient colors={bgColors} style={styles.container}>
-      {/* Back Button */}
-      <Pressable
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <LinearGradient colors={bgColors} style={styles.container}>
+        {/* Back Button */}
+        <Pressable
         style={styles.backButton}
         onPress={() => router.back()}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -217,7 +223,7 @@ export default function AdminLoginScreen() {
             관리자 로그인
           </Text>
           <Text style={[styles.subtitle, { color: isDark ? '#666680' : '#64748b' }]}>
-            이메일로 Magic Link를 받으세요
+            이메일로 로그인하세요
           </Text>
         </Animated.View>
 
@@ -290,16 +296,16 @@ export default function AdminLoginScreen() {
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <>
-                    <Text style={styles.buttonText}>Magic Link 발송</Text>
                     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                       <Path
-                        d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                         stroke="#fff"
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
                     </Svg>
+                    <Text style={styles.buttonText}>이메일로 로그인</Text>
                   </>
                 )}
               </LinearGradient>
@@ -332,8 +338,7 @@ export default function AdminLoginScreen() {
               이메일을 확인하세요!
             </Text>
             <Text style={[styles.successSubtitle, { color: isDark ? '#666680' : '#64748b' }]}>
-              {email}로 Magic Link를 보냈습니다.{'\n'}
-              링크를 클릭하여 로그인하세요.
+              {email}로{'\n'}로그인 링크를 보냈습니다.
             </Text>
             <Pressable
               style={[styles.resendButton, { borderColor: isDark ? '#333' : '#e2e8f0' }]}
@@ -346,7 +351,8 @@ export default function AdminLoginScreen() {
           </Animated.View>
         )}
       </View>
-    </LinearGradient>
+      </LinearGradient>
+    </KeyboardAvoidingView>
   );
 }
 

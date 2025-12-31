@@ -228,7 +228,7 @@ export default function RoleSelectionScreen() {
         <View style={styles.cardsContainer}>
           <RoleCard
             title="관리자"
-            description="Magic Link로 로그인하여 배송 데이터를 관리하세요"
+            description="이메일로 로그인하여 배송 데이터를 관리하세요"
             icon={<BriefcaseIcon color="#fff" size={36} />}
             gradientColors={['#3b82f6', '#1e40af', '#1e3a8a']}
             delay={200}

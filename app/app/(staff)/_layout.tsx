@@ -18,7 +18,6 @@ export default function StaffLayout() {
       <Stack.Screen name="scan" />
       <Stack.Screen name="verify" />
       <Stack.Screen name="index" />
-      <Stack.Screen name="[orderId]" />
       <Stack.Screen name="complete" />
     </Stack>
   );
