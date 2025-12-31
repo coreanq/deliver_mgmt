@@ -14,6 +14,8 @@ directory = "./web/dist"
 [vars]
 BUILD_DATE = "25/01/01 00:00"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"
+# 테스트 이메일 (프로덕션에서 비활성화: Cloudflare Dashboard에서 ""로 설정)
+TEST_EMAILS = "dev@test.com,dev@example.com"
 
 # D1 Database
 [[d1_databases]]

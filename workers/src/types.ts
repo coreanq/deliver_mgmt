@@ -18,6 +18,8 @@ export interface Env {
   // Coupang API (wrangler secret)
   COUPANG_ACCESS_KEY: string;
   COUPANG_SECRET_KEY: string;
+  // 테스트 이메일 (쉼표로 구분, 빈 문자열이면 비활성화)
+  TEST_EMAILS: string;
 }
 
 // AI Provider 타입

@@ -6,7 +6,7 @@ import { generateId, generateRandomToken, isValidEmail, isTestEmail } from '../l
 
 const auth = new Hono<{ Bindings: Env }>();
 
-// Magic Link 발송
+// Magic Link 발송 (테스트 이메일은 바로 JWT 반환)
 auth.post('/magic-link/send', async (c) => {
   const { email } = await c.req.json<{ email: string }>();
 
@@ -14,12 +14,56 @@ auth.post('/magic-link/send', async (c) => {
     return c.json({ success: false, error: 'Invalid email address' }, 400);
   }
 
-  // 테스트 이메일은 바로 성공 응답 (실제로 이메일 발송 안 함)
-  if (isTestEmail(email)) {
-    return c.json({
-      success: true,
-      data: { message: 'Magic link sent (test mode)' },
-    });
+  // 테스트 이메일은 바로 JWT 반환 (이메일 발송 안 함)
+  if (isTestEmail(email, c.env.TEST_EMAILS)) {
+    try {
+      // 관리자 조회 또는 생성
+      let admin = await c.env.DB.prepare('SELECT * FROM admins WHERE email = ?')
+        .bind(email.toLowerCase())
+        .first<Admin>();
+
+      if (!admin) {
+        const adminId = generateId();
+        await c.env.DB.prepare('INSERT INTO admins (id, email) VALUES (?, ?)')
+          .bind(adminId, email.toLowerCase())
+          .run();
+
+        // 기본 구독 생성
+        await c.env.DB.prepare(
+          'INSERT INTO subscriptions (id, admin_id, type, retention_days) VALUES (?, ?, ?, ?)'
+        )
+          .bind(generateId(), adminId, 'free', 7)
+          .run();
+
+        admin = {
+          id: adminId,
+          email: email.toLowerCase(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+
+      // JWT 토큰 생성
+      const jwtToken = await createToken(
+        { sub: admin.id, email: admin.email, role: 'admin' },
+        c.env.JWT_SECRET
+      );
+
+      return c.json({
+        success: true,
+        data: {
+          token: jwtToken,
+          admin: {
+            id: admin.id,
+            email: admin.email,
+            createdAt: admin.created_at,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Test login error:', error);
+      return c.json({ success: false, error: 'Internal server error' }, 500);
+    }
   }
 
   try {

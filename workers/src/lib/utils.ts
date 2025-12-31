@@ -55,9 +55,12 @@ export function normalizePhoneNumber(phone: string): string {
   return phone;
 }
 
-// 테스트 이메일 확인
-export function isTestEmail(email: string): boolean {
-  const testEmails = ['dev@test.com', 'dev@example.com'];
+// 테스트 이메일 확인 (환경변수 기반)
+export function isTestEmail(email: string, testEmailsEnv: string): boolean {
+  if (!testEmailsEnv || testEmailsEnv.trim() === '') {
+    return false;
+  }
+  const testEmails = testEmailsEnv.split(',').map((e) => e.trim().toLowerCase());
   return testEmails.includes(email.toLowerCase());
 }
 

@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
-const TEST_EMAILS = ['dev@test.com', 'dev@example.com'];
 
 export default function Login() {
   const navigate = useNavigate();
@@ -63,16 +62,6 @@ export default function Login() {
       return;
     }
 
-    // 테스트 이메일 바로 로그인
-    if (TEST_EMAILS.includes(email.toLowerCase())) {
-      login(
-        { id: 'test-admin', email: email.toLowerCase(), createdAt: new Date().toISOString() },
-        'test-token-123'
-      );
-      navigate('/');
-      return;
-    }
-
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/auth/magic-link/send`, {
@@ -84,7 +73,14 @@ export default function Login() {
       const result = await response.json();
 
       if (result.success) {
-        setIsSent(true);
+        // 테스트 이메일이면 바로 JWT 반환됨 → 로그인
+        if (result.data?.token) {
+          login(result.data.admin, result.data.token);
+          navigate('/');
+        } else {
+          // 일반 이메일이면 Magic Link 발송됨
+          setIsSent(true);
+        }
       } else {
         setError(result.error || '이메일 발송에 실패했습니다.');
       }
