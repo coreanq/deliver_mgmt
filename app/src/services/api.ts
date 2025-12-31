@@ -96,6 +96,17 @@ class ApiService {
     });
   }
 
+  async staffLogin(
+    adminId: string,
+    date: string,
+    name: string
+  ): Promise<ApiResponse<{ token: string; staff: { id: string; name: string; adminId: string } }>> {
+    return this.request('/api/auth/staff/login', {
+      method: 'POST',
+      body: JSON.stringify({ adminId, date, name }),
+    });
+  }
+
   // 배송 API
 
   async getDeliveryList(

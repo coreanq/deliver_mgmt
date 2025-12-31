@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   StyleSheet,
   Dimensions,
   Linking,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,9 +22,11 @@ import Animated, {
   withTiming,
   FadeInDown,
   FadeInUp,
+  FadeIn,
   Layout,
 } from 'react-native-reanimated';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import QRCode from 'react-native-qrcode-svg';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import type { Delivery, DeliveryStatus } from '@/types';
@@ -154,6 +158,9 @@ function DeliveryCard({ delivery, index, isDark }: DeliveryCardProps) {
   );
 }
 
+// 필터 타입
+type FilterType = 'all' | 'status' | 'staff';
+
 export default function AdminDashboard() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -165,7 +172,19 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // QR 모달 상태
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  // 필터링 상태
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<DeliveryStatus | 'all'>('all');
+  const [staffFilter, setStaffFilter] = useState<string>('all');
+  const [searchText, setSearchText] = useState('');
+
   const fabScale = useSharedValue(0);
+
+  // 담당자 목록
+  const [staffList, setStaffList] = useState<string[]>([]);
 
   useEffect(() => {
     fabScale.value = withDelay(500, withSpring(1, { damping: 12, stiffness: 100 }));
@@ -189,9 +208,59 @@ export default function AdminDashboard() {
     }
   }, [selectedDate]);
 
+  // 담당자 목록 조회
+  const fetchStaffList = useCallback(async () => {
+    try {
+      const result = await api.getStaffList();
+      if (result.success && result.data) {
+        setStaffList(result.data.staff);
+      }
+    } catch (error) {
+      console.error('Failed to fetch staff list:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDeliveries();
-  }, [fetchDeliveries]);
+    fetchStaffList();
+  }, [fetchDeliveries, fetchStaffList]);
+
+  // 필터링된 배송 목록
+  const filteredDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
+      // 상태 필터
+      if (statusFilter !== 'all' && d.status !== statusFilter) return false;
+      // 담당자 필터
+      if (staffFilter !== 'all' && d.staffName !== staffFilter) return false;
+      // 검색어 필터 (수령인, 주소, 상품명)
+      if (searchText) {
+        const search = searchText.toLowerCase();
+        const matchRecipient = d.recipientName.toLowerCase().includes(search);
+        const matchAddress = d.recipientAddress.toLowerCase().includes(search);
+        const matchProduct = d.productName.toLowerCase().includes(search);
+        if (!matchRecipient && !matchAddress && !matchProduct) return false;
+      }
+      return true;
+    });
+  }, [deliveries, statusFilter, staffFilter, searchText]);
+
+  // QR 데이터 생성
+  const qrData = useMemo(() => {
+    if (!admin?.id) return '';
+    return JSON.stringify({
+      adminId: admin.id,
+      date: selectedDate,
+    });
+  }, [admin?.id, selectedDate]);
+
+  // 활성 필터 개수
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter !== 'all') count++;
+    if (staffFilter !== 'all') count++;
+    if (searchText) count++;
+    return count;
+  }, [statusFilter, staffFilter, searchText]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -205,14 +274,22 @@ export default function AdminDashboard() {
     setIsLoading(true);
   };
 
-  const stats = {
+  // 전체 통계 (필터 무관)
+  const totalStats = {
     total: deliveries.length,
     pending: deliveries.filter((d) => d.status === 'pending').length,
     in_transit: deliveries.filter((d) => d.status === 'in_transit').length,
     completed: deliveries.filter((d) => d.status === 'completed').length,
   };
 
-  const bgColors = isDark ? ['#0a0a12', '#12121f'] : ['#f0f4f8', '#e8eef5'];
+  // 필터 초기화
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setStaffFilter('all');
+    setSearchText('');
+  };
+
+  const bgColors = isDark ? ['#0a0a12', '#12121f'] as const : ['#f0f4f8', '#e8eef5'] as const;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -312,33 +389,125 @@ export default function AdminDashboard() {
       <View style={styles.statsContainer}>
         <StatCard
           label="전체"
-          value={stats.total}
+          value={totalStats.total}
           color={isDark ? '#fff' : '#1a1a2e'}
           bgColor={isDark ? '#1a1a2e' : '#fff'}
           delay={200}
         />
         <StatCard
           label="준비"
-          value={stats.pending}
+          value={totalStats.pending}
           color="#f59e0b"
           bgColor={isDark ? '#f59e0b15' : '#fef3c7'}
           delay={250}
         />
         <StatCard
           label="배송"
-          value={stats.in_transit}
+          value={totalStats.in_transit}
           color="#3b82f6"
           bgColor={isDark ? '#3b82f615' : '#dbeafe'}
           delay={300}
         />
         <StatCard
           label="완료"
-          value={stats.completed}
+          value={totalStats.completed}
           color="#10b981"
           bgColor={isDark ? '#10b98115' : '#d1fae5'}
           delay={350}
         />
       </View>
+
+      {/* Filter Bar */}
+      <Animated.View
+        entering={FadeInDown.delay(200).springify()}
+        style={styles.filterBar}
+      >
+        {/* Search Input */}
+        <View style={[styles.searchContainer, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              stroke={isDark ? '#666' : '#94a3b8'}
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </Svg>
+          <TextInput
+            style={[styles.searchInput, { color: isDark ? '#fff' : '#1a1a2e' }]}
+            placeholder="검색 (수령인, 주소, 상품)"
+            placeholderTextColor={isDark ? '#666' : '#94a3b8'}
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          {searchText ? (
+            <Pressable onPress={() => setSearchText('')}>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke={isDark ? '#666' : '#94a3b8'}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Filter Button */}
+        <Pressable
+          style={[
+            styles.filterButton,
+            { backgroundColor: isDark ? '#1a1a2e' : '#fff' },
+            activeFilterCount > 0 && styles.filterButtonActive,
+          ]}
+          onPress={() => setShowFilterModal(true)}
+        >
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M3 4h18M7 9h10M10 14h4"
+              stroke={activeFilterCount > 0 ? '#3b82f6' : (isDark ? '#888' : '#64748b')}
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </Svg>
+          {activeFilterCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </Pressable>
+      </Animated.View>
+
+      {/* Active Filters Display */}
+      {activeFilterCount > 0 && (
+        <Animated.View entering={FadeIn.springify()} style={styles.activeFilters}>
+          {statusFilter !== 'all' && (
+            <View style={[styles.filterChip, { backgroundColor: `${DELIVERY_STATUS_COLORS[statusFilter]}20` }]}>
+              <Text style={[styles.filterChipText, { color: DELIVERY_STATUS_COLORS[statusFilter] }]}>
+                {DELIVERY_STATUS_LABELS[statusFilter]}
+              </Text>
+              <Pressable onPress={() => setStatusFilter('all')}>
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke={DELIVERY_STATUS_COLORS[statusFilter]} strokeWidth="2" strokeLinecap="round" />
+                </Svg>
+              </Pressable>
+            </View>
+          )}
+          {staffFilter !== 'all' && (
+            <View style={[styles.filterChip, { backgroundColor: isDark ? '#3b82f620' : '#dbeafe' }]}>
+              <Text style={[styles.filterChipText, { color: '#3b82f6' }]}>{staffFilter}</Text>
+              <Pressable onPress={() => setStaffFilter('all')}>
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                </Svg>
+              </Pressable>
+            </View>
+          )}
+          <Pressable onPress={clearFilters} style={styles.clearAllButton}>
+            <Text style={styles.clearAllText}>전체 해제</Text>
+          </Pressable>
+        </Animated.View>
+      )}
 
       {/* Deliveries List */}
       <ScrollView
@@ -359,7 +528,7 @@ export default function AdminDashboard() {
               로딩 중...
             </Text>
           </View>
-        ) : deliveries.length === 0 ? (
+        ) : filteredDeliveries.length === 0 ? (
           <Animated.View
             entering={FadeInDown.delay(200).springify()}
             style={styles.emptyContainer}
@@ -374,14 +543,14 @@ export default function AdminDashboard() {
               />
             </Svg>
             <Text style={[styles.emptyText, { color: isDark ? '#555' : '#94a3b8' }]}>
-              배송 데이터가 없습니다
+              {activeFilterCount > 0 ? '필터 조건에 맞는 배송이 없습니다' : '배송 데이터가 없습니다'}
             </Text>
             <Text style={[styles.emptyHint, { color: isDark ? '#444' : '#cbd5e1' }]}>
-              PC 웹에서 엑셀을 업로드하세요
+              {activeFilterCount > 0 ? '필터를 조정해보세요' : 'PC 웹에서 엑셀을 업로드하세요'}
             </Text>
           </Animated.View>
         ) : (
-          deliveries.map((delivery, index) => (
+          filteredDeliveries.map((delivery, index) => (
             <DeliveryCard
               key={delivery.id}
               delivery={delivery}
@@ -428,26 +597,181 @@ export default function AdminDashboard() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* FAB - Generate QR */}
+      {/* FAB - Show QR */}
       <AnimatedPressable
         style={[styles.fab, fabStyle]}
-        onPress={() => router.push('/(admin)/qr-generate')}
+        onPress={() => setShowQRModal(true)}
       >
         <LinearGradient
           colors={['#3b82f6', '#1d4ed8']}
           style={styles.fabGradient}
         >
           <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M3 3h6v6H3V3zM15 3h6v6h-6V3zM3 15h6v6H3v-6zM15 15h6v6h-6v-6z"
-              stroke="#fff"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <Rect x="3" y="3" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
+            <Rect x="14" y="3" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
+            <Rect x="3" y="14" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
+            <Rect x="14" y="14" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
           </Svg>
         </LinearGradient>
       </AnimatedPressable>
+
+      {/* QR Modal */}
+      <Modal
+        visible={showQRModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQRModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowQRModal(false)}
+        >
+          <Pressable
+            style={[styles.qrModalContent, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.qrModalHeader}>
+              <Text style={[styles.qrModalTitle, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+                배송담당자 QR
+              </Text>
+              <Pressable onPress={() => setShowQRModal(false)}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" strokeLinecap="round" />
+                </Svg>
+              </Pressable>
+            </View>
+
+            <View style={styles.qrWrapper}>
+              {qrData ? (
+                <QRCode
+                  value={qrData}
+                  size={200}
+                  backgroundColor={isDark ? '#1a1a2e' : '#fff'}
+                  color={isDark ? '#fff' : '#1a1a2e'}
+                />
+              ) : (
+                <Text style={{ color: isDark ? '#666' : '#94a3b8' }}>QR 생성 중...</Text>
+              )}
+            </View>
+
+            <View style={styles.qrInfo}>
+              <View style={[styles.qrInfoItem, { backgroundColor: isDark ? '#0f0f1a' : '#f8fafc' }]}>
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                </Svg>
+                <Text style={[styles.qrInfoText, { color: isDark ? '#888' : '#64748b' }]}>
+                  {dateInfo.month}월 {dateInfo.day}일 ({dateInfo.weekday})
+                </Text>
+              </View>
+            </View>
+
+            <Text style={[styles.qrHint, { color: isDark ? '#666' : '#94a3b8' }]}>
+              배송담당자가 이 QR을 스캔하면{'\n'}이름 입력 후 배송 목록을 확인할 수 있습니다
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowFilterModal(false)}
+        >
+          <Pressable
+            style={[styles.filterModalContent, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.filterModalHeader}>
+              <Text style={[styles.filterModalTitle, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+                필터
+              </Text>
+              <Pressable onPress={() => setShowFilterModal(false)}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path d="M18 6L6 18M6 6l12 12" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" strokeLinecap="round" />
+                </Svg>
+              </Pressable>
+            </View>
+
+            {/* Status Filter */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterSectionTitle, { color: isDark ? '#888' : '#64748b' }]}>상태</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterOptions}>
+                <Pressable
+                  style={[
+                    styles.filterOption,
+                    { backgroundColor: isDark ? '#0f0f1a' : '#f8fafc' },
+                    statusFilter === 'all' && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setStatusFilter('all')}
+                >
+                  <Text style={[styles.filterOptionText, statusFilter === 'all' && styles.filterOptionTextActive]}>전체</Text>
+                </Pressable>
+                {(['pending', 'in_transit', 'completed'] as DeliveryStatus[]).map((status) => (
+                  <Pressable
+                    key={status}
+                    style={[
+                      styles.filterOption,
+                      { backgroundColor: isDark ? '#0f0f1a' : '#f8fafc' },
+                      statusFilter === status && { backgroundColor: `${DELIVERY_STATUS_COLORS[status]}20`, borderColor: DELIVERY_STATUS_COLORS[status] },
+                    ]}
+                    onPress={() => setStatusFilter(status)}
+                  >
+                    <Text style={[styles.filterOptionText, statusFilter === status && { color: DELIVERY_STATUS_COLORS[status] }]}>
+                      {DELIVERY_STATUS_LABELS[status]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Staff Filter */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterSectionTitle, { color: isDark ? '#888' : '#64748b' }]}>담당자</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterOptions}>
+                <Pressable
+                  style={[
+                    styles.filterOption,
+                    { backgroundColor: isDark ? '#0f0f1a' : '#f8fafc' },
+                    staffFilter === 'all' && styles.filterOptionActive,
+                  ]}
+                  onPress={() => setStaffFilter('all')}
+                >
+                  <Text style={[styles.filterOptionText, staffFilter === 'all' && styles.filterOptionTextActive]}>전체</Text>
+                </Pressable>
+                {staffList.map((staff) => (
+                  <Pressable
+                    key={staff}
+                    style={[
+                      styles.filterOption,
+                      { backgroundColor: isDark ? '#0f0f1a' : '#f8fafc' },
+                      staffFilter === staff && styles.filterOptionActive,
+                    ]}
+                    onPress={() => setStaffFilter(staff)}
+                  >
+                    <Text style={[styles.filterOptionText, staffFilter === staff && styles.filterOptionTextActive]}>{staff}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Apply Button */}
+            <Pressable
+              style={styles.applyFilterButton}
+              onPress={() => setShowFilterModal(false)}
+            >
+              <LinearGradient colors={['#3b82f6', '#1d4ed8']} style={styles.applyFilterGradient}>
+                <Text style={styles.applyFilterText}>적용하기</Text>
+              </LinearGradient>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -660,5 +984,201 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Filter styles
+  filterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 12,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  filterButtonActive: {
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#3b82f6',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  activeFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 12,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  clearAllButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  clearAllText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748b',
+    textDecorationLine: 'underline',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qrModalContent: {
+    width: SCREEN_WIDTH - 48,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  qrModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 24,
+  },
+  qrModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  qrWrapper: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  qrInfo: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  qrInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  qrInfoText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  qrHint: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Filter Modal styles
+  filterModalContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  filterModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  filterSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+  },
+  filterOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  filterOptionActive: {
+    backgroundColor: '#3b82f620',
+    borderColor: '#3b82f6',
+  },
+  filterOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  filterOptionTextActive: {
+    color: '#3b82f6',
+  },
+  applyFilterButton: {
+    marginTop: 8,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  applyFilterGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  applyFilterText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

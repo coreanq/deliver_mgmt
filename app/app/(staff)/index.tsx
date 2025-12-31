@@ -19,7 +19,7 @@ import Animated, {
   FadeInDown,
   Layout,
 } from 'react-native-reanimated';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import type { Delivery, DeliveryStatus } from '@/types';
@@ -247,7 +247,7 @@ export default function StaffDeliveryList() {
     completed: deliveries.filter((d) => d.status === 'completed').length,
   };
 
-  const bgColors = isDark ? ['#0a0a12', '#12121f'] : ['#f0f4f8', '#e8eef5'];
+  const bgColors = isDark ? ['#0a0a12', '#12121f'] as const : ['#f0f4f8', '#e8eef5'] as const;
 
   return (
     <View style={styles.container}>
@@ -266,20 +266,35 @@ export default function StaffDeliveryList() {
             {staff?.name}님
           </Text>
         </View>
-        <Pressable
-          onPress={logout}
-          style={[styles.logoutBtn, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
-              stroke={isDark ? '#888' : '#64748b'}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </Pressable>
+        <View style={styles.headerButtons}>
+          {/* QR 다시 스캔 버튼 */}
+          <Pressable
+            onPress={() => router.push('/(staff)/scan')}
+            style={[styles.headerBtn, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Rect x="3" y="3" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
+              <Rect x="14" y="3" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
+              <Rect x="3" y="14" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
+              <Rect x="14" y="14" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
+            </Svg>
+          </Pressable>
+          {/* 로그아웃 버튼 */}
+          <Pressable
+            onPress={logout}
+            style={[styles.headerBtn, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+                stroke={isDark ? '#888' : '#64748b'}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
+        </View>
       </Animated.View>
 
       {/* Stats Bar */}
@@ -388,7 +403,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
-  logoutBtn: {
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerBtn: {
     width: 44,
     height: 44,
     borderRadius: 14,

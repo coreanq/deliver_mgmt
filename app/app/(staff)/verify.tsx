@@ -29,7 +29,7 @@ export default function StaffVerifyScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const params = useLocalSearchParams<{ staffName: string; token: string; adminId: string }>();
+  const params = useLocalSearchParams<{ adminId: string; date: string }>();
   const { loginStaff } = useAuthStore();
 
   const [inputName, setInputName] = useState('');
@@ -57,6 +57,16 @@ export default function StaffVerifyScreen() {
     );
   };
 
+  // 날짜 포맷팅
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekday = weekdays[date.getDay()];
+    return `${month}월 ${day}일 (${weekday})`;
+  };
+
   const handleVerify = async () => {
     if (!inputName.trim()) {
       setError('이름을 입력하세요.');
@@ -68,22 +78,28 @@ export default function StaffVerifyScreen() {
     setError('');
 
     try {
-      const result = await api.verifyStaffName(inputName.trim());
+      // 담당자 로그인 API 호출
+      const result = await api.staffLogin(
+        params.adminId || '',
+        params.date || '',
+        inputName.trim()
+      );
 
-      if (result.success && result.data?.verified) {
-        // Login successful
+      if (result.success && result.data) {
+        // 로그인 성공
         loginStaff(
           {
-            id: `staff:${inputName}`,
-            name: inputName,
+            id: result.data.staff.id,
+            name: result.data.staff.name,
             adminId: params.adminId || '',
             createdAt: new Date().toISOString(),
           },
-          params.token || ''
+          result.data.token
         );
+        api.setToken(result.data.token);
         router.replace('/(staff)');
       } else {
-        setError('이름이 일치하지 않습니다.');
+        setError(result.error || '해당 날짜에 배송이 없습니다.');
         triggerShake();
       }
     } catch (err) {
@@ -95,8 +111,8 @@ export default function StaffVerifyScreen() {
   };
 
   const bgColors = isDark
-    ? ['#0a0a12', '#0d0d1a', '#0a0a12']
-    : ['#f0f4f8', '#e8eef5', '#f0f4f8'];
+    ? ['#0a0a12', '#0d0d1a', '#0a0a12'] as const
+    : ['#f0f4f8', '#e8eef5', '#f0f4f8'] as const;
 
   return (
     <LinearGradient colors={bgColors} style={styles.container}>
@@ -143,7 +159,7 @@ export default function StaffVerifyScreen() {
             entering={FadeInDown.delay(150).springify()}
             style={[styles.title, { color: isDark ? '#fff' : '#1a1a2e' }]}
           >
-            본인 확인
+            이름 입력
           </Animated.Text>
 
           <Animated.Text
@@ -153,16 +169,21 @@ export default function StaffVerifyScreen() {
             배송담당자 이름을 입력하세요
           </Animated.Text>
 
-          {/* Expected Name Display */}
+          {/* Date Display */}
           <Animated.View
             entering={FadeInDown.delay(250).springify()}
-            style={[styles.expectedNameContainer, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+            style={[styles.dateContainer, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
           >
-            <Text style={[styles.expectedLabel, { color: isDark ? '#666' : '#94a3b8' }]}>
-              등록된 이름
-            </Text>
-            <Text style={[styles.expectedName, { color: isDark ? '#10b981' : '#059669' }]}>
-              {params.staffName}
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                stroke="#3b82f6"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={[styles.dateText, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+              {params.date ? formatDate(params.date) : '날짜 정보 없음'}
             </Text>
           </Animated.View>
 
@@ -195,6 +216,8 @@ export default function StaffVerifyScreen() {
               }}
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleVerify}
             />
           </Animated.View>
 
@@ -300,22 +323,18 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginBottom: 32,
   },
-  expectedNameContainer: {
+  dateContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
     marginBottom: 24,
+    gap: 10,
   },
-  expectedLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  expectedName: {
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+  dateText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   inputContainer: {
     flexDirection: 'row',

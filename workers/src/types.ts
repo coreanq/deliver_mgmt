@@ -44,6 +44,7 @@ export interface JWTPayload {
   name?: string;
   role: 'admin' | 'staff';
   adminId?: string;
+  date?: string; // 배송 날짜 (staff 전용)
   exp: number;
   iat: number;
 }

@@ -264,7 +264,7 @@ auth.post('/qr/verify', async (c) => {
   }
 });
 
-// 배송담당자 이름 확인 (2차 인증)
+// 배송담당자 이름 확인 (2차 인증) - 기존 호환용
 auth.post('/staff/verify', async (c) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -291,6 +291,64 @@ auth.post('/staff/verify', async (c) => {
     success: true,
     data: { verified },
   });
+});
+
+// 배송담당자 로그인 (adminId + date + name 기반)
+auth.post('/staff/login', async (c) => {
+  const { adminId, date, name } = await c.req.json<{
+    adminId: string;
+    date: string;
+    name: string;
+  }>();
+
+  if (!adminId || !date || !name) {
+    return c.json({ success: false, error: 'adminId, date, name are required' }, 400);
+  }
+
+  try {
+    // 해당 관리자의 해당 날짜에 담당자 이름으로 배송이 있는지 확인
+    const delivery = await c.env.DB.prepare(
+      'SELECT id FROM deliveries WHERE admin_id = ? AND delivery_date = ? AND staff_name = ? LIMIT 1'
+    )
+      .bind(adminId, date, name.trim())
+      .first<{ id: string }>();
+
+    if (!delivery) {
+      return c.json({
+        success: false,
+        error: '해당 날짜에 배정된 배송이 없습니다.',
+      }, 404);
+    }
+
+    // JWT 토큰 생성 (staff 역할)
+    const staffId = generateId();
+    const jwtToken = await createToken(
+      {
+        sub: staffId,
+        name: name.trim(),
+        role: 'staff',
+        adminId,
+        date, // 날짜도 토큰에 포함
+      },
+      c.env.JWT_SECRET,
+      '24h' // 24시간 유효
+    );
+
+    return c.json({
+      success: true,
+      data: {
+        token: jwtToken,
+        staff: {
+          id: staffId,
+          name: name.trim(),
+          adminId,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Staff login error:', error);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
 });
 
 export default auth;

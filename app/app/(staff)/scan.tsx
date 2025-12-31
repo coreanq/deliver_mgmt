@@ -12,14 +12,11 @@ import Animated, {
   FadeIn,
 } from 'react-native-reanimated';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { api } from '@/services/api';
-import { useAuthStore } from '@/stores/auth';
 
 export default function StaffScanScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { loginStaff } = useAuthStore();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -60,26 +57,37 @@ export default function StaffScanScreen() {
     setIsProcessing(true);
 
     try {
-      const result = await api.verifyQR(data);
+      // QR 데이터 파싱 (JSON 형식: {adminId, date})
+      let qrPayload: { adminId: string; date: string };
 
-      if (result.success && result.data) {
-        // Store staff info temporarily for verification
-        api.setToken(result.data.token);
-        router.push({
-          pathname: '/(staff)/verify',
-          params: {
-            staffName: result.data.staff.name,
-            token: result.data.token,
-            adminId: result.data.staff.adminId,
-          },
-        });
-      } else {
-        Alert.alert('오류', result.error || 'QR 코드가 유효하지 않습니다.', [
+      try {
+        qrPayload = JSON.parse(data);
+      } catch {
+        Alert.alert('오류', 'QR 코드 형식이 올바르지 않습니다.', [
           { text: '다시 스캔', onPress: () => setScanned(false) },
         ]);
+        setIsProcessing(false);
+        return;
       }
+
+      if (!qrPayload.adminId || !qrPayload.date) {
+        Alert.alert('오류', 'QR 코드에 필요한 정보가 없습니다.', [
+          { text: '다시 스캔', onPress: () => setScanned(false) },
+        ]);
+        setIsProcessing(false);
+        return;
+      }
+
+      // 이름 입력 화면으로 이동
+      router.push({
+        pathname: '/(staff)/verify',
+        params: {
+          adminId: qrPayload.adminId,
+          date: qrPayload.date,
+        },
+      });
     } catch (error) {
-      Alert.alert('오류', 'QR 코드 검증에 실패했습니다.', [
+      Alert.alert('오류', 'QR 코드 처리에 실패했습니다.', [
         { text: '다시 스캔', onPress: () => setScanned(false) },
       ]);
     } finally {

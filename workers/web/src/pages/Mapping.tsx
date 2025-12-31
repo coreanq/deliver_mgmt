@@ -11,9 +11,9 @@ const TARGET_FIELDS = [
   { key: 'recipientPhone', label: '연락처', required: true },
   { key: 'recipientAddress', label: '주소', required: true },
   { key: 'productName', label: '상품명', required: true },
+  { key: 'staffName', label: '배송담당자', required: true },
   { key: 'quantity', label: '수량', required: false },
   { key: 'memo', label: '메모', required: false },
-  { key: 'staffName', label: '배송담당자', required: false },
   { key: 'deliveryDate', label: '배송일', required: false },
 ];
 

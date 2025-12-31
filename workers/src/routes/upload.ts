@@ -110,9 +110,9 @@ Target fields:
 - recipientPhone: 수령인 전화번호 (required)
 - recipientAddress: 배송 주소 (required)
 - productName: 상품명 (required)
+- staffName: 배송담당자 이름 (required)
 - quantity: 수량 (optional, default 1)
 - memo: 메모 (optional)
-- staffName: 배송담당자 이름 (optional)
 - deliveryDate: 배송 날짜 (optional, YYYY-MM-DD format)
 
 Consider Korean variations:
@@ -183,9 +183,9 @@ upload.post('/save', async (c) => {
     return c.json({ success: false, error: 'Invalid data' }, 400);
   }
 
-  // 필수 필드 확인
-  if (!mapping.recipientName || !mapping.recipientPhone || !mapping.recipientAddress || !mapping.productName) {
-    return c.json({ success: false, error: 'Required fields missing in mapping' }, 400);
+  // 필수 필드 확인 (배송담당자 포함)
+  if (!mapping.recipientName || !mapping.recipientPhone || !mapping.recipientAddress || !mapping.productName || !mapping.staffName) {
+    return c.json({ success: false, error: 'Required fields missing in mapping (recipientName, recipientPhone, recipientAddress, productName, staffName)' }, 400);
   }
 
   const targetDate = deliveryDate || getTodayKST();
@@ -251,15 +251,15 @@ upload.post('/save', async (c) => {
       const recipientPhone = row[mapping.recipientPhone];
       const recipientAddress = row[mapping.recipientAddress];
       const productName = row[mapping.productName];
+      const staffName = row[mapping.staffName];
 
-      // 필수 필드가 없으면 스킵
-      if (!recipientName || !recipientPhone || !recipientAddress || !productName) {
+      // 필수 필드가 없으면 스킵 (배송담당자 포함)
+      if (!recipientName || !recipientPhone || !recipientAddress || !productName || !staffName) {
         continue;
       }
 
       const quantity = mapping.quantity ? parseInt(row[mapping.quantity], 10) || 1 : 1;
       const memo = mapping.memo ? row[mapping.memo] || null : null;
-      const staffName = mapping.staffName ? row[mapping.staffName] || null : null;
       const rowDate = mapping.deliveryDate ? row[mapping.deliveryDate] || targetDate : targetDate;
 
       statements.push(

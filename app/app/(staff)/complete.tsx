@@ -116,7 +116,7 @@ export default function CompleteDeliveryScreen() {
     router.replace('/(staff)');
   };
 
-  const bgColors = isDark ? ['#0a0a12', '#12121f'] : ['#f0f4f8', '#e8eef5'];
+  const bgColors = isDark ? ['#0a0a12', '#12121f'] as const : ['#f0f4f8', '#e8eef5'] as const;
 
   if (!permission) {
     return (

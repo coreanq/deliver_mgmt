@@ -125,7 +125,8 @@ delivery.get('/staff/:name', async (c) => {
   }
 
   const name = c.req.param('name');
-  const today = getTodayKST();
+  // JWT에 date가 있으면 사용, 없으면 오늘 날짜 사용 (하위 호환)
+  const targetDate = payload.date || getTodayKST();
 
   // 본인 배송만 조회 가능
   if (payload.name !== name) {
@@ -136,7 +137,7 @@ delivery.get('/staff/:name', async (c) => {
     const result = await c.env.DB.prepare(
       'SELECT * FROM deliveries WHERE admin_id = ? AND staff_name = ? AND delivery_date = ? ORDER BY created_at ASC'
     )
-      .bind(payload.adminId, name, today)
+      .bind(payload.adminId, name, targetDate)
       .all<Delivery>();
 
     return c.json({

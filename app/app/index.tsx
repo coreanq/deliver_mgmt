@@ -164,7 +164,7 @@ export default function RoleSelectionScreen() {
     router.push('/(staff)/scan');
   };
 
-  const bgColors = isDark ? ['#0a0a12', '#12121f', '#0a0a12'] : ['#f0f4f8', '#e8eef5', '#f0f4f8'];
+  const bgColors = isDark ? ['#0a0a12', '#12121f', '#0a0a12'] as const : ['#f0f4f8', '#e8eef5', '#f0f4f8'] as const;
 
   if (isLoading) {
     return (

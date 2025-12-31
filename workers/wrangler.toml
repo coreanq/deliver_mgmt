@@ -14,7 +14,7 @@ not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
 [vars]
-BUILD_DATE = "25/12/31 20:17"
+BUILD_DATE = "25/12/31 20:33"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"
 # 테스트 이메일 (프로덕션에서 비활성화: Cloudflare Dashboard에서 ""로 설정)
 TEST_EMAILS = "dev@test.com,dev@example.com"

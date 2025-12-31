@@ -66,7 +66,8 @@
       "Skill(frontend-design:frontend-design)",
       "Bash(ls:*)",
       "Bash(git checkout:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

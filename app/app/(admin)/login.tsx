@@ -165,8 +165,8 @@ export default function AdminLoginScreen() {
   };
 
   const bgColors = isDark
-    ? ['#0a0a12', '#0d0d1a', '#0a0a12']
-    : ['#f0f4f8', '#e8eef5', '#f0f4f8'];
+    ? ['#0a0a12', '#0d0d1a', '#0a0a12'] as const
+    : ['#f0f4f8', '#e8eef5', '#f0f4f8'] as const;
 
   return (
     <LinearGradient colors={bgColors} style={styles.container}>
