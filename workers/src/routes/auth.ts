@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import type { Env, Admin, MagicLinkToken } from '../types';
-import { createToken, verifyToken, createQRToken, createMagicLinkToken } from '../lib/jwt';
+import type { Env, Admin, MagicLinkToken, QrToken } from '../types';
+import { createToken, verifyToken } from '../lib/jwt';
 import { sendEmail, getMagicLinkEmailTemplate } from '../lib/email';
 import { generateId, generateRandomToken, isValidEmail, isTestEmail } from '../lib/utils';
 
@@ -194,82 +194,50 @@ auth.post('/magic-link/verify', async (c) => {
   }
 });
 
-// QR 토큰 생성 (관리자 전용)
+// QR 토큰 생성 (관리자 전용) - 랜덤 토큰 방식
 auth.post('/qr/generate', async (c) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
 
-  const token = authHeader.slice(7);
-  const payload = await verifyToken(token, c.env.JWT_SECRET);
+  const jwtToken = authHeader.slice(7);
+  const payload = await verifyToken(jwtToken, c.env.JWT_SECRET);
 
   if (!payload || payload.role !== 'admin') {
     return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
 
-  const { staffName, expiresIn = 86400 } = await c.req.json<{
-    staffName: string;
+  const { date, expiresIn = 86400 } = await c.req.json<{
+    date: string;
     expiresIn?: number;
   }>();
 
-  if (!staffName) {
-    return c.json({ success: false, error: 'Staff name is required' }, 400);
+  if (!date) {
+    return c.json({ success: false, error: 'Date is required' }, 400);
   }
 
   try {
-    // QR 토큰 생성
-    const qrToken = await createQRToken(
-      payload.sub,
-      staffName,
-      c.env.JWT_SECRET,
-      `${expiresIn}s`
-    );
-
+    // 랜덤 토큰 생성
+    const token = generateRandomToken(24);
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    // DB에 저장
+    await c.env.DB.prepare(
+      'INSERT INTO qr_tokens (id, admin_id, token, date, expires_at) VALUES (?, ?, ?, ?, ?)'
+    )
+      .bind(generateId(), payload.sub, token, date, expiresAt)
+      .run();
 
     return c.json({
       success: true,
       data: {
-        qrData: qrToken,
+        token,
         expiresAt,
       },
     });
   } catch (error) {
     console.error('QR generate error:', error);
-    return c.json({ success: false, error: 'Internal server error' }, 500);
-  }
-});
-
-// QR 토큰 검증 (배송담당자)
-auth.post('/qr/verify', async (c) => {
-  const { qrData } = await c.req.json<{ qrData: string }>();
-
-  if (!qrData) {
-    return c.json({ success: false, error: 'QR data is required' }, 400);
-  }
-
-  try {
-    const payload = await verifyToken(qrData, c.env.JWT_SECRET);
-
-    if (!payload || payload.role !== 'staff') {
-      return c.json({ success: false, error: 'Invalid QR code' }, 401);
-    }
-
-    return c.json({
-      success: true,
-      data: {
-        token: qrData,
-        staff: {
-          id: payload.sub,
-          name: payload.name,
-          adminId: payload.adminId,
-          createdAt: new Date(payload.iat * 1000).toISOString(),
-        },
-      },
-    });
-  } catch (error) {
-    console.error('QR verify error:', error);
     return c.json({ success: false, error: 'Internal server error' }, 500);
   }
 });
@@ -303,31 +271,52 @@ auth.post('/staff/verify', async (c) => {
   });
 });
 
-// 배송담당자 로그인 (adminId + date + name 기반)
+// 배송담당자 로그인 (QR 토큰 + name 기반)
 auth.post('/staff/login', async (c) => {
-  const { adminId, date, name } = await c.req.json<{
-    adminId: string;
-    date: string;
+  const { token, name } = await c.req.json<{
+    token: string;
     name: string;
   }>();
 
-  if (!adminId || !date || !name) {
-    return c.json({ success: false, error: 'adminId, date, name are required' }, 400);
+  if (!token || !name) {
+    return c.json({ success: false, error: 'token, name are required' }, 400);
   }
 
   try {
+    // QR 토큰 조회 (유효 & 미만료 & 실패 5회 미만)
+    const qrToken = await c.env.DB.prepare(
+      'SELECT * FROM qr_tokens WHERE token = ? AND expires_at > datetime("now") AND fail_count < 5'
+    )
+      .bind(token)
+      .first<QrToken>();
+
+    if (!qrToken) {
+      return c.json({
+        success: false,
+        error: 'QR 코드가 만료되었거나 유효하지 않습니다.',
+      }, 401);
+    }
+
     // 해당 관리자의 해당 날짜에 담당자 이름으로 배송이 있는지 확인
     const delivery = await c.env.DB.prepare(
       'SELECT id FROM deliveries WHERE admin_id = ? AND delivery_date = ? AND staff_name = ? LIMIT 1'
     )
-      .bind(adminId, date, name.trim())
+      .bind(qrToken.admin_id, qrToken.date, name.trim())
       .first<{ id: string }>();
 
     if (!delivery) {
+      // 실패 횟수 증가
+      await c.env.DB.prepare('UPDATE qr_tokens SET fail_count = fail_count + 1 WHERE id = ?')
+        .bind(qrToken.id)
+        .run();
+
+      const remainingAttempts = 4 - qrToken.fail_count;
       return c.json({
         success: false,
-        error: '해당 날짜에 배정된 배송이 없습니다.',
-      }, 404);
+        error: remainingAttempts > 0
+          ? `이름이 일치하지 않습니다. (${remainingAttempts}회 남음)`
+          : 'QR 코드가 비활성화되었습니다. 새 QR 코드를 요청하세요.',
+      }, 401);
     }
 
     // JWT 토큰 생성 (staff 역할)
@@ -337,11 +326,11 @@ auth.post('/staff/login', async (c) => {
         sub: staffId,
         name: name.trim(),
         role: 'staff',
-        adminId,
-        date, // 날짜도 토큰에 포함
+        adminId: qrToken.admin_id,
+        date: qrToken.date,
       },
       c.env.JWT_SECRET,
-      '24h' // 24시간 유효
+      '24h'
     );
 
     return c.json({
@@ -351,7 +340,7 @@ auth.post('/staff/login', async (c) => {
         staff: {
           id: staffId,
           name: name.trim(),
-          adminId,
+          adminId: qrToken.admin_id,
         },
       },
     });

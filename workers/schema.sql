@@ -25,6 +25,23 @@ CREATE TABLE IF NOT EXISTS magic_link_tokens (
 CREATE INDEX IF NOT EXISTS idx_magic_link_token ON magic_link_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_magic_link_email ON magic_link_tokens(email);
 
+-- QR 토큰 테이블 (배송담당자 인증용)
+CREATE TABLE IF NOT EXISTS qr_tokens (
+  id TEXT PRIMARY KEY,
+  admin_id TEXT NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  date TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  fail_count INTEGER DEFAULT 0,
+  used INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+);
+
+-- QR 토큰 인덱스
+CREATE INDEX IF NOT EXISTS idx_qr_tokens_token ON qr_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_qr_tokens_admin_id ON qr_tokens(admin_id);
+
 -- 배송 테이블
 CREATE TABLE IF NOT EXISTS deliveries (
   id TEXT PRIMARY KEY,

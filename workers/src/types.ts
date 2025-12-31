@@ -104,6 +104,18 @@ export interface MagicLinkToken {
   created_at: string;
 }
 
+// QR 토큰 (배송담당자 인증용)
+export interface QrToken {
+  id: string;
+  admin_id: string;
+  token: string;
+  date: string;
+  expires_at: string;
+  fail_count: number;
+  used: number;
+  created_at: string;
+}
+
 // 매핑 패턴
 export interface MappingPattern {
   id: string;

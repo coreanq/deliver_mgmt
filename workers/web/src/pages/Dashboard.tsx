@@ -121,14 +121,28 @@ export default function Dashboard() {
     navigate('/login');
   };
 
-  // QR 코드 생성
+  // QR 코드 생성 (API 호출)
   const generateQR = async () => {
-    if (!admin?.id) return;
-    const qrData = JSON.stringify({
-      adminId: admin.id,
-      date: selectedDate,
-    });
+    if (!token) return;
     try {
+      // 1. 서버에서 QR 토큰 생성
+      const response = await fetch(`${API_BASE}/api/auth/qr/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ date: selectedDate }),
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        alert(result.error || 'QR 코드 생성에 실패했습니다.');
+        return;
+      }
+
+      // 2. 토큰과 날짜를 QR 코드로 변환
+      const qrData = JSON.stringify({ token: result.data.token, date: selectedDate });
       const url = await QRCode.toDataURL(qrData, {
         width: 256,
         margin: 2,
@@ -141,6 +155,7 @@ export default function Dashboard() {
       setShowQRModal(true);
     } catch (err) {
       console.error('QR generation failed:', err);
+      alert('QR 코드 생성에 실패했습니다.');
     }
   };
 
