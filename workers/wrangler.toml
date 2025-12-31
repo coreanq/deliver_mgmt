@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드
 [build]
-command = "node scripts/update-build-date.mjs && cd web && npm install && npm run build"
+command = "node scripts/update-build-date.mjs && cd web && rm -rf node_modules && npm install && npm run build"
 
 # Static Assets (웹 페이지 서빙)
 [assets]
