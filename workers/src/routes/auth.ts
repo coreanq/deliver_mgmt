@@ -79,8 +79,7 @@ auth.post('/magic-link/send', async (c) => {
       .run();
 
     // Magic Link URL 생성
-    const baseUrl = 'https://try-dabble.com'; // 실제 도메인으로 변경
-    const magicLinkUrl = `${baseUrl}/auth/verify?token=${token}`;
+    const magicLinkUrl = `${c.env.MAGIC_LINK_BASE_URL}/auth/verify?token=${token}`;
 
     // 이메일 발송
     const emailTemplate = getMagicLinkEmailTemplate(magicLinkUrl);
