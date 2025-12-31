@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   id TEXT PRIMARY KEY,
   admin_id TEXT UNIQUE NOT NULL,
   type TEXT DEFAULT 'free' CHECK(type IN ('free', 'basic', 'pro')),
-  retention_days INTEGER DEFAULT 7,
+  retention_days INTEGER DEFAULT 3,
   expires_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),

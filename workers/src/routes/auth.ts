@@ -32,7 +32,7 @@ auth.post('/magic-link/send', async (c) => {
         await c.env.DB.prepare(
           'INSERT INTO subscriptions (id, admin_id, type, retention_days) VALUES (?, ?, ?, ?)'
         )
-          .bind(generateId(), adminId, 'free', 7)
+          .bind(generateId(), adminId, 'free', 3)
           .run();
 
         admin = {
@@ -156,7 +156,7 @@ auth.post('/magic-link/verify', async (c) => {
       await c.env.DB.prepare(
         'INSERT INTO subscriptions (id, admin_id, type, retention_days) VALUES (?, ?, ?, ?)'
       )
-        .bind(generateId(), adminId, 'free', 7)
+        .bind(generateId(), adminId, 'free', 3)
         .run();
 
       admin = {

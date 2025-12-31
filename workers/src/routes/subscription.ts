@@ -31,14 +31,14 @@ subscription.get('/status', async (c) => {
       await c.env.DB.prepare(
         'INSERT INTO subscriptions (id, admin_id, type, retention_days) VALUES (?, ?, ?, ?)'
       )
-        .bind(generateId(), payload.sub, 'free', 7)
+        .bind(generateId(), payload.sub, 'free', 3)
         .run();
 
       sub = {
         id: '',
         admin_id: payload.sub,
         type: 'free',
-        retention_days: 7,
+        retention_days: 3,
         expires_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
