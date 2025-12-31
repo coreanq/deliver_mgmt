@@ -1,5 +1,5 @@
 {
-  "name": "deliver-mgmt-backend",
+  "name": "deliver-mgmt-worker",
   "version": "1.0.0",
   "type": "module",
   "scripts": {

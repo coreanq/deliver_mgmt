@@ -7,6 +7,10 @@ compatibility_flags = ["nodejs_compat"]
 [build]
 command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; else sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; fi"
 
+# Static Assets (웹 페이지 서빙)
+[assets]
+directory = "./web/dist"
+
 [vars]
 BUILD_DATE = "25/01/01 00:00"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"

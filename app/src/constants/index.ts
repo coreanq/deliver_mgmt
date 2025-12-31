@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 // API 베이스 URL
 export const API_BASE_URL = __DEV__
   ? 'http://localhost:8787'
-  : 'https://deliver-mgmt-backend.coreanq.workers.dev';
+  : 'https://deliver-mgmt-worker.coreanq.workers.dev';
 
 // AdMob 테스트 광고 ID
 export const AD_CONFIG = {

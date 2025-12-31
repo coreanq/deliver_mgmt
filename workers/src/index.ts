@@ -23,7 +23,7 @@ app.use(
       'http://localhost:8081',
       'http://localhost:3000',
       'https://try-dabble.com',
-      'https://deliver-mgmt-backend.coreanq.workers.dev',
+      'https://deliver-mgmt-worker.coreanq.workers.dev',
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
@@ -36,7 +36,7 @@ app.use(
 // 헬스 체크 (API 전용)
 app.get('/api/health', (c) => {
   return c.json({
-    name: 'deliver-mgmt-backend',
+    name: 'deliver-mgmt-worker',
     version: '1.0.0',
     buildDate: c.env.BUILD_DATE,
     status: 'healthy',
