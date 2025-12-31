@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import type { Admin, Staff, UserRole } from '@/types';
+import { api } from '@/services/api';
 
 interface AuthState {
   // 현재 역할
@@ -54,6 +55,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, token);
     await SecureStore.setItemAsync(STORAGE_KEYS.ADMIN, JSON.stringify(admin));
 
+    // API 서비스에 토큰 설정
+    api.setToken(token);
+
     set({
       role: 'admin',
       admin,
@@ -66,6 +70,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     await SecureStore.setItemAsync(STORAGE_KEYS.ROLE, 'staff');
     await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, token);
     await SecureStore.setItemAsync(STORAGE_KEYS.STAFF, JSON.stringify(staff));
+
+    // API 서비스에 토큰 설정
+    api.setToken(token);
 
     set({
       role: 'staff',
@@ -80,6 +87,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     await SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN);
     await SecureStore.deleteItemAsync(STORAGE_KEYS.ADMIN);
     await SecureStore.deleteItemAsync(STORAGE_KEYS.STAFF);
+
+    // API 서비스에서 토큰 제거
+    api.setToken(null);
 
     set({
       role: null,
@@ -100,6 +110,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       ]);
 
       if (role && token) {
+        // API 서비스에 토큰 설정 (상태 업데이트 전에 먼저 설정)
+        api.setToken(token);
+
         if (role === 'admin' && adminStr) {
           const admin = JSON.parse(adminStr) as Admin;
           set({

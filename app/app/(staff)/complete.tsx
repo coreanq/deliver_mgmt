@@ -7,8 +7,9 @@ import {
   StyleSheet,
   Image,
   Alert,
-  Linking,
 } from 'react-native';
+import * as SMS from 'expo-sms';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,6 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { api } from '@/services/api';
+import { createSmsMessage } from '@/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -33,11 +35,13 @@ export default function CompleteDeliveryScreen() {
     deliveryId: string;
     recipientPhone: string;
     recipientName: string;
+    productName: string;
   }>();
 
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState<string | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null); // 사진 URI (MMS 첨부용)
   const [isCapturing, setIsCapturing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState<'camera' | 'preview' | 'complete'>('camera');
@@ -58,8 +62,9 @@ export default function CompleteDeliveryScreen() {
         base64: true,
       });
 
-      if (result?.base64) {
+      if (result?.base64 && result?.uri) {
         setPhoto(`data:image/jpeg;base64,${result.base64}`);
+        setPhotoUri(result.uri);
         setStep('preview');
       }
     } catch (error) {
@@ -76,14 +81,16 @@ export default function CompleteDeliveryScreen() {
       base64: true,
     });
 
-    if (!result.canceled && result.assets[0]?.base64) {
+    if (!result.canceled && result.assets[0]?.base64 && result.assets[0]?.uri) {
       setPhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      setPhotoUri(result.assets[0].uri);
       setStep('preview');
     }
   };
 
   const retakePhoto = () => {
     setPhoto(null);
+    setPhotoUri(null);
     setStep('camera');
   };
 
@@ -106,10 +113,59 @@ export default function CompleteDeliveryScreen() {
     }
   };
 
-  const sendSMS = () => {
-    const message = `[배송완료] ${params.recipientName}님, 배송이 완료되었습니다. 감사합니다.`;
-    const url = `sms:${params.recipientPhone}?body=${encodeURIComponent(message)}`;
-    Linking.openURL(url);
+  const sendSMS = async () => {
+    const isAvailable = await SMS.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('알림', 'SMS 기능을 사용할 수 없습니다.');
+      return;
+    }
+
+    const message = createSmsMessage('delivery_complete', {
+      recipientName: params.recipientName || '',
+      productName: params.productName || '',
+    });
+
+    // 사진이 있으면 MMS용으로 압축 후 첨부
+    let options: SMS.SMSOptions | undefined;
+
+    if (photoUri) {
+      try {
+        // MMS용 이미지 압축 (800px, 품질 60%)
+        const compressed = await ImageManipulator.manipulateAsync(
+          photoUri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+        );
+
+        options = {
+          attachments: {
+            uri: compressed.uri,
+            mimeType: 'image/jpeg',
+            filename: 'delivery_photo.jpg',
+          },
+        };
+      } catch (error) {
+        console.error('Image compression failed:', error);
+        // 압축 실패 시 원본 사용
+        options = {
+          attachments: {
+            uri: photoUri,
+            mimeType: 'image/jpeg',
+            filename: 'delivery_photo.jpg',
+          },
+        };
+      }
+    }
+
+    const { result } = await SMS.sendSMSAsync(
+      [params.recipientPhone || ''],
+      message,
+      options
+    );
+
+    if (result === 'sent') {
+      Alert.alert('완료', '문자가 전송되었습니다.');
+    }
   };
 
   const goBack = () => {
@@ -143,30 +199,79 @@ export default function CompleteDeliveryScreen() {
   if (step === 'complete') {
     return (
       <LinearGradient colors={bgColors} style={styles.container}>
-        <Animated.View entering={FadeIn.springify()} style={styles.completeContainer}>
-          <LinearGradient colors={['#10b981', '#059669']} style={styles.completeIcon}>
-            <Svg width={48} height={48} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M20 6L9 17l-5-5"
-                stroke="#fff"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </LinearGradient>
+        {/* Background decoration circles */}
+        <View style={styles.bgDecoration}>
+          <Animated.View
+            entering={FadeIn.delay(200).duration(800)}
+            style={[styles.bgCircle, styles.bgCircle1, { backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.12)' }]}
+          />
+          <Animated.View
+            entering={FadeIn.delay(400).duration(800)}
+            style={[styles.bgCircle, styles.bgCircle2, { backgroundColor: isDark ? 'rgba(59,130,246,0.06)' : 'rgba(59,130,246,0.08)' }]}
+          />
+          <Animated.View
+            entering={FadeIn.delay(600).duration(800)}
+            style={[styles.bgCircle, styles.bgCircle3, { backgroundColor: isDark ? 'rgba(16,185,129,0.04)' : 'rgba(16,185,129,0.06)' }]}
+          />
+        </View>
 
-          <Text style={[styles.completeTitle, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-            배송 완료!
-          </Text>
-          <Text style={[styles.completeSubtitle, { color: isDark ? '#666' : '#64748b' }]}>
-            {params.recipientName}님께 배송이 완료되었습니다.
-          </Text>
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.completeContainer}>
+          {/* Success Icon with glow effect */}
+          <View style={styles.iconWrapper}>
+            <View style={[styles.iconGlow, { shadowColor: '#10b981' }]} />
+            <LinearGradient
+              colors={['#34d399', '#10b981', '#059669']}
+              style={styles.completeIcon}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Animated.View entering={FadeIn.delay(300).springify()}>
+                <Svg width={52} height={52} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M20 6L9 17l-5-5"
+                    stroke="#fff"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </Animated.View>
+            </LinearGradient>
+          </View>
 
-          <View style={styles.completeActions}>
-            <Pressable onPress={sendSMS}>
-              <LinearGradient colors={['#3b82f6', '#1d4ed8']} style={styles.smsButton}>
-                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          {/* Success Message */}
+          <Animated.Text
+            entering={FadeInDown.delay(200).springify()}
+            style={[styles.completeTitle, { color: isDark ? '#fff' : '#0f172a' }]}
+          >
+            배송 완료
+          </Animated.Text>
+
+          <Animated.View
+            entering={FadeInDown.delay(250).springify()}
+            style={[styles.recipientCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+          >
+            <Text style={[styles.recipientLabel, { color: isDark ? '#666' : '#94a3b8' }]}>
+              수령인
+            </Text>
+            <Text style={[styles.recipientName, { color: isDark ? '#fff' : '#1e293b' }]}>
+              {params.recipientName}님
+            </Text>
+          </Animated.View>
+
+          {/* Action Buttons */}
+          <Animated.View
+            entering={FadeInDown.delay(350).springify()}
+            style={styles.completeActions}
+          >
+            <Pressable onPress={sendSMS} style={styles.actionButtonWrapper}>
+              <LinearGradient
+                colors={['#3b82f6', '#2563eb']}
+                style={styles.smsButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
                     stroke="#fff"
@@ -175,19 +280,25 @@ export default function CompleteDeliveryScreen() {
                     strokeLinejoin="round"
                   />
                 </Svg>
-                <Text style={styles.smsButtonText}>SMS 보내기</Text>
+                <Text style={styles.smsButtonText}>완료 문자 보내기</Text>
               </LinearGradient>
             </Pressable>
 
             <Pressable
               onPress={goBack}
-              style={[styles.backToListButton, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+              style={[
+                styles.backToListButton,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#fff',
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                }
+              ]}
             >
-              <Text style={[styles.backToListText, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+              <Text style={[styles.backToListText, { color: isDark ? 'rgba(255,255,255,0.8)' : '#475569' }]}>
                 목록으로 돌아가기
               </Text>
             </Pressable>
-          </View>
+          </Animated.View>
         </Animated.View>
       </LinearGradient>
     );
@@ -483,51 +594,123 @@ const styles = StyleSheet.create({
   },
   completeContainer: {
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 32,
+    zIndex: 1,
+  },
+  bgDecoration: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  bgCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  bgCircle1: {
+    width: 400,
+    height: 400,
+    top: -100,
+    right: -150,
+  },
+  bgCircle2: {
+    width: 300,
+    height: 300,
+    bottom: 100,
+    left: -100,
+  },
+  bgCircle3: {
+    width: 200,
+    height: 200,
+    bottom: -50,
+    right: -50,
+  },
+  iconWrapper: {
+    marginBottom: 32,
+    position: 'relative',
+  },
+  iconGlow: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    bottom: 10,
+    borderRadius: 60,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+    elevation: 20,
   },
   completeIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
     shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 32,
+    elevation: 16,
   },
   completeTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 20,
   },
-  completeSubtitle: {
-    fontSize: 16,
-    marginBottom: 32,
+  recipientCard: {
+    paddingVertical: 24,
+    paddingHorizontal: 48,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  recipientLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  recipientName: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   completeActions: {
-    gap: 12,
-    width: '100%',
+    gap: 14,
+    alignItems: 'center',
+  },
+  actionButtonWrapper: {
+    minWidth: 220,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   smsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 10,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 18,
+    gap: 12,
   },
   smsButtonText: {
     color: '#fff',
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   backToListButton: {
-    paddingVertical: 16,
-    borderRadius: 16,
+    minWidth: 220,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 18,
     alignItems: 'center',
+    borderWidth: 1.5,
   },
   backToListText: {
     fontSize: 16,

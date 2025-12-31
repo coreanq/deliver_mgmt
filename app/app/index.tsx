@@ -128,7 +128,7 @@ export default function RoleSelectionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { setRole, isLoading, isAuthenticated, role } = useAuthStore();
+  const { setRole, isLoading, isAuthenticated, role, staff, admin } = useAuthStore();
 
   const titleOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(-20);
@@ -155,13 +155,23 @@ export default function RoleSelectionScreen() {
   }));
 
   const handleAdminPress = () => {
-    setRole('admin');
-    router.push('/(admin)/login');
+    // 이미 관리자로 로그인된 경우 바로 대시보드로
+    if (admin && role === 'admin' && isAuthenticated) {
+      router.replace('/(admin)');
+    } else {
+      setRole('admin');
+      router.push('/(admin)/login');
+    }
   };
 
   const handleStaffPress = () => {
-    setRole('staff');
-    router.push('/(staff)/scan');
+    // 이미 배송담당자로 로그인된 경우 바로 배송목록으로
+    if (staff && role === 'staff' && isAuthenticated) {
+      router.replace('/(staff)');
+    } else {
+      setRole('staff');
+      router.push('/(staff)/scan');
+    }
   };
 
   const bgColors = isDark ? ['#0a0a12', '#12121f', '#0a0a12'] as const : ['#f0f4f8', '#e8eef5', '#f0f4f8'] as const;

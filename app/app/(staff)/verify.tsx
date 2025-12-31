@@ -29,8 +29,12 @@ export default function StaffVerifyScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const params = useLocalSearchParams<{ adminId: string; date: string }>();
+  const rawParams = useLocalSearchParams<{ token: string; date: string }>();
   const { loginStaff } = useAuthStore();
+
+  // params가 배열로 올 수 있으므로 첫 번째 값 사용
+  const token = Array.isArray(rawParams.token) ? rawParams.token[0] : rawParams.token;
+  const date = Array.isArray(rawParams.date) ? rawParams.date[0] : rawParams.date;
 
   const [inputName, setInputName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -78,10 +82,9 @@ export default function StaffVerifyScreen() {
     setError('');
 
     try {
-      // 담당자 로그인 API 호출
+      // 담당자 로그인 API 호출 (token + name)
       const result = await api.staffLogin(
-        params.adminId || '',
-        params.date || '',
+        token || '',
         inputName.trim()
       );
 
@@ -91,7 +94,7 @@ export default function StaffVerifyScreen() {
           {
             id: result.data.staff.id,
             name: result.data.staff.name,
-            adminId: params.adminId || '',
+            adminId: result.data.staff.adminId,
             createdAt: new Date().toISOString(),
           },
           result.data.token
@@ -183,20 +186,20 @@ export default function StaffVerifyScreen() {
               />
             </Svg>
             <Text style={[styles.dateText, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-              {params.date ? formatDate(params.date) : '날짜 정보 없음'}
+              {date ? formatDate(date) : '날짜 정보 없음'}
             </Text>
           </Animated.View>
 
           {/* Input */}
-          <Animated.View
-            entering={FadeInDown.delay(300).springify()}
-            style={[
-              styles.inputContainer,
-              inputStyle,
-              { backgroundColor: isDark ? '#1a1a2e' : '#fff' },
-              error ? { borderColor: '#ef4444', borderWidth: 2 } : {},
-            ]}
-          >
+          <Animated.View entering={FadeInDown.delay(300).springify()}>
+            <Animated.View
+              style={[
+                styles.inputContainer,
+                inputStyle,
+                { backgroundColor: isDark ? '#1a1a2e' : '#fff' },
+                error ? { borderColor: '#ef4444', borderWidth: 2 } : {},
+              ]}
+            >
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Circle cx="12" cy="8" r="4" stroke={isDark ? '#666' : '#94a3b8'} strokeWidth="1.5" />
               <Path
@@ -219,6 +222,7 @@ export default function StaffVerifyScreen() {
               returnKeyType="done"
               onSubmitEditing={handleVerify}
             />
+            </Animated.View>
           </Animated.View>
 
           {/* Error */}

@@ -50,6 +50,11 @@ class ApiService {
         };
       }
 
+      // API 응답이 이미 {success, data} 형식이면 그대로 반환
+      if (data && typeof data === 'object' && 'success' in data) {
+        return data as ApiResponse<T>;
+      }
+
       return { success: true, data };
     } catch (error) {
       return {
@@ -75,35 +80,22 @@ class ApiService {
     });
   }
 
-  async generateQR(staffName: string): Promise<ApiResponse<QRGenerateResponse>> {
+  // QR 토큰 생성 (관리자용)
+  async generateQRToken(date: string): Promise<ApiResponse<{ token: string; expiresAt: string }>> {
     return this.request('/api/auth/qr/generate', {
       method: 'POST',
-      body: JSON.stringify({ staffName } as QRGenerateRequest),
+      body: JSON.stringify({ date }),
     });
   }
 
-  async verifyQR(qrData: string): Promise<ApiResponse<QRVerifyResponse>> {
-    return this.request('/api/auth/qr/verify', {
-      method: 'POST',
-      body: JSON.stringify({ qrData }),
-    });
-  }
-
-  async verifyStaffName(name: string): Promise<ApiResponse<{ verified: boolean }>> {
-    return this.request('/api/auth/staff/verify', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    });
-  }
-
+  // 배송담당자 로그인 (QR 토큰 + 이름)
   async staffLogin(
-    adminId: string,
-    date: string,
+    token: string,
     name: string
   ): Promise<ApiResponse<{ token: string; staff: { id: string; name: string; adminId: string } }>> {
     return this.request('/api/auth/staff/login', {
       method: 'POST',
-      body: JSON.stringify({ adminId, date, name }),
+      body: JSON.stringify({ token, name }),
     });
   }
 

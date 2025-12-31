@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuthStore } from '@/stores/auth';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,9 +32,11 @@ export default function QRGenerateScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const { admin } = useAuthStore();
 
   const [staffList, setStaffList] = useState<StaffItem[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [qrData, setQrData] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -67,16 +70,18 @@ export default function QRGenerateScreen() {
   };
 
   const handleGenerateQR = async () => {
-    if (!selectedStaff) {
-      Alert.alert('알림', '배송담당자를 선택하세요.');
-      return;
-    }
-
     setIsGenerating(true);
     try {
-      const result = await api.generateQR(selectedStaff);
+      // API로 QR 토큰 생성
+      const result = await api.generateQRToken(selectedDate);
+
       if (result.success && result.data) {
-        setQrData(result.data.qrData);
+        // QR 데이터: {token, date} JSON 형식
+        const qrPayload = JSON.stringify({
+          token: result.data.token,
+          date: selectedDate,
+        });
+        setQrData(qrPayload);
       } else {
         Alert.alert('오류', result.error || 'QR 코드 생성에 실패했습니다.');
       }

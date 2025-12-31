@@ -57,8 +57,8 @@ export default function StaffScanScreen() {
     setIsProcessing(true);
 
     try {
-      // QR 데이터 파싱 (JSON 형식: {adminId, date})
-      let qrPayload: { adminId: string; date: string };
+      // QR 데이터 파싱 (JSON 형식: {token, date})
+      let qrPayload: { token: string; date: string };
 
       try {
         qrPayload = JSON.parse(data);
@@ -70,7 +70,7 @@ export default function StaffScanScreen() {
         return;
       }
 
-      if (!qrPayload.adminId || !qrPayload.date) {
+      if (!qrPayload.token || !qrPayload.date) {
         Alert.alert('오류', 'QR 코드에 필요한 정보가 없습니다.', [
           { text: '다시 스캔', onPress: () => setScanned(false) },
         ]);
@@ -82,7 +82,7 @@ export default function StaffScanScreen() {
       router.push({
         pathname: '/(staff)/verify',
         params: {
-          adminId: qrPayload.adminId,
+          token: qrPayload.token,
           date: qrPayload.date,
         },
       });

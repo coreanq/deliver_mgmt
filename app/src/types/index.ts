@@ -131,3 +131,68 @@ export interface AdConfig {
   rewardedId: string;
   isTest: boolean;
 }
+
+// SMS 메시지 템플릿 타입
+export type SmsTemplateType = 'delivery_complete' | 'delivery_start' | 'delivery_delay';
+
+/**
+ * SMS 템플릿 파라미터
+ *
+ * 사용 가능한 변수:
+ * - {recipientName}  : 수령인 이름 (필수)
+ * - {productName}    : 상품명
+ * - {staffName}      : 배송담당자 이름
+ * - {estimatedTime}  : 예상 도착 시간 (예: "오후 3시경")
+ * - {delayReason}    : 지연 사유 (예: "교통 상황으로 인해")
+ */
+export interface SmsTemplateParams {
+  recipientName: string;
+  productName?: string;
+  staffName?: string;
+  estimatedTime?: string;
+  delayReason?: string;
+}
+
+/**
+ * SMS 메시지 템플릿
+ *
+ * 템플릿 수정 시 아래 파라미터들을 활용할 수 있습니다:
+ * - params.recipientName  : 수령인 이름
+ * - params.productName    : 상품명
+ * - params.staffName      : 배송담당자 이름
+ * - params.estimatedTime  : 예상 도착 시간
+ * - params.delayReason    : 지연 사유
+ */
+export const SMS_TEMPLATES: Record<SmsTemplateType, (params: SmsTemplateParams) => string> = {
+  /**
+   * 배송 완료 템플릿
+   * 사용 파라미터: recipientName, productName(선택), staffName(선택)
+   * 예시: "[배송완료] 홍길동님, 봄날반찬 배송이 완료되었습니다. 감사합니다."
+   */
+  delivery_complete: (params) =>
+    `[배송완료] ${params.recipientName}님, ${params.productName ? `${params.productName} ` : ''}배송이 완료되었습니다. 감사합니다.`,
+
+  /**
+   * 배송 출발 템플릿
+   * 사용 파라미터: recipientName, productName(선택), estimatedTime(선택)
+   * 예시: "[배송출발] 홍길동님, 주문하신 상품이 배송 출발했습니다. 곧 도착 예정입니다."
+   */
+  delivery_start: (params) =>
+    `[배송출발] ${params.recipientName}님, 주문하신 상품이 배송 출발했습니다. 곧 도착 예정입니다.`,
+
+  /**
+   * 배송 지연 템플릿
+   * 사용 파라미터: recipientName, delayReason(선택)
+   * 예시: "[배송안내] 홍길동님, 배송이 지연되고 있습니다. 교통 상황으로 인해 양해 부탁드립니다."
+   */
+  delivery_delay: (params) =>
+    `[배송안내] ${params.recipientName}님, 배송이 지연되고 있습니다. ${params.delayReason || '빠른 시일 내 배송하겠습니다.'} 양해 부탁드립니다.`,
+};
+
+// SMS 메시지 생성 헬퍼 함수
+export const createSmsMessage = (
+  type: SmsTemplateType,
+  params: SmsTemplateParams
+): string => {
+  return SMS_TEMPLATES[type](params);
+};

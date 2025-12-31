@@ -57,56 +57,68 @@ function DeliveryCard({ delivery, index, isDark, onPress, onStatusChange }: Deli
   const getActionButton = () => {
     if (delivery.status === 'completed') {
       return (
-        <View style={[styles.completedBadge, { backgroundColor: '#10b98120' }]}>
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-            <Path d="M20 6L9 17l-5-5" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <View style={[styles.completedBadge, { backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)' }]}>
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Path d="M20 6L9 17l-5-5" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text style={styles.completedText}>완료</Text>
+          <Text style={styles.completedText}>배송 완료</Text>
         </View>
       );
     }
 
     if (delivery.status === 'pending') {
       return (
-        <Pressable onPress={handleStatusPress}>
-          <LinearGradient colors={['#3b82f6', '#1d4ed8']} style={styles.actionButton}>
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-              <Path d="M5 12h14M12 5l7 7-7 7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <Pressable onPress={handleStatusPress} style={styles.actionButtonWrapper}>
+          <LinearGradient
+            colors={['#3b82f6', '#2563eb']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.actionButton}
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="M5 12h14M12 5l7 7-7 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
-            <Text style={styles.actionButtonText}>출발</Text>
+            <Text style={styles.actionButtonText}>배송 출발</Text>
           </LinearGradient>
         </Pressable>
       );
     }
 
     return (
-      <Pressable onPress={handleStatusPress}>
-        <LinearGradient colors={['#10b981', '#059669']} style={styles.actionButton}>
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-            <Path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Pressable onPress={handleStatusPress} style={styles.actionButtonWrapper}>
+        <LinearGradient
+          colors={['#10b981', '#059669']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.actionButton}
+        >
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Path d="M5 13l4 4L19 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text style={styles.actionButtonText}>완료</Text>
+          <Text style={styles.actionButtonText}>배송 완료</Text>
         </LinearGradient>
       </Pressable>
     );
   };
 
   return (
-    <AnimatedPressable
+    <Animated.View
       entering={FadeInDown.delay(100 + index * 40).springify()}
       layout={Layout.springify()}
-      style={[
-        styles.deliveryCard,
-        { backgroundColor: isDark ? '#1a1a2e' : '#fff' },
-        animatedStyle,
-      ]}
-      onPressIn={() => {
-        scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 15, stiffness: 400 });
-      }}
     >
+      <AnimatedPressable
+        style={[
+          styles.deliveryCard,
+          { backgroundColor: isDark ? '#1a1a2e' : '#fff' },
+          animatedStyle,
+        ]}
+        onPressIn={() => {
+          scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+        }}
+      >
       {/* Header Row */}
       <View style={styles.cardHeader}>
         <View style={[styles.statusBadge, { backgroundColor: `${DELIVERY_STATUS_COLORS[delivery.status]}15` }]}>
@@ -122,11 +134,20 @@ function DeliveryCard({ delivery, index, isDark, onPress, onStatusChange }: Deli
 
       {/* Recipient Info */}
       <View style={styles.recipientRow}>
-        <Text style={[styles.recipientName, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-          {delivery.recipientName}
-        </Text>
-        <Pressable onPress={handleCall} style={styles.callButton}>
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+        <View style={styles.recipientInfo}>
+          <Text style={[styles.recipientName, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+            {delivery.recipientName}
+          </Text>
+          <Text style={[styles.phone, { color: isDark ? '#666' : '#64748b' }]}>
+            {delivery.recipientPhone}
+          </Text>
+        </View>
+        <Pressable
+          onPress={handleCall}
+          style={[styles.callButton, { backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)' }]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
             <Path
               d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"
               stroke="#10b981"
@@ -138,21 +159,26 @@ function DeliveryCard({ delivery, index, isDark, onPress, onStatusChange }: Deli
         </Pressable>
       </View>
 
-      {/* Phone */}
-      <Text style={[styles.phone, { color: isDark ? '#666' : '#64748b' }]}>
-        {delivery.recipientPhone}
-      </Text>
-
       {/* Address */}
-      <Text
-        style={[styles.address, { color: isDark ? '#888' : '#475569' }]}
-        numberOfLines={2}
-      >
-        {delivery.recipientAddress}
-      </Text>
+      <View style={[styles.addressRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"
+            stroke={isDark ? '#666' : '#94a3b8'}
+            strokeWidth="1.5"
+          />
+          <Circle cx="12" cy="10" r="3" stroke={isDark ? '#666' : '#94a3b8'} strokeWidth="1.5" />
+        </Svg>
+        <Text
+          style={[styles.address, { color: isDark ? '#999' : '#475569' }]}
+          numberOfLines={2}
+        >
+          {delivery.recipientAddress}
+        </Text>
+      </View>
 
-      {/* Product & Action */}
-      <View style={styles.cardFooter}>
+      {/* Product Info */}
+      <View style={styles.productRow}>
         <View style={styles.productInfo}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Path
@@ -162,22 +188,38 @@ function DeliveryCard({ delivery, index, isDark, onPress, onStatusChange }: Deli
             />
           </Svg>
           <Text style={[styles.productText, { color: isDark ? '#888' : '#64748b' }]}>
-            {delivery.productName} × {delivery.quantity}
+            {delivery.productName}
           </Text>
         </View>
-
-        {getActionButton()}
+        <View style={[styles.quantityBadge, { backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.1)' }]}>
+          <Text style={[styles.quantityText, { color: '#3b82f6' }]}>×{delivery.quantity}</Text>
+        </View>
       </View>
 
       {/* Memo */}
       {delivery.memo && (
-        <View style={[styles.memoContainer, { backgroundColor: isDark ? '#0f0f1a' : '#f8fafc' }]}>
-          <Text style={[styles.memoText, { color: isDark ? '#888' : '#64748b' }]}>
+        <View style={[styles.memoContainer, { backgroundColor: isDark ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.1)' }]}>
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M12 9v4m0 4h.01M12 3l9.5 16.5H2.5L12 3z"
+              stroke="#f59e0b"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={[styles.memoText, { color: isDark ? '#fbbf24' : '#b45309' }]}>
             {delivery.memo}
           </Text>
         </View>
       )}
-    </AnimatedPressable>
+
+      {/* Action Button - Full Width */}
+      <View style={styles.cardFooter}>
+        {getActionButton()}
+      </View>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
@@ -185,11 +227,12 @@ export default function StaffDeliveryList() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { staff, logout } = useAuthStore();
+  const { staff } = useAuthStore();
 
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | DeliveryStatus>('all');
 
   const fetchDeliveries = useCallback(async () => {
     if (!staff?.name) return;
@@ -223,6 +266,8 @@ export default function StaffDeliveryList() {
         setDeliveries((prev) =>
           prev.map((d) => (d.id === id ? { ...d, status } : d))
         );
+      } else {
+        Alert.alert('오류', result.error || '상태 변경에 실패했습니다.');
       }
     } catch (error) {
       Alert.alert('오류', '상태 변경에 실패했습니다.');
@@ -236,6 +281,7 @@ export default function StaffDeliveryList() {
         deliveryId: delivery.id,
         recipientPhone: delivery.recipientPhone,
         recipientName: delivery.recipientName,
+        productName: delivery.productName,
       },
     });
   };
@@ -247,7 +293,24 @@ export default function StaffDeliveryList() {
     completed: deliveries.filter((d) => d.status === 'completed').length,
   };
 
+  // 선택된 필터에 따라 배송 목록 필터링
+  const filteredDeliveries = selectedFilter === 'all'
+    ? deliveries
+    : deliveries.filter((d) => d.status === selectedFilter);
+
   const bgColors = isDark ? ['#0a0a12', '#12121f'] as const : ['#f0f4f8', '#e8eef5'] as const;
+
+  // 날짜 포맷팅 (배송 목록의 날짜 또는 오늘 날짜)
+  const formatDateHeader = () => {
+    const targetDate = deliveries[0]?.deliveryDate
+      ? new Date(deliveries[0].deliveryDate)
+      : new Date();
+    const month = targetDate.getMonth() + 1;
+    const day = targetDate.getDate();
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekday = weekdays[targetDate.getDay()];
+    return `${month}월 ${day}일 (${weekday})`;
+  };
 
   return (
     <View style={styles.container}>
@@ -259,8 +322,8 @@ export default function StaffDeliveryList() {
         style={[styles.header, { borderBottomColor: isDark ? '#1a1a2e' : '#e2e8f0' }]}
       >
         <View>
-          <Text style={[styles.greeting, { color: isDark ? '#666' : '#64748b' }]}>
-            오늘의 배송
+          <Text style={[styles.dateText, { color: isDark ? '#10b981' : '#059669' }]}>
+            {formatDateHeader()}
           </Text>
           <Text style={[styles.staffName, { color: isDark ? '#fff' : '#1a1a2e' }]}>
             {staff?.name}님
@@ -270,59 +333,73 @@ export default function StaffDeliveryList() {
           {/* QR 다시 스캔 버튼 */}
           <Pressable
             onPress={() => router.push('/(staff)/scan')}
-            style={[styles.headerBtn, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+            style={[styles.headerBtnWithLabel, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Rect x="3" y="3" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
               <Rect x="14" y="3" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
               <Rect x="3" y="14" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
               <Rect x="14" y="14" width="7" height="7" rx="1" stroke={isDark ? '#888' : '#64748b'} strokeWidth="2" />
             </Svg>
-          </Pressable>
-          {/* 로그아웃 버튼 */}
-          <Pressable
-            onPress={logout}
-            style={[styles.headerBtn, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-          >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
-                stroke={isDark ? '#888' : '#64748b'}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
+            <Text style={[styles.headerBtnText, { color: isDark ? '#888' : '#64748b' }]}>QR</Text>
           </Pressable>
         </View>
       </Animated.View>
 
-      {/* Stats Bar */}
+      {/* Stats Bar - 필터링 가능 */}
       <Animated.View
         entering={FadeInDown.delay(150).springify()}
         style={[styles.statsBar, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
       >
-        <View style={styles.statItem}>
+        <Pressable
+          style={[
+            styles.statItem,
+            selectedFilter === 'all' && styles.statItemSelected,
+            selectedFilter === 'all' && { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
+          ]}
+          onPress={() => setSelectedFilter('all')}
+        >
           <Text style={[styles.statValue, { color: isDark ? '#fff' : '#1a1a2e' }]}>
             {stats.total}
           </Text>
           <Text style={[styles.statLabel, { color: isDark ? '#666' : '#94a3b8' }]}>전체</Text>
-        </View>
+        </Pressable>
         <View style={[styles.statDivider, { backgroundColor: isDark ? '#2a2a3e' : '#e2e8f0' }]} />
-        <View style={styles.statItem}>
+        <Pressable
+          style={[
+            styles.statItem,
+            selectedFilter === 'pending' && styles.statItemSelected,
+            selectedFilter === 'pending' && { backgroundColor: 'rgba(245,158,11,0.15)' },
+          ]}
+          onPress={() => setSelectedFilter('pending')}
+        >
           <Text style={[styles.statValue, { color: '#f59e0b' }]}>{stats.pending}</Text>
           <Text style={[styles.statLabel, { color: isDark ? '#666' : '#94a3b8' }]}>대기</Text>
-        </View>
+        </Pressable>
         <View style={[styles.statDivider, { backgroundColor: isDark ? '#2a2a3e' : '#e2e8f0' }]} />
-        <View style={styles.statItem}>
+        <Pressable
+          style={[
+            styles.statItem,
+            selectedFilter === 'in_transit' && styles.statItemSelected,
+            selectedFilter === 'in_transit' && { backgroundColor: 'rgba(59,130,246,0.15)' },
+          ]}
+          onPress={() => setSelectedFilter('in_transit')}
+        >
           <Text style={[styles.statValue, { color: '#3b82f6' }]}>{stats.in_transit}</Text>
           <Text style={[styles.statLabel, { color: isDark ? '#666' : '#94a3b8' }]}>진행</Text>
-        </View>
+        </Pressable>
         <View style={[styles.statDivider, { backgroundColor: isDark ? '#2a2a3e' : '#e2e8f0' }]} />
-        <View style={styles.statItem}>
+        <Pressable
+          style={[
+            styles.statItem,
+            selectedFilter === 'completed' && styles.statItemSelected,
+            selectedFilter === 'completed' && { backgroundColor: 'rgba(16,185,129,0.15)' },
+          ]}
+          onPress={() => setSelectedFilter('completed')}
+        >
           <Text style={[styles.statValue, { color: '#10b981' }]}>{stats.completed}</Text>
           <Text style={[styles.statLabel, { color: isDark ? '#666' : '#94a3b8' }]}>완료</Text>
-        </View>
+        </Pressable>
       </Animated.View>
 
       {/* Deliveries List */}
@@ -363,7 +440,7 @@ export default function StaffDeliveryList() {
             </Text>
           </Animated.View>
         ) : (
-          deliveries.map((delivery, index) => (
+          filteredDeliveries.map((delivery, index) => (
             <DeliveryCard
               key={delivery.id}
               delivery={delivery}
@@ -394,10 +471,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
-  greeting: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 2,
+  dateText: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   staffName: {
     fontSize: 20,
@@ -415,6 +492,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerBtnWithLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  headerBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   statsBar: {
     flexDirection: 'row',
     marginHorizontal: 16,
@@ -426,6 +515,11 @@ const styles = StyleSheet.create({
   statItem: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  statItemSelected: {
+    borderRadius: 10,
   },
   statValue: {
     fontSize: 20,
@@ -466,14 +560,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   deliveryCard: {
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -507,72 +601,115 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  recipientInfo: {
+    flex: 1,
   },
   recipientName: {
     fontSize: 18,
     fontWeight: '700',
+    marginBottom: 2,
   },
   callButton: {
-    padding: 8,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
   },
   phone: {
     fontSize: 14,
     fontWeight: '500',
-    marginTop: 2,
-    marginBottom: 8,
   },
-  address: {
-    fontSize: 14,
-    lineHeight: 20,
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
     marginBottom: 12,
   },
-  cardFooter: {
+  address: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  productRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
   productInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   productText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
+  },
+  quantityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  quantityText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  cardFooter: {
+    marginTop: 4,
+  },
+  actionButtonWrapper: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 6,
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 14,
+    gap: 10,
   },
   actionButtonText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   completedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
   },
   completedText: {
     color: '#10b981',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   memoContainer: {
-    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   memoText: {
+    flex: 1,
     fontSize: 13,
     lineHeight: 18,
+    fontWeight: '500',
   },
 });
