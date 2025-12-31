@@ -64,6 +64,8 @@ CREATE INDEX IF NOT EXISTS idx_deliveries_admin_id ON deliveries(admin_id);
 CREATE INDEX IF NOT EXISTS idx_deliveries_staff_name ON deliveries(staff_name);
 CREATE INDEX IF NOT EXISTS idx_deliveries_delivery_date ON deliveries(delivery_date);
 CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(status);
+-- 복합 인덱스 (관리자별 날짜 조회 최적화)
+CREATE INDEX IF NOT EXISTS idx_deliveries_admin_date ON deliveries(admin_id, delivery_date);
 
 -- 구독 테이블
 CREATE TABLE IF NOT EXISTS subscriptions (
