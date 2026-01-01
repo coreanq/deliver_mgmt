@@ -9,7 +9,7 @@ export interface Env {
   // 환경 변수
   RESEND_API_KEY: string;
   RESEND_FROM_EMAIL: string;
-  MAGIC_LINK_BASE_URL: string;
+  WORKER_BASE_URL: string;
   JWT_SECRET: string;
   BUILD_DATE: string;
   // AI Gateway (wrangler secret)

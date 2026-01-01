@@ -90,7 +90,7 @@ auth.post('/magic-link/send', async (c) => {
       .run();
 
     // Magic Link URL 생성 (웹 verify 페이지에서 모바일 감지 후 앱으로 리다이렉트)
-    const magicLinkUrl = `${c.env.MAGIC_LINK_BASE_URL}/auth/verify?token=${token}`;
+    const magicLinkUrl = `${c.env.WORKER_BASE_URL}/auth/verify?token=${token}`;
 
     // 이메일 발송
     const emailTemplate = getMagicLinkEmailTemplate(magicLinkUrl);

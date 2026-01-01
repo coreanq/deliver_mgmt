@@ -564,7 +564,7 @@ export default function AdminDashboard() {
         <Animated.View entering={FadeInDown.delay(400).springify()}>
           <Pressable
             style={[styles.pcWebLink, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-            onPress={() => Linking.openURL('https://try-dabble.com')}
+            onPress={() => Linking.openURL('https://deliver-mgmt-worker.coreanq.workers.dev')}
           >
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path

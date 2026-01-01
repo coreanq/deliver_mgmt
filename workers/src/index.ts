@@ -8,6 +8,7 @@ import authRoutes from './routes/auth';
 import deliveryRoutes from './routes/delivery';
 import uploadRoutes from './routes/upload';
 import subscriptionRoutes from './routes/subscription';
+import r2Routes from './routes/r2';
 
 // Cron 임포트
 import { cleanupExpiredData } from './cron/cleanup';
@@ -16,13 +17,12 @@ const app = new Hono<{ Bindings: Env }>();
 
 // 미들웨어
 app.use('*', logger());
-app.use(
-  '/api/*',
-  cors({
+app.use('/api/*', async (c, next) => {
+  const corsMiddleware = cors({
     origin: [
       'http://localhost:8081',
       'http://localhost:3000',
-      'https://try-dabble.com',
+      c.env.WORKER_BASE_URL,
       'https://deliver-mgmt-worker.coreanq.workers.dev',
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -30,8 +30,9 @@ app.use(
     exposeHeaders: ['Content-Length'],
     maxAge: 86400,
     credentials: true,
-  })
-);
+  });
+  return corsMiddleware(c, next);
+});
 
 // 헬스 체크 (API 전용)
 app.get('/api/health', (c) => {
@@ -48,6 +49,9 @@ app.route('/api/auth', authRoutes);
 app.route('/api/delivery', deliveryRoutes);
 app.route('/api/upload', uploadRoutes);
 app.route('/api/subscription', subscriptionRoutes);
+
+// R2 파일 서빙 (Public Access 대신 Worker에서 처리)
+app.route('/r2', r2Routes);
 
 // 404 핸들러
 app.notFound((c) => {

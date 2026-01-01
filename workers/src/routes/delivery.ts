@@ -251,8 +251,8 @@ delivery.post('/:id/complete', async (c) => {
         },
       });
 
-      // 공개 URL 생성 (R2 퍼블릭 버킷 설정 필요)
-      photoUrl = `https://photos.try-dabble.com/${photoKey}`;
+      // 공개 URL 생성 (환경변수로 도메인 설정)
+      photoUrl = `${c.env.WORKER_BASE_URL}/r2/deliver-mgmt/${photoKey}`;
     }
 
     // 배송 완료 처리

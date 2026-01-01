@@ -11,13 +11,13 @@ command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".
 [assets]
 directory = "./web/dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*"]
+run_worker_first = ["/api/*", "/r2/*"]
 
 [vars]
-BUILD_DATE = "26/01/01 00:41"
-RESEND_FROM_EMAIL = "noreply@try-dabble.com"
-# Magic Link 베이스 URL
-MAGIC_LINK_BASE_URL = "deliver-mgmt-worker.coreanq.workers.dev"
+BUILD_DATE = "26/01/01 09:50"
+RESEND_FROM_EMAIL = "noreply@deliver-mgmt-worker.coreanq.workers.dev"
+# Worker 베이스 URL (Magic Link, R2 등 공용)
+WORKER_BASE_URL = "https://deliver-mgmt-worker.coreanq.workers.dev"
 # 테스트 이메일 (프로덕션에서 비활성화: Cloudflare Dashboard에서 ""로 설정)
 TEST_EMAILS = "dev@test.com,dev@example.com"
 
