@@ -1,7 +1,9 @@
 import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { debugLog } from '@/utils/debugLog';
 
 export default function StaffLayout() {
+  debugLog('STAFF_LAYOUT', { step: 'SL1', message: 'StaffLayout rendering' });
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -12,7 +14,7 @@ export default function StaffLayout() {
         contentStyle: {
           backgroundColor: isDark ? '#0f0f1a' : '#f5f5f5',
         },
-        animation: 'slide_from_right',
+        animation: 'none',
       }}
     >
       <Stack.Screen name="scan" />
