@@ -241,8 +241,6 @@ export default function StaffDeliveryList() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            // 루트로 이동
-            router.replace('/');
           },
         },
       ]
@@ -273,13 +271,6 @@ export default function StaffDeliveryList() {
   useEffect(() => {
     fetchDeliveries();
   }, [fetchDeliveries]);
-
-  // 인증 상태 체크: 로그아웃되면 홈으로 이동
-  useEffect(() => {
-    if (!isLoading && !staff) {
-      router.replace('/');
-    }
-  }, [isLoading, staff, router]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

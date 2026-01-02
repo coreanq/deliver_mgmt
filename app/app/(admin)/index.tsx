@@ -180,8 +180,6 @@ export default function AdminDashboard() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            // 루트로 이동
-            router.replace('/');
           },
         },
       ]
@@ -212,13 +210,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     fabScale.value = withDelay(500, withSpring(1, { damping: 12, stiffness: 100 }));
   }, []);
-
-  // 인증 상태 체크: 로그아웃되면 홈으로 이동
-  useEffect(() => {
-    if (!isLoading && !admin) {
-      router.replace('/');
-    }
-  }, [isLoading, admin, router]);
 
   const fabStyle = useAnimatedStyle(() => ({
     transform: [{ scale: fabScale.value }],
