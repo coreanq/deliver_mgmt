@@ -120,105 +120,105 @@ function DeliveryCard({ delivery, index, isDark, onPress, onStatusChange }: Deli
           scale.value = withSpring(1, { damping: 15, stiffness: 400 });
         }}
       >
-      {/* Header Row */}
-      <View style={styles.cardHeader}>
-        <View style={[styles.statusBadge, { backgroundColor: `${DELIVERY_STATUS_COLORS[delivery.status]}15` }]}>
-          <View style={[styles.statusDot, { backgroundColor: DELIVERY_STATUS_COLORS[delivery.status] }]} />
-          <Text style={[styles.statusText, { color: DELIVERY_STATUS_COLORS[delivery.status] }]}>
-            {DELIVERY_STATUS_LABELS[delivery.status]}
+        {/* Header Row */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.statusBadge, { backgroundColor: `${DELIVERY_STATUS_COLORS[delivery.status]}15` }]}>
+            <View style={[styles.statusDot, { backgroundColor: DELIVERY_STATUS_COLORS[delivery.status] }]} />
+            <Text style={[styles.statusText, { color: DELIVERY_STATUS_COLORS[delivery.status] }]}>
+              {DELIVERY_STATUS_LABELS[delivery.status]}
+            </Text>
+          </View>
+          <Text style={[styles.orderNumber, { color: isDark ? '#444' : '#cbd5e1' }]}>
+            #{delivery.id.slice(-6).toUpperCase()}
           </Text>
         </View>
-        <Text style={[styles.orderNumber, { color: isDark ? '#444' : '#cbd5e1' }]}>
-          #{delivery.id.slice(-6).toUpperCase()}
-        </Text>
-      </View>
 
-      {/* Recipient Info */}
-      <View style={styles.recipientRow}>
-        <View style={styles.recipientInfo}>
-          <Text style={[styles.recipientName, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-            {delivery.recipientName}
-          </Text>
-          <Text style={[styles.phone, { color: isDark ? '#666' : '#64748b' }]}>
-            {delivery.recipientPhone}
-          </Text>
+        {/* Recipient Info */}
+        <View style={styles.recipientRow}>
+          <View style={styles.recipientInfo}>
+            <Text style={[styles.recipientName, { color: isDark ? '#fff' : '#1a1a2e' }]}>
+              {delivery.recipientName}
+            </Text>
+            <Text style={[styles.phone, { color: isDark ? '#666' : '#64748b' }]}>
+              {delivery.recipientPhone}
+            </Text>
+          </View>
+          <Pressable
+            onPress={handleCall}
+            style={[styles.callButton, { backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)' }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"
+                stroke="#10b981"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
         </View>
-        <Pressable
-          onPress={handleCall}
-          style={[styles.callButton, { backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)' }]}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"
-              stroke="#10b981"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </Pressable>
-      </View>
 
-      {/* Address */}
-      <View style={[styles.addressRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
-        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-          <Path
-            d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"
-            stroke={isDark ? '#666' : '#94a3b8'}
-            strokeWidth="1.5"
-          />
-          <Circle cx="12" cy="10" r="3" stroke={isDark ? '#666' : '#94a3b8'} strokeWidth="1.5" />
-        </Svg>
-        <Text
-          style={[styles.address, { color: isDark ? '#999' : '#475569' }]}
-          numberOfLines={2}
-        >
-          {delivery.recipientAddress}
-        </Text>
-      </View>
-
-      {/* Product Info */}
-      <View style={styles.productRow}>
-        <View style={styles.productInfo}>
+        {/* Address */}
+        <View style={[styles.addressRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
             <Path
-              d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
-              stroke={isDark ? '#555' : '#94a3b8'}
+              d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"
+              stroke={isDark ? '#666' : '#94a3b8'}
               strokeWidth="1.5"
             />
+            <Circle cx="12" cy="10" r="3" stroke={isDark ? '#666' : '#94a3b8'} strokeWidth="1.5" />
           </Svg>
-          <Text style={[styles.productText, { color: isDark ? '#888' : '#64748b' }]}>
-            {delivery.productName}
+          <Text
+            style={[styles.address, { color: isDark ? '#999' : '#475569' }]}
+            numberOfLines={2}
+          >
+            {delivery.recipientAddress}
           </Text>
         </View>
-        <View style={[styles.quantityBadge, { backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.1)' }]}>
-          <Text style={[styles.quantityText, { color: '#3b82f6' }]}>×{delivery.quantity}</Text>
-        </View>
-      </View>
 
-      {/* Memo */}
-      {delivery.memo && (
-        <View style={[styles.memoContainer, { backgroundColor: isDark ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.1)' }]}>
-          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M12 9v4m0 4h.01M12 3l9.5 16.5H2.5L12 3z"
-              stroke="#f59e0b"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-          <Text style={[styles.memoText, { color: isDark ? '#fbbf24' : '#b45309' }]}>
-            {delivery.memo}
-          </Text>
+        {/* Product Info */}
+        <View style={styles.productRow}>
+          <View style={styles.productInfo}>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
+                stroke={isDark ? '#555' : '#94a3b8'}
+                strokeWidth="1.5"
+              />
+            </Svg>
+            <Text style={[styles.productText, { color: isDark ? '#888' : '#64748b' }]}>
+              {delivery.productName}
+            </Text>
+          </View>
+          <View style={[styles.quantityBadge, { backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.1)' }]}>
+            <Text style={[styles.quantityText, { color: '#3b82f6' }]}>×{delivery.quantity}</Text>
+          </View>
         </View>
-      )}
 
-      {/* Action Button - Full Width */}
-      <View style={styles.cardFooter}>
-        {getActionButton()}
-      </View>
+        {/* Memo */}
+        {delivery.memo && (
+          <View style={[styles.memoContainer, { backgroundColor: isDark ? 'rgba(251,191,36,0.08)' : 'rgba(251,191,36,0.1)' }]}>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 9v4m0 4h.01M12 3l9.5 16.5H2.5L12 3z"
+                stroke="#f59e0b"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+            <Text style={[styles.memoText, { color: isDark ? '#fbbf24' : '#b45309' }]}>
+              {delivery.memo}
+            </Text>
+          </View>
+        )}
+
+        {/* Action Button - Full Width */}
+        <View style={styles.cardFooter}>
+          {getActionButton()}
+        </View>
       </AnimatedPressable>
     </Animated.View>
   );
@@ -241,8 +241,8 @@ export default function StaffDeliveryList() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            // 루트로 이동 (dismissTo가 스택을 자동 정리)
-            router.dismissTo('/');
+            // 루트로 이동
+            router.replace('/');
           },
         },
       ]
@@ -273,6 +273,13 @@ export default function StaffDeliveryList() {
   useEffect(() => {
     fetchDeliveries();
   }, [fetchDeliveries]);
+
+  // 인증 상태 체크: 로그아웃되면 홈으로 이동
+  useEffect(() => {
+    if (!isLoading && !staff) {
+      router.replace('/');
+    }
+  }, [isLoading, staff, router]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
