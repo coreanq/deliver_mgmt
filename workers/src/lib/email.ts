@@ -43,10 +43,13 @@ export async function sendEmail(
 
 // Magic Link 이메일 템플릿
 export function getMagicLinkEmailTemplate(
-  magicLinkUrl: string
+  magicLinkUrl: string,
+  baseUrl: string
 ): { subject: string; html: string } {
+  const appIconUrl = `${baseUrl}/app-icon.png`;
+
   return {
-    subject: '[배송관리] 로그인 링크',
+    subject: '[배매니저] 로그인 링크',
     html: `
 <!DOCTYPE html>
 <html>
@@ -59,13 +62,11 @@ export function getMagicLinkEmailTemplate(
     <tr>
       <td style="padding: 48px 40px; text-align: center;">
         <!-- Logo -->
-        <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 16px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center;">
-          <span style="font-size: 28px; color: white;">📦</span>
-        </div>
+        <img src="${appIconUrl}" alt="배매니저" width="64" height="64" style="display: block; margin: 0 auto 24px; border-radius: 16px;" />
 
         <!-- Title -->
         <h1 style="margin: 0 0 16px; font-size: 28px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.5px;">
-          배송관리 로그인
+          배매니저 로그인
         </h1>
 
         <!-- Description -->

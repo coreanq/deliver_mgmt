@@ -85,7 +85,7 @@ auth.post('/magic-link/send', async (c) => {
     const magicLinkUrl = `${c.env.WORKER_BASE_URL}/auth/verify?token=${token}`;
 
     // 이메일 발송
-    const emailTemplate = getMagicLinkEmailTemplate(magicLinkUrl);
+    const emailTemplate = getMagicLinkEmailTemplate(magicLinkUrl, c.env.WORKER_BASE_URL);
     const result = await sendEmail(c.env, {
       to: email,
       subject: emailTemplate.subject,
