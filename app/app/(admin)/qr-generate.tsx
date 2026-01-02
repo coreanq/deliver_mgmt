@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuthStore } from '@/stores/auth';
+import { useAuth } from '@/providers/AuthProvider';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -32,8 +32,8 @@ export default function QRGenerateScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  // selector를 사용하여 필요한 상태만 구독
-  const admin = useAuthStore((state) => state.admin);
+  // XState 기반 인증 상태
+  const { admin } = useAuth();
 
   const [staffList, setStaffList] = useState<StaffItem[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);

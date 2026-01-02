@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { api } from '@/services/api';
-import { useAuthStore } from '@/stores/auth';
+import { useAuth } from '@/providers/AuthProvider';
 import type { Delivery, DeliveryStatus } from '@/types';
 import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS } from '@/constants';
 import { VersionInfo } from '@/components/VersionInfo';
@@ -228,9 +228,8 @@ export default function StaffDeliveryList() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  // selector를 사용하여 필요한 상태만 구독
-  const staff = useAuthStore((state) => state.staff);
-  const logout = useAuthStore((state) => state.logout);
+  // XState 기반 인증 상태
+  const { staff, logout } = useAuth();
 
   const handleLogout = () => {
     Alert.alert(
@@ -241,10 +240,7 @@ export default function StaffDeliveryList() {
         {
           text: '로그아웃',
           style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/');
-          },
+          onPress: () => logout(), // FSM이 라우팅 처리
         },
       ]
     );

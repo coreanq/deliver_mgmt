@@ -72,7 +72,8 @@
       "Bash(sips:*)",
       "Bash(npx eas-cli:*)",
       "Bash(eas update:*)",
-      "Bash(CI=1 npx eas-cli:*)"
+      "Bash(CI=1 npx eas-cli:*)",
+      "Bash(CI=1 eas update:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

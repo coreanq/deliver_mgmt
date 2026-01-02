@@ -18,6 +18,9 @@
   - 매직링크는 cloudflare KV 사용(15분 TTL)
   - 매직링크 재전송은 1분 제한 
 
+# 로그 출력
+  - worker 의 wrangler tail 을 사용하기 위해 앱에서는 Post 를 사ㅈ
+
 # EAS 사용시 
 - remote version incremental 
 - 버전 관리는 한곳에서 하도록 함 
@@ -69,6 +72,8 @@
       ├── package.json
       ├── wrangler.toml
       └── src/
+# UI 구현 시 
+- XState로 인증 상태 머신을 구현
 
 ## 버전 관리
 

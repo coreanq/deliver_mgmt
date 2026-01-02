@@ -29,11 +29,10 @@ import Animated, {
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
 import { api } from '@/services/api';
-import { useAuthStore } from '@/stores/auth';
+import { useAuth } from '@/providers/AuthProvider';
 import type { Delivery, DeliveryStatus } from '@/types';
 import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, API_BASE_URL } from '@/constants';
 import { VersionInfo } from '@/components/VersionInfo';
-import { debugLog } from '@/utils/debugLog';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -165,14 +164,11 @@ function DeliveryCard({ delivery, index, isDark }: DeliveryCardProps) {
 type FilterType = 'all' | 'status' | 'staff';
 
 export default function AdminDashboard() {
-  debugLog('ADMIN_DASHBOARD', { step: 'D1', message: 'Component function started' });
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  // selector를 사용하여 필요한 상태만 구독 (불필요한 리렌더링 방지)
-  const admin = useAuthStore((state) => state.admin);
-  const logout = useAuthStore((state) => state.logout);
-  debugLog('ADMIN_DASHBOARD', { step: 'D2', message: 'Hooks initialized', hasAdmin: !!admin });
+  // XState 기반 인증 상태
+  const { admin, logout } = useAuth();
 
   const handleLogout = () => {
     Alert.alert(
@@ -183,10 +179,7 @@ export default function AdminDashboard() {
         {
           text: '로그아웃',
           style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/');
-          },
+          onPress: () => logout(), // FSM이 라우팅 처리
         },
       ]
     );
@@ -210,18 +203,33 @@ export default function AdminDashboard() {
 
   const fabScale = useSharedValue(0);
 
+  // 복사 버튼 상태
+  const [copied, setCopied] = useState(false);
+  const copyScale = useSharedValue(1);
+
   // 담당자 목록
   const [staffList, setStaffList] = useState<string[]>([]);
-  debugLog('ADMIN_DASHBOARD', { step: 'D3', message: 'All useState done' });
 
   useEffect(() => {
-    debugLog('ADMIN_DASHBOARD', { step: 'D4', message: 'Mount effect running' });
     fabScale.value = withDelay(500, withSpring(1, { damping: 12, stiffness: 100 }));
   }, []);
 
   const fabStyle = useAnimatedStyle(() => ({
     transform: [{ scale: fabScale.value }],
   }));
+
+  const copyBtnStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: copyScale.value }],
+  }));
+
+  const handleCopyUrl = async () => {
+    copyScale.value = withSpring(0.9, { damping: 15 }, () => {
+      copyScale.value = withSpring(1, { damping: 12 });
+    });
+    await Clipboard.setStringAsync(API_BASE_URL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const fetchDeliveries = useCallback(async () => {
     try {
@@ -352,8 +360,6 @@ export default function AdminDashboard() {
   const dateInfo = formatDate(selectedDate);
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
-  debugLog('ADMIN_DASHBOARD', { step: 'D5', message: 'About to render' });
-
   return (
     <View style={styles.container}>
       <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
@@ -373,9 +379,9 @@ export default function AdminDashboard() {
         </View>
         <Pressable
           onPress={handleLogout}
-          style={[styles.logoutBtn, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
+          style={[styles.headerBtnWithLabel, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
             <Path
               d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
               stroke={isDark ? '#888' : '#64748b'}
@@ -384,6 +390,7 @@ export default function AdminDashboard() {
               strokeLinejoin="round"
             />
           </Svg>
+          <Text style={[styles.headerBtnText, { color: isDark ? '#888' : '#64748b' }]}>로그아웃</Text>
         </Pressable>
       </Animated.View>
 
@@ -612,22 +619,37 @@ export default function AdminDashboard() {
         )}
 
         {/* PC Web Link - 주소 복사 */}
-        <Animated.View entering={FadeInDown.delay(400).springify()}>
+        <Animated.View entering={FadeInDown.delay(400).springify()} style={copyBtnStyle}>
           <Pressable
-            style={[styles.pcWebLink, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-            onPress={() => Clipboard.setStringAsync(API_BASE_URL)}
+            style={[
+              styles.pcWebLink,
+              { backgroundColor: copied ? (isDark ? '#1e3a2f' : '#dcfce7') : (isDark ? '#1a1a2e' : '#fff') },
+            ]}
+            onPress={handleCopyUrl}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Rect x="9" y="9" width="13" height="13" rx="2" stroke={isDark ? '#3b82f6' : '#1d4ed8'} strokeWidth="1.5" />
-              <Path
-                d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
-                stroke={isDark ? '#3b82f6' : '#1d4ed8'}
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </Svg>
-            <Text style={[styles.pcWebText, { color: isDark ? '#3b82f6' : '#1d4ed8' }]}>
-              PC 웹 주소 복사
+            {copied ? (
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M20 6L9 17l-5-5"
+                  stroke="#22c55e"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            ) : (
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Rect x="9" y="9" width="13" height="13" rx="2" stroke={isDark ? '#3b82f6' : '#1d4ed8'} strokeWidth="1.5" />
+                <Path
+                  d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
+                  stroke={isDark ? '#3b82f6' : '#1d4ed8'}
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </Svg>
+            )}
+            <Text style={[styles.pcWebText, { color: copied ? '#22c55e' : (isDark ? '#3b82f6' : '#1d4ed8') }]}>
+              {copied ? '복사됨!' : 'PC 웹 주소 복사'}
             </Text>
           </Pressable>
         </Animated.View>
@@ -837,12 +859,17 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  logoutBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
+  headerBtnWithLabel: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  headerBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   dateSelector: {
     flexDirection: 'row',

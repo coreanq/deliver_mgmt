@@ -11,7 +11,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { useAuthStore } from '@/stores/auth';
+import { useAuth } from '@/providers/AuthProvider';
 import { VersionInfo } from '@/components/VersionInfo';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -130,14 +130,8 @@ export default function RoleSelectionScreen() {
   const isDark = colorScheme === 'dark';
   const router = useRouter();
 
-  // selector를 사용하여 필요한 상태만 구독 (불필요한 리렌더링 방지)
-  const setRole = useAuthStore((state) => state.setRole);
-  const hardReset = useAuthStore((state) => state.hardReset);
-  const isLoading = useAuthStore((state) => state.isLoading);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const role = useAuthStore((state) => state.role);
-  const staff = useAuthStore((state) => state.staff);
-  const admin = useAuthStore((state) => state.admin);
+  // XState 기반 인증 상태
+  const { setRole, hardReset, isLoading, isAuthenticated, role, staff, admin } = useAuth();
 
   const titleOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(-20);

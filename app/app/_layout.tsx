@@ -1,71 +1,18 @@
-import { useEffect, useRef } from 'react';
-import { Stack, useRouter, useRootNavigationState, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
-import { useAuthStore } from '@/stores/auth';
+import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { api } from '@/services/api';
-import { debugLog } from '@/utils/debugLog';
 
-export default function RootLayout() {
+function RootLayoutInner() {
   const colorScheme = useColorScheme();
-  // selector를 사용하여 필요한 상태만 구독 (불필요한 리렌더링 방지)
-  const restoreSession = useAuthStore((state) => state.restoreSession);
-  const token = useAuthStore((state) => state.token);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const authLoading = useAuthStore((state) => state.isLoading);
-  const role = useAuthStore((state) => state.role);
-  const hasRedirected = useRef(false);
+  const { token } = useAuth();
 
-  useEffect(() => {
-    restoreSession();
-  }, [restoreSession]);
-
+  // Sync API token
   useEffect(() => {
     api.setToken(token);
   }, [token]);
-
-  const router = useRouter();
-  const segments = useSegments();
-  const navigationState = useRootNavigationState();
-
-  // 세션 복원 후 자동 리다이렉트 (홈 화면에서만)
-  useEffect(() => {
-    debugLog('LAYOUT_EFFECT', {
-      step: 'L1',
-      hasNavKey: !!navigationState?.key,
-      authLoading,
-      isAuthenticated,
-      role,
-      segments: segments,
-      hasRedirected: hasRedirected.current,
-    });
-
-    if (!navigationState?.key || authLoading) return;
-
-    // 현재 홈 화면(index)에 있을 때만 자동 리다이렉트
-    const isOnHome = segments.length === 0 || segments[0] === 'index' || segments[0] === undefined;
-
-    debugLog('LAYOUT_EFFECT', {
-      step: 'L2',
-      isOnHome,
-      willNavigate: isAuthenticated && role && isOnHome && !hasRedirected.current,
-    });
-
-    if (isAuthenticated && role && isOnHome && !hasRedirected.current) {
-      hasRedirected.current = true;
-      debugLog('LAYOUT_EFFECT', { step: 'L3', navigatingTo: role === 'admin' ? '/(admin)' : '/(staff)' });
-      if (role === 'admin') {
-        router.replace('/(admin)');
-      } else if (role === 'staff') {
-        router.replace('/(staff)');
-      }
-    }
-
-    // 로그아웃 시 플래그 리셋
-    if (!isAuthenticated) {
-      hasRedirected.current = false;
-    }
-  }, [isAuthenticated, authLoading, role, router, navigationState?.key, segments]);
 
   return (
     <>
@@ -85,5 +32,13 @@ export default function RootLayout() {
         <Stack.Screen name="(staff)" />
       </Stack>
     </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootLayoutInner />
+    </AuthProvider>
   );
 }

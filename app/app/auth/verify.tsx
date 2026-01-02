@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAuthStore } from '@/stores/auth';
+import { useAuth } from '@/providers/AuthProvider';
 import { api } from '@/services/api';
 
 export default function AuthVerify() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const router = useRouter();
-  // selector를 사용하여 필요한 함수만 구독
-  const loginAdmin = useAuthStore((state) => state.loginAdmin);
+  // XState 기반 인증 상태
+  const { loginAdmin } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,11 +21,8 @@ export default function AuthVerify() {
       try {
         const result = await api.verifyMagicLink(token);
         if (result.success && result.data) {
-          await loginAdmin(result.data.admin, result.data.token);
-          // 상태 업데이트 후 네비게이션
-          setTimeout(() => {
-            router.replace('/(admin)');
-          }, 100);
+          // FSM이 라우팅 처리
+          loginAdmin(result.data.admin, result.data.token);
         } else {
           setError(result.error || '링크가 만료되었거나 유효하지 않습니다.');
         }
@@ -35,7 +32,7 @@ export default function AuthVerify() {
     };
 
     verifyMagicLink();
-  }, [token, loginAdmin, router]);
+  }, [token, loginAdmin]);
 
   if (error) {
     return (

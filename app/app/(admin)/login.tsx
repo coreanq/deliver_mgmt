@@ -26,7 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { api } from '@/services/api';
-import { useAuthStore } from '@/stores/auth';
+import { useAuth } from '@/providers/AuthProvider';
 import { TEST_EMAILS } from '@/constants';
 import { debugLog } from '@/utils/debugLog';
 
@@ -39,8 +39,8 @@ export default function AdminLoginScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  // selector를 사용하여 loginAdmin만 구독 (다른 상태 변경시 리렌더링 방지)
-  const loginAdmin = useAuthStore((state) => state.loginAdmin);
+  // XState 기반 인증 상태
+  const { loginAdmin } = useAuth();
   const inputRef = useRef<TextInput>(null);
 
   const [email, setEmail] = useState('');
