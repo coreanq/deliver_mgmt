@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Stack, useRouter, useRootNavigationState } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Stack, useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 import { useAuthStore } from '@/stores/auth';
@@ -8,6 +8,7 @@ import { api } from '@/services/api';
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { restoreSession, token } = useAuthStore();
+  const hasRedirected = useRef(false);
 
   useEffect(() => {
     restoreSession();
@@ -18,22 +19,31 @@ export default function RootLayout() {
   }, [token]);
 
   const router = useRouter();
+  const segments = useSegments();
   const navigationState = useRootNavigationState();
   const { isAuthenticated, isLoading: authLoading, role } = useAuthStore();
 
-  // 세션 복원 후 자동 리다이렉트
+  // 세션 복원 후 자동 리다이렉트 (홈 화면에서만)
   useEffect(() => {
     if (!navigationState?.key || authLoading) return;
 
-    // 인증된 상태면 해당 대시보드로
-    if (isAuthenticated && role) {
+    // 현재 홈 화면(index)에 있을 때만 자동 리다이렉트
+    const isOnHome = segments.length === 0 || segments[0] === 'index' || segments[0] === undefined;
+
+    if (isAuthenticated && role && isOnHome && !hasRedirected.current) {
+      hasRedirected.current = true;
       if (role === 'admin') {
         router.replace('/(admin)');
       } else if (role === 'staff') {
         router.replace('/(staff)');
       }
     }
-  }, [isAuthenticated, authLoading, role, router, navigationState?.key]);
+
+    // 로그아웃 시 플래그 리셋
+    if (!isAuthenticated) {
+      hasRedirected.current = false;
+    }
+  }, [isAuthenticated, authLoading, role, router, navigationState?.key, segments]);
 
   return (
     <>
