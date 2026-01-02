@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, Text, Pressable, useColorScheme, StyleSheet, Dimensions, Image } from 'react-native';
+import { View, Text, Pressable, useColorScheme, StyleSheet, Dimensions, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -129,7 +129,7 @@ export default function RoleSelectionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { setRole, isLoading, isAuthenticated, role, staff, admin } = useAuthStore();
+  const { setRole, isLoading, isAuthenticated, role, staff, admin, hardReset } = useAuthStore();
 
   const titleOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(-20);
@@ -239,6 +239,31 @@ export default function RoleSelectionScreen() {
 
         {/* Footer - 버전 정보 */}
         <VersionInfo />
+
+        {/* 강제 초기화 버튼 */}
+        <Pressable
+          style={styles.resetButton}
+          onPress={() => {
+            Alert.alert(
+              '데이터 초기화',
+              '모든 로그인 정보를 지우고 초기 상태로 되돌리시겠습니까?',
+              [
+                { text: '취소', style: 'cancel' },
+                {
+                  text: '전체 초기화',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await hardReset();
+                  },
+                },
+              ]
+            );
+          }}
+        >
+          <Text style={[styles.resetButtonText, { color: isDark ? '#444' : '#cbd5e1' }]}>
+            데이터 강제 초기화
+          </Text>
+        </Pressable>
       </View>
     </LinearGradient>
   );
@@ -381,5 +406,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  resetButton: {
+    alignSelf: 'center',
+    marginTop: 20,
+    padding: 10,
+  },
+  resetButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });

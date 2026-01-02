@@ -29,6 +29,8 @@ interface AuthActions {
   logout: () => Promise<void>;
   // 저장된 세션 복원
   restoreSession: () => Promise<void>;
+  // 모든 데이터 강제 초기화
+  hardReset: () => Promise<void>;
 }
 
 const STORAGE_KEYS = {
@@ -146,5 +148,22 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     } catch {
       set({ isLoading: false });
     }
+  },
+  hardReset: async () => {
+    try {
+      await Promise.all(
+        Object.values(STORAGE_KEYS).map((key) => SecureStore.deleteItemAsync(key))
+      );
+    } catch (error) {
+      console.error('Failed to hard reset storage:', error);
+    }
+    api.setToken(null);
+    set({
+      role: null,
+      admin: null,
+      staff: null,
+      token: null,
+      isAuthenticated: false,
+    });
   },
 }));
