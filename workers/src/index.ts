@@ -44,6 +44,13 @@ app.get('/api/health', (c) => {
   });
 });
 
+// 앱 디버그 로그 (wrangler tail로 확인)
+app.post('/api/log', async (c) => {
+  const body = await c.req.json();
+  console.log('[APP_LOG]', JSON.stringify(body));
+  return c.json({ ok: true });
+});
+
 // API 라우트
 app.route('/api/auth', authRoutes);
 app.route('/api/delivery', deliveryRoutes);

@@ -28,6 +28,7 @@ import Svg, { Path } from 'react-native-svg';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import { TEST_EMAILS } from '@/constants';
+import { debugLog } from '@/utils/debugLog';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -133,13 +134,19 @@ export default function AdminLoginScreen() {
 
     // Test email bypass
     if (TEST_EMAILS.includes(email.toLowerCase())) {
+      await debugLog('LOGIN', { step: 1, message: 'Test email detected' });
       try {
+        await debugLog('LOGIN', { step: 2, message: 'Calling loginAdmin' });
         await loginAdmin(
           { id: 'test-admin', email: email.toLowerCase(), createdAt: new Date().toISOString() },
           'test-token-123'
         );
+        await debugLog('LOGIN', { step: 3, message: 'loginAdmin completed' });
+        await debugLog('LOGIN', { step: 4, message: 'Calling router.replace' });
         router.replace('/(admin)');
+        await debugLog('LOGIN', { step: 5, message: 'router.replace called' });
       } catch (error) {
+        await debugLog('LOGIN_ERROR', { error: String(error) });
         console.error('Test login failed:', error);
         setError('로그인 실패');
       }

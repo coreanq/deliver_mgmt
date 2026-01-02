@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import type { Admin, Staff, UserRole } from '@/types';
 import { api } from '@/services/api';
+import { API_BASE_URL } from '@/constants';
+
+const debugLog = async (tag: string, data: any) => {
+  try {
+    await fetch(`${API_BASE_URL}/api/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag, data, timestamp: new Date().toISOString() }),
+    });
+  } catch (e) {}
+};
 
 interface AuthState {
   // 현재 역할
@@ -53,12 +64,17 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   loginAdmin: async (admin, token) => {
+    await debugLog('AUTH_STORE', { step: 'A1', message: 'loginAdmin start' });
     await SecureStore.setItemAsync(STORAGE_KEYS.ROLE, 'admin');
+    await debugLog('AUTH_STORE', { step: 'A2', message: 'ROLE saved' });
     await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, token);
+    await debugLog('AUTH_STORE', { step: 'A3', message: 'TOKEN saved' });
     await SecureStore.setItemAsync(STORAGE_KEYS.ADMIN, JSON.stringify(admin));
+    await debugLog('AUTH_STORE', { step: 'A4', message: 'ADMIN saved' });
 
     // API 서비스에 토큰 설정
     api.setToken(token);
+    await debugLog('AUTH_STORE', { step: 'A5', message: 'api.setToken done' });
 
     set({
       role: 'admin',
@@ -66,6 +82,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       token,
       isAuthenticated: true,
     });
+    await debugLog('AUTH_STORE', { step: 'A6', message: 'state set done' });
   },
 
   loginStaff: async (staff, token) => {
