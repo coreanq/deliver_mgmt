@@ -8,7 +8,12 @@ import { debugLog } from '@/utils/debugLog';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { restoreSession, token } = useAuthStore();
+  // selector를 사용하여 필요한 상태만 구독 (불필요한 리렌더링 방지)
+  const restoreSession = useAuthStore((state) => state.restoreSession);
+  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const authLoading = useAuthStore((state) => state.isLoading);
+  const role = useAuthStore((state) => state.role);
   const hasRedirected = useRef(false);
 
   useEffect(() => {
@@ -22,7 +27,6 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
-  const { isAuthenticated, isLoading: authLoading, role } = useAuthStore();
 
   // 세션 복원 후 자동 리다이렉트 (홈 화면에서만)
   useEffect(() => {

@@ -167,7 +167,9 @@ export default function AdminDashboard() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { admin, logout } = useAuthStore();
+  // selector를 사용하여 필요한 상태만 구독 (불필요한 리렌더링 방지)
+  const admin = useAuthStore((state) => state.admin);
+  const logout = useAuthStore((state) => state.logout);
 
   const handleLogout = () => {
     Alert.alert(

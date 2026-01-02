@@ -32,7 +32,8 @@ export default function QRGenerateScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { admin } = useAuthStore();
+  // selector를 사용하여 필요한 상태만 구독
+  const admin = useAuthStore((state) => state.admin);
 
   const [staffList, setStaffList] = useState<StaffItem[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);

@@ -228,7 +228,9 @@ export default function StaffDeliveryList() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { staff, logout } = useAuthStore();
+  // selector를 사용하여 필요한 상태만 구독
+  const staff = useAuthStore((state) => state.staff);
+  const logout = useAuthStore((state) => state.logout);
 
   const handleLogout = () => {
     Alert.alert(

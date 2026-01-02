@@ -7,7 +7,8 @@ import { api } from '@/services/api';
 export default function AuthVerify() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const router = useRouter();
-  const { loginAdmin } = useAuthStore();
+  // selector를 사용하여 필요한 함수만 구독
+  const loginAdmin = useAuthStore((state) => state.loginAdmin);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
