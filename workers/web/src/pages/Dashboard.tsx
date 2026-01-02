@@ -53,6 +53,9 @@ export default function Dashboard() {
   // PRO 구독 상태
   const [isPro, setIsPro] = useState(false);
 
+  // 서버 빌드 날짜
+  const [serverBuildDate, setServerBuildDate] = useState('');
+
   useEffect(() => {
     fetchDeliveries();
   }, [selectedDate]);
@@ -74,6 +77,22 @@ export default function Dashboard() {
     };
     fetchSubscription();
   }, [token]);
+
+  // 서버 빌드 날짜 조회
+  useEffect(() => {
+    const fetchServerBuildDate = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/health`);
+        const data = await res.json();
+        if (data.buildDate) {
+          setServerBuildDate(data.buildDate);
+        }
+      } catch {
+        // 서버 연결 실패 시 무시
+      }
+    };
+    fetchServerBuildDate();
+  }, []);
 
   const fetchDeliveries = async () => {
     setIsLoading(true);
@@ -583,6 +602,18 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* 버전 정보 */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-center space-y-0.5">
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          Web v1.0.0
+        </p>
+        {serverBuildDate && (
+          <p className="text-xs text-gray-400 dark:text-gray-600">
+            Server {serverBuildDate}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
