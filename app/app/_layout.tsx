@@ -35,8 +35,10 @@ export default function RootLayout() {
     const isProtectedPage = (inAdminGroup && !isPublicAdminPage) || (inStaffGroup && !isPublicStaffPage);
 
     if (!isAuthenticated && isProtectedPage) {
-      // 인증 없이 보호된 페이지 접근 시 홈으로 (스택 초기화 후 이동)
-      router.dismissAll();
+      // 인증 없이 보호된 페이지 접근 시 홈으로
+      while (router.canGoBack()) {
+        router.back();
+      }
       router.replace('/');
     } else if (isAuthenticated && (segments[0] as any) !== 'auth') {
       // 이미 인증된 상태에서의 리디렉션 처리

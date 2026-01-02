@@ -134,22 +134,17 @@ export default function AdminLoginScreen() {
     // Test email bypass
     if (TEST_EMAILS.includes(email.toLowerCase())) {
       setIsLoading(true);
-      // Simulate login for test emails
-      setTimeout(async () => {
-        try {
-          await loginAdmin(
-            { id: 'test-admin', email: email.toLowerCase(), createdAt: new Date().toISOString() },
-            'test-token-123'
-          );
-          router.dismissAll();
-          router.replace('/(admin)');
-        } catch (error) {
-          console.error('Test login failed:', error);
-          setError('로그인 실패');
-        } finally {
-          setIsLoading(false);
-        }
-      }, 500);
+      try {
+        await loginAdmin(
+          { id: 'test-admin', email: email.toLowerCase(), createdAt: new Date().toISOString() },
+          'test-token-123'
+        );
+        router.replace('/(admin)');
+      } catch (error) {
+        console.error('Test login failed:', error);
+        setError('로그인 실패');
+        setIsLoading(false);
+      }
       return;
     }
 
