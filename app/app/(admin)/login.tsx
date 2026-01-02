@@ -141,10 +141,12 @@ export default function AdminLoginScreen() {
           { id: 'test-admin', email: email.toLowerCase(), createdAt: new Date().toISOString() },
           'test-token-123'
         );
-        await debugLog('LOGIN', { step: 3, message: 'loginAdmin completed' });
-        await debugLog('LOGIN', { step: 4, message: 'Calling router.replace' });
-        router.replace('/(admin)');
-        await debugLog('LOGIN', { step: 5, message: 'router.replace called' });
+        await debugLog('LOGIN', { step: 3, message: 'loginAdmin completed, waiting...' });
+        // 상태 업데이트가 완전히 처리된 후 네비게이션
+        setTimeout(() => {
+          debugLog('LOGIN', { step: 4, message: 'Calling router.replace' });
+          router.replace('/(admin)');
+        }, 100);
       } catch (error) {
         await debugLog('LOGIN_ERROR', { error: String(error) });
         console.error('Test login failed:', error);

@@ -76,13 +76,18 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     api.setToken(token);
     await debugLog('AUTH_STORE', { step: 'A5', message: 'api.setToken done' });
 
-    set({
-      role: 'admin',
-      admin,
-      token,
-      isAuthenticated: true,
-    });
-    await debugLog('AUTH_STORE', { step: 'A6', message: 'state set done' });
+    try {
+      set({
+        role: 'admin',
+        admin,
+        token,
+        isAuthenticated: true,
+      });
+      await debugLog('AUTH_STORE', { step: 'A6', message: 'state set done' });
+    } catch (error) {
+      await debugLog('AUTH_STORE_ERROR', { step: 'A6', error: String(error) });
+      throw error;
+    }
   },
 
   loginStaff: async (staff, token) => {
