@@ -12,6 +12,7 @@
 - admob 테스트를 위해서 구글에서 제공한 테스트 광고 id 로 하다가, 진짜 id 로 변경을 eas OTA 로 가능한 구조 설계
 - magic link 구현시 resend api 사용 (RESEND_API_KEY) 사용 
   - 테스트용 이메일 링크를 넣으면 바로 접속 될수 있도록 한다 2개 dev@test.com dev@example.com(worker 환경변수로)
+  - 매직링크는 cloudflare KV 사용(15분 TTL)
 
 # EAS 사용시 
 - remote version incremental 

@@ -10,8 +10,9 @@ const getBuildDate = () => {
 
 export default {
   expo: {
-    name: '배송관리',
+    name: '배매니저',
     slug: 'deliver-mgmt',
+    owner: 'trydabble',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -73,14 +74,14 @@ export default {
         origin: false,
       },
       eas: {
-        projectId: 'your-project-id',
+        projectId: '1a9764be-5f19-4f2c-bbe7-ae6cfbb5548c',
       },
     },
     runtimeVersion: {
       policy: 'appVersion',
     },
     updates: {
-      url: 'https://u.expo.dev/your-project-id',
+      url: 'https://u.expo.dev/1a9764be-5f19-4f2c-bbe7-ae6cfbb5548c',
     },
   },
 };
