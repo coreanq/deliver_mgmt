@@ -37,6 +37,13 @@
     "production": {
       "autoIncrement": true,
       "channel": "production"
+    },
+    "submit": {
+      "production": {
+        "ios": {
+          "ascAppId": ""
+        }
+      }
     }
   }
 - OTA 를 위해서 반드시  expo-updates가 포함.
@@ -44,8 +51,6 @@
 # cloudflare
 - backend cloudflare worker 사용
 - AI api 호출 시 cloudflare ai gateway Universal Endpoint + BYOK 방식으로 수정 (cf-aig-auth 헤더 사용)
-  - const host = "https://gateway.ai.cloudflare.com";
-  - const endpoint = "/v1/37820b7e32b164918dd5bcb58e628ff1/[ai_gateway_way_name]/compat";
 - wrangler 4 이상 사용
 
 # 폴더 구조 
@@ -65,27 +70,12 @@
       ├── wrangler.toml
       └── src/
 
-## Worker 빌드 날짜 자동 표시
+## 버전 관리
 
-Worker 배포 시 빌드 날짜를 자동으로 기록하고 앱에서 표시
-
-### 1. wrangler.toml 설정
-
-```toml
-# 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드 (macOS/Linux 호환)
-[build]
-command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; else sed -i \"s/BUILD_DATE = \\\".*\\\"/BUILD_DATE = \\\"$(date '+%y\\/%m\\/%d %H:%M')\\\"/\" wrangler.toml; fi && cd web && npm install && npm run build"
-
-
-[vars]
-BUILD_DATE = "25/01/01 00:00"  # placeholder (sed가 교체함)
-```
-
-> **참고**: macOS(BSD sed)는 `-i ''`, Linux(GNU sed)는 `-i`를 사용하므로 `uname`으로 OS 판별
-
-- 하단에 버전 정보 기입 
-  App v1.0.0 (26/01/01 01:00)  ← Expo OTA 업데이트 시점도 반영되야함 
-  Server 26/01/01 00:38         ← Worker 배포 시점
+> 상세 가이드: [docs/app-version-guide.md](./docs/app-version-guide.md)
+> - Worker 빌드 날짜 (wrangler.toml)
+> - 앱 빌드 날짜 (app.config.js)
+> - VersionInfo 컴포넌트 패턴
 
 # doamin
 - try-dabble.com
@@ -131,5 +121,6 @@ jpg -> png 변경시 ImageMgick 사용
 
 - [PRD](./prd.md) - 전체 제품 요구사항
 - [진척도 체크리스트](./progress-checklist.md) - 개발 진행 상태
+- [버전 관리 가이드](./docs/app-version-guide.md) - Worker/앱 빌드 버전 관리
 - [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
 - [Claude API Docs](https://docs.anthropic.com/claude/reference/)
