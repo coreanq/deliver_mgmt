@@ -1,7 +1,8 @@
 # EAS Update (OTA)
 
 preview 채널에 OTA 업데이트를 배포합니다.
-platform 선택 가능, ios, android, channel 선택 가능 preview, production 선택 가능
+platform 선택 가능:ios, android
+channel 선택 가능: preview, production
 메시지는 최근 변경사항을 요약해서 짧게 작성합니다.
 
 ```bash
