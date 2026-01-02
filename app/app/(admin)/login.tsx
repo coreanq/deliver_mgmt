@@ -311,10 +311,6 @@ export default function AdminLoginScreen() {
               </LinearGradient>
             </AnimatedPressable>
 
-            {/* Test Email Hint */}
-            <Text style={[styles.hint, { color: isDark ? '#444' : '#94a3b8' }]}>
-              테스트: dev@test.com 또는 dev@example.com
-            </Text>
           </Animated.View>
         ) : (
           <Animated.View style={[styles.successContainer, successStyle]}>
@@ -459,11 +455,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: '600',
-  },
-  hint: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 8,
   },
   successContainer: {
     alignItems: 'center',
