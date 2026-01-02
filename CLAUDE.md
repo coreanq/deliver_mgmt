@@ -8,11 +8,15 @@
 - react Expo SDK54 버전에 우선 기준으로 package 구성
 - react-native 사용 시  Reanimated 4.x (New Architecture) + CSS animations 사용
 - Frontend는 app 폴더, Backend는 workers 폴더로 구성      
-- Expo Go에서 admobd 보상형 광고 호출 시, 단순 팝업에서 확인하면 reward 받도록 처리:
-- admob 테스트를 위해서 구글에서 제공한 테스트 광고 id 로 하다가, 진짜 id 로 변경을 eas OTA 로 가능한 구조 설계
-- magic link 구현시 resend api 사용 (RESEND_API_KEY) 사용 
+
+# admob 
+  - 테스트를 위해서 구글에서 제공한 테스트 광고 id 로 하다가, 진짜 id 로 변경을 eas OTA 로 가능한 구조 설계
+  - Expo Go에서 admobd 보상형 광고 호출 시, 단순 팝업에서 확인하면 reward 받도록 처리
+
+# magic link 구현시 reeend api 사용 (RESEND_API_KEY) 사용 
   - 테스트용 이메일 링크를 넣으면 바로 접속 될수 있도록 한다 2개 dev@test.com dev@example.com(worker 환경변수로)
   - 매직링크는 cloudflare KV 사용(15분 TTL)
+  - 매직링크 재전송은 1분 제한 
 
 # EAS 사용시 
 - remote version incremental 

@@ -198,6 +198,8 @@ export default function AdminDashboard() {
 
   // QR 모달 상태
   const [showQRModal, setShowQRModal] = useState(false);
+  const [qrData, setQrData] = useState<string>('');
+  const [isQRLoading, setIsQRLoading] = useState(false);
 
   // 필터링 상태
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -268,14 +270,34 @@ export default function AdminDashboard() {
     });
   }, [deliveries, statusFilter, staffFilter, searchText]);
 
-  // QR 데이터 생성
-  const qrData = useMemo(() => {
-    if (!admin?.id) return '';
-    return JSON.stringify({
-      adminId: admin.id,
-      date: selectedDate,
-    });
-  }, [admin?.id, selectedDate]);
+  // QR 토큰 생성 (API 호출)
+  const generateQRToken = useCallback(async () => {
+    setIsQRLoading(true);
+    setQrData('');
+    try {
+      const result = await api.generateQRToken(selectedDate);
+      if (result.success && result.data?.token) {
+        const qrPayload = JSON.stringify({
+          token: result.data.token,
+          date: selectedDate,
+        });
+        setQrData(qrPayload);
+      } else {
+        Alert.alert('오류', result.error || 'QR 코드 생성에 실패했습니다.');
+      }
+    } catch {
+      Alert.alert('오류', 'QR 코드 생성에 실패했습니다.');
+    } finally {
+      setIsQRLoading(false);
+    }
+  }, [selectedDate]);
+
+  // QR 모달이 열릴 때 토큰 생성
+  useEffect(() => {
+    if (showQRModal) {
+      generateQRToken();
+    }
+  }, [showQRModal, generateQRToken]);
 
   // 활성 필터 개수
   const activeFilterCount = useMemo(() => {
