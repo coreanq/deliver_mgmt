@@ -33,6 +33,7 @@ import { useAuthStore } from '@/stores/auth';
 import type { Delivery, DeliveryStatus } from '@/types';
 import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, API_BASE_URL } from '@/constants';
 import { VersionInfo } from '@/components/VersionInfo';
+import { debugLog } from '@/utils/debugLog';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -164,12 +165,14 @@ function DeliveryCard({ delivery, index, isDark }: DeliveryCardProps) {
 type FilterType = 'all' | 'status' | 'staff';
 
 export default function AdminDashboard() {
+  debugLog('ADMIN_DASHBOARD', { step: 'D1', message: 'Component function started' });
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
   // selector를 사용하여 필요한 상태만 구독 (불필요한 리렌더링 방지)
   const admin = useAuthStore((state) => state.admin);
   const logout = useAuthStore((state) => state.logout);
+  debugLog('ADMIN_DASHBOARD', { step: 'D2', message: 'Hooks initialized', hasAdmin: !!admin });
 
   const handleLogout = () => {
     Alert.alert(
@@ -209,8 +212,10 @@ export default function AdminDashboard() {
 
   // 담당자 목록
   const [staffList, setStaffList] = useState<string[]>([]);
+  debugLog('ADMIN_DASHBOARD', { step: 'D3', message: 'All useState done' });
 
   useEffect(() => {
+    debugLog('ADMIN_DASHBOARD', { step: 'D4', message: 'Mount effect running' });
     fabScale.value = withDelay(500, withSpring(1, { damping: 12, stiffness: 100 }));
   }, []);
 
@@ -346,6 +351,8 @@ export default function AdminDashboard() {
 
   const dateInfo = formatDate(selectedDate);
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
+
+  debugLog('ADMIN_DASHBOARD', { step: 'D5', message: 'About to render' });
 
   return (
     <View style={styles.container}>
