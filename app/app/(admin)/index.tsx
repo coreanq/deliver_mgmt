@@ -32,6 +32,7 @@ import { api } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import type { Delivery, DeliveryStatus } from '@/types';
 import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS } from '@/constants';
+import { VersionInfo } from '@/components/VersionInfo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -179,6 +180,10 @@ export default function AdminDashboard() {
           style: 'destructive',
           onPress: async () => {
             await logout();
+            // 모든 스택을 정리하고 루트로 이동
+            while (router.canGoBack()) {
+              router.back();
+            }
             router.replace('/');
           },
         },
@@ -613,6 +618,7 @@ export default function AdminDashboard() {
           </Pressable>
         </Animated.View>
 
+        <VersionInfo />
         <View style={{ height: 100 }} />
       </ScrollView>
 

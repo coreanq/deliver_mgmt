@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { View, Text, Pressable, useColorScheme, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,10 +11,8 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import Constants from 'expo-constants';
-import * as Updates from 'expo-updates';
 import { useAuthStore } from '@/stores/auth';
-import { API_BASE_URL } from '@/constants';
+import { VersionInfo } from '@/components/VersionInfo';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -132,48 +130,9 @@ export default function RoleSelectionScreen() {
   const isDark = colorScheme === 'dark';
   const router = useRouter();
   const { setRole, isLoading, isAuthenticated, role, staff, admin } = useAuthStore();
-  const [serverBuildDate, setServerBuildDate] = useState<string>('');
 
   const titleOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(-20);
-
-  // 앱 버전 정보
-  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
-  const appBuildDate = Constants.expoConfig?.extra?.buildDate ?? '';
-
-  // OTA 업데이트 시점 (expo-updates)
-  const getUpdateDate = () => {
-    if (Updates.isEmbeddedLaunch) {
-      return appBuildDate;
-    }
-    const updateTime = Updates.createdAt;
-    if (updateTime) {
-      const d = new Date(updateTime);
-      const yy = String(d.getFullYear()).slice(-2);
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${yy}/${mm}/${dd} ${hh}:${min}`;
-    }
-    return appBuildDate;
-  };
-
-  // 서버 빌드 날짜 가져오기
-  useEffect(() => {
-    const fetchServerBuildDate = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/health`);
-        const data = await res.json();
-        if (data.buildDate) {
-          setServerBuildDate(data.buildDate);
-        }
-      } catch {
-        // 서버 연결 실패 시 무시
-      }
-    };
-    fetchServerBuildDate();
-  }, []);
 
   useEffect(() => {
     titleOpacity.value = withDelay(100, withTiming(1, { duration: 600 }));
@@ -300,16 +259,7 @@ export default function RoleSelectionScreen() {
         </View>
 
         {/* Footer - 버전 정보 */}
-        <Animated.View style={[styles.footerContainer, titleAnimatedStyle]}>
-          <Text style={[styles.versionText, { color: isDark ? '#555' : '#94a3b8' }]}>
-            App v{appVersion} ({getUpdateDate()})
-          </Text>
-          {serverBuildDate && (
-            <Text style={[styles.versionText, { color: isDark ? '#444' : '#a1a1aa' }]}>
-              Server {serverBuildDate}
-            </Text>
-          )}
-        </Animated.View>
+        <VersionInfo />
       </View>
     </LinearGradient>
   );
@@ -455,14 +405,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  footerContainer: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  versionText: {
-    fontSize: 11,
-    fontWeight: '400',
-    letterSpacing: 0.3,
   },
 });
