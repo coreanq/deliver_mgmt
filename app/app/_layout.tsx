@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 import { useAuthStore } from '@/stores/auth';
@@ -19,10 +19,12 @@ export default function RootLayout() {
 
   const segments = useSegments();
   const router = useRouter();
+  const navigationState = useRootNavigationState();
   const { isAuthenticated, isLoading: authLoading, role } = useAuthStore();
 
   useEffect(() => {
-    if (authLoading) return;
+    // 네비게이션이 준비되지 않았거나 인증 로딩 중이면 대기
+    if (!navigationState?.key || authLoading) return;
 
     const inAdminGroup = segments[0] === '(admin)';
     const inStaffGroup = segments[0] === '(staff)';
@@ -36,9 +38,6 @@ export default function RootLayout() {
 
     if (!isAuthenticated && isProtectedPage) {
       // 인증 없이 보호된 페이지 접근 시 홈으로
-      while (router.canGoBack()) {
-        router.back();
-      }
       router.replace('/');
     } else if (isAuthenticated && (segments[0] as any) !== 'auth') {
       // 이미 인증된 상태에서의 리디렉션 처리
@@ -55,7 +54,7 @@ export default function RootLayout() {
         }
       }
     }
-  }, [isAuthenticated, authLoading, segments, role, router]);
+  }, [isAuthenticated, authLoading, segments, role, router, navigationState?.key]);
 
   return (
     <>
