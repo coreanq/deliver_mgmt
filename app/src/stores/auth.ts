@@ -83,10 +83,16 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync(STORAGE_KEYS.ROLE);
-    await SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN);
-    await SecureStore.deleteItemAsync(STORAGE_KEYS.ADMIN);
-    await SecureStore.deleteItemAsync(STORAGE_KEYS.STAFF);
+    try {
+      await Promise.all([
+        SecureStore.deleteItemAsync(STORAGE_KEYS.ROLE),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.ADMIN),
+        SecureStore.deleteItemAsync(STORAGE_KEYS.STAFF),
+      ]);
+    } catch (error) {
+      console.error('Failed to clear secure storage:', error);
+    }
 
     // API 서비스에서 토큰 제거
     api.setToken(null);
