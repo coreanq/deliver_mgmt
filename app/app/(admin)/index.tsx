@@ -8,11 +8,11 @@ import {
   useColorScheme,
   StyleSheet,
   Dimensions,
-  Linking,
   Modal,
   TextInput,
   Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -603,37 +603,27 @@ export default function AdminDashboard() {
           ))
         )}
 
-        {/* PC Web Link */}
+        {/* PC Web Link - 주소 복사 */}
         <Animated.View entering={FadeInDown.delay(400).springify()}>
           <Pressable
             style={[styles.pcWebLink, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-            onPress={() => Linking.openURL('https://deliver-mgmt-worker.coreanq.workers.dev')}
+            onPress={async () => {
+              await Clipboard.setStringAsync('https://deliver-mgmt-worker.coreanq.workers.dev');
+              Alert.alert('복사 완료', 'PC 웹 주소가 클립보드에 복사되었습니다.');
+            }}
           >
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Rect x="9" y="9" width="13" height="13" rx="2" stroke={isDark ? '#3b82f6' : '#1d4ed8'} strokeWidth="1.5" />
               <Path
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM3.6 9h16.8M3.6 15h16.8"
+                d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
                 stroke={isDark ? '#3b82f6' : '#1d4ed8'}
                 strokeWidth="1.5"
                 strokeLinecap="round"
-              />
-              <Path
-                d="M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"
-                stroke={isDark ? '#3b82f6' : '#1d4ed8'}
-                strokeWidth="1.5"
               />
             </Svg>
             <Text style={[styles.pcWebText, { color: isDark ? '#3b82f6' : '#1d4ed8' }]}>
-              PC 웹에서 엑셀 업로드하기
+              PC 웹 주소 복사
             </Text>
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M7 17L17 7M17 7H7M17 7v10"
-                stroke={isDark ? '#3b82f6' : '#1d4ed8'}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
           </Pressable>
         </Animated.View>
 
