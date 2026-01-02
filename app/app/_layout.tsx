@@ -26,21 +26,25 @@ export default function RootLayout() {
 
     const inAdminGroup = segments[0] === '(admin)';
     const inStaffGroup = segments[0] === '(staff)';
-    const inProtectedGroup = inAdminGroup || inStaffGroup;
 
-    if (!isAuthenticated && inProtectedGroup) {
-      // 인증이 필요한 그룹에 있는데 인증 정보가 없는 경우 홈으로 리디렉션
+    // 허용된 공개 페이지 (로그인/스캔 등)
+    const isPublicAdminPage = inAdminGroup && segments[1] === 'login';
+    const isPublicStaffPage = inStaffGroup && (segments[1] === 'scan' || segments[1] === 'verify');
+
+    // 보호되어야 할 페이지인지 확인
+    const isProtectedPage = (inAdminGroup && !isPublicAdminPage) || (inStaffGroup && !isPublicStaffPage);
+
+    if (!isAuthenticated && isProtectedPage) {
+      // 인증 없이 보호된 페이지 접근 시 홈으로
       router.replace('/');
     } else if (isAuthenticated && (segments[0] as any) !== 'auth') {
-      // 이미 인증된 상태인데 다른 위치에 있는 경우 (홈 등)
+      // 이미 인증된 상태에서의 리디렉션 처리
       if (inAdminGroup && role !== 'admin') {
-        // 권한이 없는 관리자 그룹 진입 시도 시 홈으로
         router.replace('/');
       } else if (inStaffGroup && role !== 'staff') {
-        // 권한이 없는 담당자 그룹 진입 시도 시 홈으로
         router.replace('/');
-      } else if (!inProtectedGroup) {
-        // 인증되었으나 보호된 그룹 밖(홈 등)에 있는 경우 해당 대시보드로 이동
+      } else if (!inAdminGroup && !inStaffGroup) {
+        // 이미 로그인했는데 홈 등에 있으면 대시보드로
         if (role === 'admin') {
           router.replace('/(admin)');
         } else if (role === 'staff') {
