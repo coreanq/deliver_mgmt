@@ -241,6 +241,7 @@ export default function StaffDeliveryList() {
           style: 'destructive',
           onPress: async () => {
             await logout();
+            router.dismissAll();
             router.replace('/');
           },
         },

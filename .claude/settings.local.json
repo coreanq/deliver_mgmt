@@ -70,7 +70,8 @@
       "Bash(npx tsc:*)",
       "Bash(npx expo start)",
       "Bash(sips:*)",
-      "Bash(npx eas-cli:*)"
+      "Bash(npx eas-cli:*)",
+      "Bash(eas update:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

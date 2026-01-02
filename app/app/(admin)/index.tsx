@@ -180,6 +180,7 @@ export default function AdminDashboard() {
           style: 'destructive',
           onPress: async () => {
             await logout();
+            router.dismissAll();
             router.replace('/');
           },
         },
