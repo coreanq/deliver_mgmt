@@ -53,6 +53,26 @@ app.route('/api/subscription', subscriptionRoutes);
 // R2 파일 서빙 (Public Access 대신 Worker에서 처리)
 app.route('/r2', r2Routes);
 
+// Magic Link 검증 - 모바일은 앱으로, PC는 웹으로
+app.get('/auth/verify', (c) => {
+  const token = c.req.query('token');
+  if (!token) {
+    return c.text('Invalid link', 400);
+  }
+
+  const userAgent = c.req.header('User-Agent') || '';
+  const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+
+  if (isMobile) {
+    // 모바일: 앱 딥링크로 리다이렉트
+    const deepLink = `deliver-mgmt://auth/verify?token=${token}`;
+    return c.redirect(deepLink, 302);
+  } else {
+    // PC: 웹 로그인 페이지로 리다이렉트 (토큰 포함)
+    return c.redirect(`/?token=${token}`, 302);
+  }
+});
+
 // 404 핸들러
 app.notFound((c) => {
   return c.json({ success: false, error: 'Not found' }, 404);

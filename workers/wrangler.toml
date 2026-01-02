@@ -11,10 +11,10 @@ command = "if [ \"$(uname)\" = 'Darwin' ]; then sed -i '' \"s/BUILD_DATE = \\\".
 [assets]
 directory = "./web/dist"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/r2/*"]
+run_worker_first = ["/api/*", "/r2/*", "/auth/*"]
 
 [vars]
-BUILD_DATE = "26/01/02 23:10"
+BUILD_DATE = "26/01/02 23:23"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"
 
 # Worker 베이스 URL (Magic Link, R2 등 공용)

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, Text, Pressable, useColorScheme, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Pressable, useColorScheme, StyleSheet, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -201,34 +201,13 @@ export default function RoleSelectionScreen() {
         {/* Header */}
         <Animated.View style={[styles.header, titleAnimatedStyle]}>
           <View style={styles.logoContainer}>
-            <LinearGradient
-              colors={['#3b82f6', '#1d4ed8']}
-              style={styles.logoBg}
-            >
-              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 2L2 7L12 12L22 7L12 2Z"
-                  stroke="#fff"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-                <Path
-                  d="M2 17L12 22L22 17"
-                  stroke="#fff"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-                <Path
-                  d="M2 12L12 17L22 12"
-                  stroke="#fff"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </LinearGradient>
+            <Image
+              source={require('../assets/icon.png')}
+              style={styles.logoImage}
+            />
           </View>
           <Text style={[styles.title, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-            배송관리
+            배매니저
           </Text>
           <Text style={[styles.subtitle, { color: isDark ? '#666680' : '#64748b' }]}>
             역할을 선택하세요
@@ -306,17 +285,14 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: 20,
   },
-  logoBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
     shadowColor: '#3b82f6',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
-    elevation: 8,
   },
   title: {
     fontSize: 32,

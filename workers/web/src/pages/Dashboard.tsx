@@ -253,12 +253,8 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <span className="font-bold text-lg text-gray-900 dark:text-white">배송관리</span>
+              <img src="/app-icon.png" alt="배매니저" className="w-10 h-10 rounded-xl" />
+              <span className="font-bold text-lg text-gray-900 dark:text-white">배매니저</span>
             </div>
 
             <div className="flex items-center gap-3">
@@ -326,33 +322,53 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Stats */}
+        {/* Stats - 클릭하면 필터링 */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 mb-6">
-          <div className="flex gap-4">
-            <div className="card px-4 py-3 flex items-center gap-3">
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
+                statusFilter === 'all' ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+              }`}
+            >
               <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-gray-900 dark:text-white">{stats.total}</span>
               </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">전체</span>
-            </div>
-            <div className="card px-4 py-3 flex items-center gap-3">
+            </button>
+            <button
+              onClick={() => setStatusFilter('pending')}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
+                statusFilter === 'pending' ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+              }`}
+            >
               <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-amber-700 dark:text-amber-400">{stats.pending}</span>
               </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">준비</span>
-            </div>
-            <div className="card px-4 py-3 flex items-center gap-3">
+            </button>
+            <button
+              onClick={() => setStatusFilter('in_transit')}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
+                statusFilter === 'in_transit' ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+              }`}
+            >
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-blue-700 dark:text-blue-400">{stats.in_transit}</span>
               </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">배송중</span>
-            </div>
-            <div className="card px-4 py-3 flex items-center gap-3">
+            </button>
+            <button
+              onClick={() => setStatusFilter('completed')}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
+                statusFilter === 'completed' ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+              }`}
+            >
               <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-green-700 dark:text-green-400">{stats.completed}</span>
               </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">완료</span>
-            </div>
+            </button>
           </div>
         </div>
 
@@ -372,18 +388,6 @@ export default function Dashboard() {
                 className="input-field pl-10"
               />
             </div>
-
-            {/* 상태 필터 */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-              className="input-field w-full sm:w-40"
-            >
-              <option value="all">전체 상태</option>
-              <option value="pending">배송 준비</option>
-              <option value="in_transit">배송 중</option>
-              <option value="completed">완료</option>
-            </select>
 
             {/* 담당자 필터 */}
             <select

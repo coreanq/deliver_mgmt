@@ -180,11 +180,8 @@ export default function AdminDashboard() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            // 모든 스택을 정리하고 루트로 이동
-            while (router.canGoBack()) {
-              router.back();
-            }
-            router.replace('/');
+            // 루트로 이동 (dismissTo가 스택을 자동 정리)
+            router.dismissTo('/');
           },
         },
       ]
