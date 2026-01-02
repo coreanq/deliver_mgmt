@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { Env, FieldMapping, MappingPattern } from '../types';
+import type { Env, FieldMapping } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId, getDateString, getTodayKST } from '../lib/utils';
 import { callAI } from '../services/ai';
@@ -63,42 +63,8 @@ upload.post('/mapping/suggest', async (c) => {
   }
 
   try {
-    // 기존 매핑 패턴 조회
-    const existingPattern = await c.env.DB.prepare(
-      'SELECT * FROM mapping_patterns WHERE admin_id = ? ORDER BY use_count DESC LIMIT 1'
-    )
-      .bind(payload.sub)
-      .first<MappingPattern>();
-
-    // 기존 패턴이 있고 헤더가 일치하면 해당 매핑 사용
-    if (existingPattern) {
-      const storedHeaders = JSON.parse(existingPattern.source_headers) as string[];
-      if (
-        storedHeaders.length === headers.length &&
-        storedHeaders.every((h, i) => h === headers[i])
-      ) {
-        const mapping = JSON.parse(existingPattern.field_mapping) as FieldMapping;
-
-        // 사용 횟수 증가
-        await c.env.DB.prepare(
-          'UPDATE mapping_patterns SET use_count = use_count + 1, updated_at = datetime("now") WHERE id = ?'
-        )
-          .bind(existingPattern.id)
-          .run();
-
-        return c.json({
-          success: true,
-          data: {
-            suggestions: Object.entries(mapping).map(([targetField, sourceColumn]) => ({
-              sourceColumn,
-              targetField,
-              confidence: 1.0,
-            })),
-            fromCache: true,
-          },
-        });
-      }
-    }
+    // DB 기반 패턴 추천 제거 (로컬 스토리지 사용 권장)
+    // 바로 AI 추천으로 넘어갑니다.
 
     // AI 매핑 추천 요청 (Grok 4.1 Fast Reasoning 사용)
     const systemPrompt = `You are a data mapping assistant for a delivery management system.
@@ -219,28 +185,9 @@ upload.post('/save', async (c) => {
         .bind(payload.sub, targetDate)
         .run();
     }
-    // 매핑 패턴 저장 (기존 패턴 확인 후 INSERT/UPDATE)
-    const existingPattern = await c.env.DB.prepare(
-      'SELECT id FROM mapping_patterns WHERE admin_id = ? AND source_headers = ?'
-    )
-      .bind(payload.sub, JSON.stringify(headers))
-      .first<{ id: string }>();
 
-    if (existingPattern) {
-      // 기존 패턴 업데이트
-      await c.env.DB.prepare(
-        `UPDATE mapping_patterns SET field_mapping = ?, use_count = use_count + 1, updated_at = datetime("now") WHERE id = ?`
-      )
-        .bind(JSON.stringify(mapping), existingPattern.id)
-        .run();
-    } else {
-      // 새 패턴 삽입
-      await c.env.DB.prepare(
-        `INSERT INTO mapping_patterns (id, admin_id, source_headers, field_mapping) VALUES (?, ?, ?, ?)`
-      )
-        .bind(generateId(), payload.sub, JSON.stringify(headers), JSON.stringify(mapping))
-        .run();
-    }
+    // 매핑 패턴 저장은 로컬(브라우저)에서 처리하므로 서버 로직 제거
+    // 클라이언트가 직접 로컬 스토리지에 저장해야 함
 
     // 배송 데이터 준비 (배치 저장용)
     const statements: ReturnType<typeof c.env.DB.prepare>[] = [];

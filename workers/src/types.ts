@@ -94,38 +94,11 @@ export interface Subscription {
   updated_at: string;
 }
 
-// Magic Link 토큰
-export interface MagicLinkToken {
-  id: string;
-  email: string;
-  token: string;
-  expires_at: string;
-  used: number;
-  created_at: string;
-}
 
-// QR 토큰 (배송담당자 인증용)
-export interface QrToken {
-  id: string;
-  admin_id: string;
-  token: string;
-  date: string;
-  expires_at: string;
-  fail_count: number;
-  used: number;
-  created_at: string;
-}
 
-// 매핑 패턴
-export interface MappingPattern {
-  id: string;
-  admin_id: string;
-  source_headers: string;
-  field_mapping: string;
-  use_count: number;
-  created_at: string;
-  updated_at: string;
-}
+
+
+
 
 // API 응답 타입
 export interface ApiResponse<T = unknown> {

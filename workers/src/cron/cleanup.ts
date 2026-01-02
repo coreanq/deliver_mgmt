@@ -53,14 +53,7 @@ export async function cleanupExpiredData(env: Env): Promise<void> {
       }
     }
 
-    // 3. 만료된 Magic Link 토큰 정리
-    const deletedTokens = await env.DB.prepare(
-      `DELETE FROM magic_link_tokens WHERE expires_at < datetime('now') OR used = 1`
-    ).run();
 
-    if (deletedTokens.meta.changes > 0) {
-      console.log(`Deleted ${deletedTokens.meta.changes} expired magic link tokens`);
-    }
 
     console.log('Cleanup job completed');
   } catch (error) {
