@@ -133,6 +133,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   restoreSession: async () => {
+    await debugLog('RESTORE', { step: 'R1', message: 'restoreSession start' });
     try {
       const [role, token, adminStr, staffStr] = await Promise.all([
         SecureStore.getItemAsync(STORAGE_KEYS.ROLE),
@@ -140,13 +141,15 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         SecureStore.getItemAsync(STORAGE_KEYS.ADMIN),
         SecureStore.getItemAsync(STORAGE_KEYS.STAFF),
       ]);
+      await debugLog('RESTORE', { step: 'R2', role, hasToken: !!token, hasAdmin: !!adminStr, hasStaff: !!staffStr });
 
       if (role && token) {
-        // API 서비스에 토큰 설정 (상태 업데이트 전에 먼저 설정)
         api.setToken(token);
+        await debugLog('RESTORE', { step: 'R3', message: 'token set' });
 
         if (role === 'admin' && adminStr) {
           const admin = JSON.parse(adminStr) as Admin;
+          await debugLog('RESTORE', { step: 'R4', message: 'calling set() for admin' });
           set({
             role: 'admin',
             admin,
@@ -154,8 +157,10 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
             isAuthenticated: true,
             isLoading: false,
           });
+          await debugLog('RESTORE', { step: 'R5', message: 'set() completed for admin' });
         } else if (role === 'staff' && staffStr) {
           const staff = JSON.parse(staffStr) as Staff;
+          await debugLog('RESTORE', { step: 'R4', message: 'calling set() for staff' });
           set({
             role: 'staff',
             staff,
@@ -163,15 +168,20 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
             isAuthenticated: true,
             isLoading: false,
           });
+          await debugLog('RESTORE', { step: 'R5', message: 'set() completed for staff' });
         } else {
+          await debugLog('RESTORE', { step: 'R4', message: 'no valid session, clearing loading' });
           set({ isLoading: false });
         }
       } else {
+        await debugLog('RESTORE', { step: 'R3', message: 'no saved session' });
         set({ isLoading: false });
       }
-    } catch {
+    } catch (error) {
+      await debugLog('RESTORE_ERROR', { error: String(error) });
       set({ isLoading: false });
     }
+    await debugLog('RESTORE', { step: 'R6', message: 'restoreSession done' });
   },
   hardReset: async () => {
     try {

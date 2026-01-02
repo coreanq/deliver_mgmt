@@ -129,7 +129,15 @@ export default function RoleSelectionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { setRole, isLoading, isAuthenticated, role, staff, admin, hardReset } = useAuthStore();
+
+  // selector를 사용하여 필요한 상태만 구독 (불필요한 리렌더링 방지)
+  const setRole = useAuthStore((state) => state.setRole);
+  const hardReset = useAuthStore((state) => state.hardReset);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const role = useAuthStore((state) => state.role);
+  const staff = useAuthStore((state) => state.staff);
+  const admin = useAuthStore((state) => state.admin);
 
   const titleOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(-20);
@@ -139,16 +147,7 @@ export default function RoleSelectionScreen() {
     titleTranslateY.value = withDelay(100, withSpring(0, { damping: 15, stiffness: 100 }));
   }, [titleOpacity, titleTranslateY]);
 
-  useEffect(() => {
-    // 이미 인증된 경우 해당 화면으로 이동
-    if (!isLoading && isAuthenticated && role) {
-      if (role === 'admin') {
-        router.replace('/(admin)');
-      } else {
-        router.replace('/(staff)');
-      }
-    }
-  }, [isLoading, isAuthenticated, role, router]);
+  // 네비게이션은 _layout.tsx에서 처리 (중복 제거)
 
   const titleAnimatedStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
