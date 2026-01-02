@@ -21,8 +21,11 @@ export default function AuthVerify() {
       try {
         const result = await api.verifyMagicLink(token);
         if (result.success && result.data) {
-          loginAdmin(result.data.admin, result.data.token);
-          router.replace('/(admin)');
+          await loginAdmin(result.data.admin, result.data.token);
+          // 상태 업데이트 후 네비게이션
+          setTimeout(() => {
+            router.replace('/(admin)');
+          }, 100);
         } else {
           setError(result.error || '링크가 만료되었거나 유효하지 않습니다.');
         }
