@@ -39,14 +39,22 @@ export default function RootLayout() {
     if (!isAuthenticated && isProtectedPage) {
       // 인증 없이 보호된 페이지 접근 시 홈으로
       router.replace('/');
-    } else if (isAuthenticated && (segments[0] as any) !== 'auth') {
+    } else if (isAuthenticated) {
       // 이미 인증된 상태에서의 리디렉션 처리
       if (inAdminGroup && role !== 'admin') {
+        // 권한 불일치
         router.replace('/');
       } else if (inStaffGroup && role !== 'staff') {
+        // 권한 불일치
         router.replace('/');
+      } else if (inAdminGroup && isPublicAdminPage && role === 'admin') {
+        // 로그인된 관리자가 로그인 페이지에 있으면 대시보드로
+        router.replace('/(admin)');
+      } else if (inStaffGroup && isPublicStaffPage && role === 'staff') {
+        // 로그인된 배송담당자가 스캔/인증 페이지에 있으면 대시보드로
+        router.replace('/(staff)');
       } else if (!inAdminGroup && !inStaffGroup) {
-        // 이미 로그인했는데 홈 등에 있으면 대시보드로
+        // 홈에 있으면 대시보드로
         if (role === 'admin') {
           router.replace('/(admin)');
         } else if (role === 'staff') {

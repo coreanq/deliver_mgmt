@@ -89,8 +89,8 @@ export default function StaffVerifyScreen() {
       );
 
       if (result.success && result.data) {
-        // 로그인 성공
-        loginStaff(
+        // 로그인 성공 - _layout.tsx가 자동으로 대시보드로 리다이렉트
+        await loginStaff(
           {
             id: result.data.staff.id,
             name: result.data.staff.name,
@@ -99,8 +99,7 @@ export default function StaffVerifyScreen() {
           },
           result.data.token
         );
-        api.setToken(result.data.token);
-        router.replace('/(staff)');
+        // _layout.tsx의 보호 로직이 isAuthenticated 변경 감지 후 자동 리다이렉트
       } else {
         setError(result.error || '해당 날짜에 배송이 없습니다.');
         triggerShake();
