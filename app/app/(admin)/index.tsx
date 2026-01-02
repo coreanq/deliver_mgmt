@@ -11,6 +11,7 @@ import {
   Linking,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -167,6 +168,24 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { admin, logout } = useAuthStore();
 
+  const handleLogout = () => {
+    Alert.alert(
+      '로그아웃',
+      '로그아웃하면 다시 로그인해야 합니다.\n로그아웃 하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '로그아웃',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          },
+        },
+      ]
+    );
+  };
+
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -321,7 +340,7 @@ export default function AdminDashboard() {
           </Text>
         </View>
         <Pressable
-          onPress={logout}
+          onPress={handleLogout}
           style={[styles.logoutBtn, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">

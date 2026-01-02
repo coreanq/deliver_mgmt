@@ -228,7 +228,25 @@ export default function StaffDeliveryList() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { staff } = useAuthStore();
+  const { staff, logout } = useAuthStore();
+
+  const handleLogout = () => {
+    Alert.alert(
+      '로그아웃',
+      '로그아웃하면 다시 로그인해야 합니다.\n로그아웃 하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '로그아웃',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/');
+          },
+        },
+      ]
+    );
+  };
 
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -365,28 +383,21 @@ export default function StaffDeliveryList() {
             </Svg>
             <Text style={[styles.headerBtnText, { color: isDark ? '#888' : '#64748b' }]}>QR</Text>
           </Pressable>
-          {/* 메인 화면 버튼 */}
+          {/* 로그아웃 버튼 */}
           <Pressable
-            onPress={() => router.replace('/')}
+            onPress={handleLogout}
             style={[styles.headerBtnWithLabel, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
           >
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Path
-                d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                stroke={isDark ? '#888' : '#64748b'}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M9 22V12h6v10"
+                d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
                 stroke={isDark ? '#888' : '#64748b'}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </Svg>
-            <Text style={[styles.headerBtnText, { color: isDark ? '#888' : '#64748b' }]}>메인</Text>
+            <Text style={[styles.headerBtnText, { color: isDark ? '#888' : '#64748b' }]}>로그아웃</Text>
           </Pressable>
         </View>
       </Animated.View>

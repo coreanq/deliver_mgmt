@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
+const WEB_VERSION = '1.0.0';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [error, setError] = useState('');
+  const [serverBuildDate, setServerBuildDate] = useState('');
 
   // 이미 로그인된 경우 대시보드로 이동
   useEffect(() => {
@@ -34,6 +36,22 @@ export default function Login() {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // 서버 빌드 날짜 가져오기
+  useEffect(() => {
+    const fetchServerBuildDate = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/health`);
+        const data = await res.json();
+        if (data.buildDate) {
+          setServerBuildDate(data.buildDate);
+        }
+      } catch {
+        // 서버 연결 실패 시 무시
+      }
+    };
+    fetchServerBuildDate();
   }, []);
 
   // Magic Link 토큰 검증 (모바일이면 앱으로 리다이렉트 시도)
@@ -216,6 +234,18 @@ export default function Login() {
                 다시 보내기
               </button>
             </div>
+          )}
+        </div>
+
+        {/* 버전 정보 */}
+        <div className="mt-8 text-center space-y-1">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Web v{WEB_VERSION}
+          </p>
+          {serverBuildDate && (
+            <p className="text-xs text-gray-400 dark:text-gray-600">
+              Server {serverBuildDate}
+            </p>
           )}
         </div>
       </div>
