@@ -39,7 +39,8 @@ export default function AdminLoginScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  const { loginAdmin } = useAuthStore();
+  // selector를 사용하여 loginAdmin만 구독 (다른 상태 변경시 리렌더링 방지)
+  const loginAdmin = useAuthStore((state) => state.loginAdmin);
   const inputRef = useRef<TextInput>(null);
 
   const [email, setEmail] = useState('');

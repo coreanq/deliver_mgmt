@@ -30,7 +30,8 @@ export default function StaffVerifyScreen() {
   const isDark = colorScheme === 'dark';
   const router = useRouter();
   const rawParams = useLocalSearchParams<{ token: string; date: string }>();
-  const { loginStaff } = useAuthStore();
+  // selector를 사용하여 loginStaff만 구독 (다른 상태 변경시 리렌더링 방지)
+  const loginStaff = useAuthStore((state) => state.loginStaff);
 
   // params가 배열로 올 수 있으므로 첫 번째 값 사용
   const token = Array.isArray(rawParams.token) ? rawParams.token[0] : rawParams.token;

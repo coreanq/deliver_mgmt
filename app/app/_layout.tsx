@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 import { useAuthStore } from '@/stores/auth';
 import { api } from '@/services/api';
+import { debugLog } from '@/utils/debugLog';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -25,13 +26,30 @@ export default function RootLayout() {
 
   // 세션 복원 후 자동 리다이렉트 (홈 화면에서만)
   useEffect(() => {
+    debugLog('LAYOUT_EFFECT', {
+      step: 'L1',
+      hasNavKey: !!navigationState?.key,
+      authLoading,
+      isAuthenticated,
+      role,
+      segments: segments,
+      hasRedirected: hasRedirected.current,
+    });
+
     if (!navigationState?.key || authLoading) return;
 
     // 현재 홈 화면(index)에 있을 때만 자동 리다이렉트
     const isOnHome = segments.length === 0 || segments[0] === 'index' || segments[0] === undefined;
 
+    debugLog('LAYOUT_EFFECT', {
+      step: 'L2',
+      isOnHome,
+      willNavigate: isAuthenticated && role && isOnHome && !hasRedirected.current,
+    });
+
     if (isAuthenticated && role && isOnHome && !hasRedirected.current) {
       hasRedirected.current = true;
+      debugLog('LAYOUT_EFFECT', { step: 'L3', navigatingTo: role === 'admin' ? '/(admin)' : '/(staff)' });
       if (role === 'admin') {
         router.replace('/(admin)');
       } else if (role === 'staff') {
