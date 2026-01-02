@@ -131,19 +131,17 @@ export default function AdminLoginScreen() {
       return;
     }
 
-    // Test email bypass - 로그인 후 _layout.tsx가 자동으로 대시보드로 리다이렉트
+    // Test email bypass
     if (TEST_EMAILS.includes(email.toLowerCase())) {
-      setIsLoading(true);
       try {
         await loginAdmin(
           { id: 'test-admin', email: email.toLowerCase(), createdAt: new Date().toISOString() },
           'test-token-123'
         );
-        // _layout.tsx의 보호 로직이 isAuthenticated 변경 감지 후 자동 리다이렉트
+        router.replace('/(admin)');
       } catch (error) {
         console.error('Test login failed:', error);
         setError('로그인 실패');
-        setIsLoading(false);
       }
       return;
     }
