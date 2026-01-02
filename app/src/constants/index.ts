@@ -3,9 +3,6 @@ import { Platform } from 'react-native';
 // API 베이스 URL (Expo Go에서 localhost 접근 불가하므로 항상 worker URL 사용)
 export const API_BASE_URL = 'https://deliver-mgmt-worker.coreanq.workers.dev';
 
-// PC 웹 접속 URL (추후 별도 라우팅 사용 시 변경)
-export const PC_WEB_URL = 'https://deliver-mgmt-worker.coreanq.workers.dev';
-
 // AdMob 테스트 광고 ID
 export const AD_CONFIG = {
   // Google 제공 테스트 광고 ID

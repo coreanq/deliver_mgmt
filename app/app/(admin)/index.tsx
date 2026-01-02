@@ -31,7 +31,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { api } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import type { Delivery, DeliveryStatus } from '@/types';
-import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, PC_WEB_URL } from '@/constants';
+import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, API_BASE_URL } from '@/constants';
 import { VersionInfo } from '@/components/VersionInfo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -607,7 +607,7 @@ export default function AdminDashboard() {
         <Animated.View entering={FadeInDown.delay(400).springify()}>
           <Pressable
             style={[styles.pcWebLink, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-            onPress={() => Clipboard.setStringAsync(PC_WEB_URL)}
+            onPress={() => Clipboard.setStringAsync(API_BASE_URL)}
           >
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Rect x="9" y="9" width="13" height="13" rx="2" stroke={isDark ? '#3b82f6' : '#1d4ed8'} strokeWidth="1.5" />
