@@ -2,33 +2,110 @@
 
 > 이 문서는 [prd.md](./prd.md)의 참조 문서입니다.
 
-## 디자인 원칙
+## 디자인 시스템
+
+앱은 중앙집중식 테마 시스템을 사용합니다. 모든 스타일은 `app/src/theme/` 폴더에서 관리됩니다.
+
+### 테마 사용법
+
+```typescript
+import { useTheme } from '../src/theme';
+
+function MyComponent() {
+  const { colors, radius, shadows, isDark } = useTheme();
+  
+  return (
+    <View style={{ backgroundColor: colors.background }}>
+      <Text style={{ color: colors.text }}>Hello</Text>
+    </View>
+  );
+}
+```
 
 ### 컬러 팔레트
 
+라이트/다크 모드를 지원합니다.
+
 ```typescript
-const colors = {
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  primaryDark: '#1D4ED8',
+// app/src/theme/colors.ts
+export const lightColors = {
+  // Primary
+  primary: '#4F46E5',        // Indigo
+  primaryLight: '#6366F1',
+  primaryDark: '#4338CA',
   
-  // Status
-  statusOrdered: '#6B7280',
-  statusPreparing: '#F59E0B',
-  statusReady: '#8B5CF6',
-  statusDelivering: '#3B82F6',
-  statusCompleted: '#10B981',
+  // Secondary
+  secondary: '#0EA5E9',      // Sky blue
+  secondaryLight: '#38BDF8',
+  secondaryDark: '#0284C7',
   
-  // Neutral
-  background: '#F9FAFB',
+  // Background & Surface
+  background: '#F8FAFC',
   surface: '#FFFFFF',
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  border: '#E5E7EB',
+  surfaceSecondary: '#F1F5F9',
   
-  error: '#EF4444',
+  // Text
+  text: '#0F172A',
+  textSecondary: '#64748B',
+  textTertiary: '#94A3B8',
+  textInverse: '#FFFFFF',
+  
+  // Border
+  border: '#E2E8F0',
+  borderLight: '#F1F5F9',
+  
+  // Semantic
   success: '#10B981',
   warning: '#F59E0B',
+  error: '#EF4444',
+  info: '#3B82F6',
+  
+  // Status (배송 상태)
+  statusPending: '#F59E0B',      // 배송 준비
+  statusPendingBg: '#FEF3C7',
+  statusInTransit: '#3B82F6',    // 배송 중
+  statusInTransitBg: '#DBEAFE',
+  statusCompleted: '#10B981',    // 완료
+  statusCompletedBg: '#D1FAE5',
+};
+```
+
+### 스페이싱 & 라디우스
+
+```typescript
+// app/src/theme/spacing.ts
+export const spacing = {
+  0: 0,
+  1: 4,
+  2: 8,
+  3: 12,
+  4: 16,
+  5: 20,
+  6: 24,
+  8: 32,
+  10: 40,
+  12: 48,
+};
+
+export const radius = {
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  '2xl': 20,
+  full: 9999,
+};
+```
+
+### 그림자
+
+```typescript
+// app/src/theme/shadows.ts
+export const shadows = {
+  sm: { shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  md: { shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  lg: { shadowOpacity: 0.10, shadowRadius: 8, elevation: 4 },
+  xl: { shadowOpacity: 0.12, shadowRadius: 16, elevation: 8 },
 };
 ```
 

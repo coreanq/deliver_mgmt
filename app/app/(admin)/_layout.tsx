@@ -1,9 +1,7 @@
 import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
-import { debugLog } from '@/utils/debugLog';
 
 export default function AdminLayout() {
-  debugLog('ADMIN_LAYOUT', { step: 'AL1', message: 'AdminLayout rendering' });
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -12,14 +10,14 @@ export default function AdminLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: {
-          backgroundColor: isDark ? '#0f0f1a' : '#f5f5f5',
+          backgroundColor: isDark ? '#111827' : '#f9fafb',
         },
-        animation: 'none',
+        animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="login" />
-      <Stack.Screen name="index" />
-      <Stack.Screen name="qr-generate" />
+      <Stack.Screen name="login" options={{ animation: 'fade' }} />
+      <Stack.Screen name="index" options={{ animation: 'fade' }} />
+      <Stack.Screen name="qr-generate" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

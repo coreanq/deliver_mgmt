@@ -1,9 +1,7 @@
 import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
-import { debugLog } from '@/utils/debugLog';
 
 export default function StaffLayout() {
-  debugLog('STAFF_LAYOUT', { step: 'SL1', message: 'StaffLayout rendering' });
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -12,15 +10,16 @@ export default function StaffLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: {
-          backgroundColor: isDark ? '#0f0f1a' : '#f5f5f5',
+          backgroundColor: isDark ? '#111827' : '#f9fafb',
         },
-        animation: 'none',
+        animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="scan" />
+      <Stack.Screen name="scan" options={{ animation: 'fade' }} />
       <Stack.Screen name="verify" />
-      <Stack.Screen name="index" />
-      <Stack.Screen name="complete" />
+      <Stack.Screen name="index" options={{ animation: 'fade' }} />
+      <Stack.Screen name="[orderId]" options={{ presentation: 'card' }} />
+      <Stack.Screen name="complete" options={{ presentation: 'fullScreenModal' }} />
     </Stack>
   );
 }

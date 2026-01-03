@@ -1,203 +1,312 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import * as SecureStore from 'expo-secure-store';
-import type { Admin, Staff, UserRole } from '@/types';
-import { api } from '@/services/api';
-import { API_BASE_URL } from '@/constants';
+import { createMachine, assign } from 'xstate';
+import type { Admin, Staff, UserRole } from '../types';
+import { authApi } from '../services/api';
 
-const debugLog = async (tag: string, data: any) => {
-  try {
-    await fetch(`${API_BASE_URL}/api/log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tag, data, timestamp: new Date().toISOString() }),
-    });
-  } catch (e) {}
-};
-
-interface AuthState {
-  // 현재 역할
+type AuthContext = {
   role: UserRole | null;
-  // 관리자 정보 (관리자 모드)
   admin: Admin | null;
-  // 배송담당자 정보 (배송담당자 모드)
   staff: Staff | null;
-  // 인증 토큰
   token: string | null;
-  // 로딩 상태
-  isLoading: boolean;
-  // 인증 여부
-  isAuthenticated: boolean;
-}
-
-interface AuthActions {
-  // 역할 선택
-  setRole: (role: UserRole) => void;
-  // 관리자 로그인
-  loginAdmin: (admin: Admin, token: string) => Promise<void>;
-  // 배송담당자 로그인
-  loginStaff: (staff: Staff, token: string) => Promise<void>;
-  // 로그아웃
-  logout: () => Promise<void>;
-  // 저장된 세션 복원
-  restoreSession: () => Promise<void>;
-  // 모든 데이터 강제 초기화
-  hardReset: () => Promise<void>;
-}
-
-const STORAGE_KEYS = {
-  ROLE: 'auth_role',
-  TOKEN: 'auth_token',
-  ADMIN: 'auth_admin',
-  STAFF: 'auth_staff',
+  error: string | null;
 };
 
-export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
-  role: null,
-  admin: null,
-  staff: null,
-  token: null,
-  isLoading: true,
-  isAuthenticated: false,
+type AuthEvent =
+  | { type: 'SELECT_ROLE'; role: UserRole }
+  | { type: 'LOGIN_ADMIN'; email: string }
+  | { type: 'LOGIN_ADMIN_SUCCESS'; admin: Admin; token: string }
+  | { type: 'LOGIN_STAFF'; qrToken: string; name: string }
+  | { type: 'LOGIN_STAFF_SUCCESS'; staff: Staff; token: string }
+  | { type: 'LOGIN_ERROR'; error: string }
+  | { type: 'LOGOUT' }
+  | { type: 'RESTORE'; admin?: Admin; staff?: Staff; token: string; role: UserRole };
 
-  setRole: (role) => {
-    set({ role });
+export const authMachine = createMachine({
+  id: 'auth',
+  initial: 'idle',
+  context: {
+    role: null,
+    admin: null,
+    staff: null,
+    token: null,
+    error: null,
+  } as AuthContext,
+  states: {
+    idle: {
+      on: {
+        SELECT_ROLE: {
+          target: 'roleSelected',
+          actions: assign({ role: ({ event }) => event.role }),
+        },
+        RESTORE: {
+          target: 'authenticated',
+          actions: assign({
+            role: ({ event }) => event.role,
+            admin: ({ event }) => event.admin ?? null,
+            staff: ({ event }) => event.staff ?? null,
+            token: ({ event }) => event.token,
+          }),
+        },
+      },
+    },
+    roleSelected: {
+      on: {
+        LOGIN_ADMIN: 'authenticating',
+        LOGIN_STAFF: 'authenticating',
+        SELECT_ROLE: {
+          target: 'roleSelected',
+          actions: assign({ role: ({ event }) => event.role }),
+        },
+      },
+    },
+    authenticating: {
+      on: {
+        LOGIN_ADMIN_SUCCESS: {
+          target: 'authenticated',
+          actions: assign({
+            admin: ({ event }) => event.admin,
+            token: ({ event }) => event.token,
+            error: null,
+          }),
+        },
+        LOGIN_STAFF_SUCCESS: {
+          target: 'authenticated',
+          actions: assign({
+            staff: ({ event }) => event.staff,
+            token: ({ event }) => event.token,
+            error: null,
+          }),
+        },
+        LOGIN_ERROR: {
+          target: 'roleSelected',
+          actions: assign({ error: ({ event }) => event.error }),
+        },
+      },
+    },
+    authenticated: {
+      on: {
+        LOGOUT: {
+          target: 'idle',
+          actions: assign({
+            role: null,
+            admin: null,
+            staff: null,
+            token: null,
+            error: null,
+          }),
+        },
+      },
+    },
   },
+});
 
-  loginAdmin: async (admin, token) => {
-    await debugLog('AUTH_STORE', { step: 'A1', message: 'loginAdmin start' });
-    await SecureStore.setItemAsync(STORAGE_KEYS.ROLE, 'admin');
-    await debugLog('AUTH_STORE', { step: 'A2', message: 'ROLE saved' });
-    await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, token);
-    await debugLog('AUTH_STORE', { step: 'A3', message: 'TOKEN saved' });
-    await SecureStore.setItemAsync(STORAGE_KEYS.ADMIN, JSON.stringify(admin));
-    await debugLog('AUTH_STORE', { step: 'A4', message: 'ADMIN saved' });
-
-    // API 서비스에 토큰 설정
-    api.setToken(token);
-    await debugLog('AUTH_STORE', { step: 'A5', message: 'api.setToken done' });
-
+const secureStorage = {
+  getItem: async (name: string): Promise<string | null> => {
     try {
-      await debugLog('AUTH_STORE', { step: 'A5.5', message: 'calling set()' });
-      set({
-        role: 'admin',
-        admin,
-        token,
-        isAuthenticated: true,
-      });
-      await debugLog('AUTH_STORE', { step: 'A6', message: 'set() returned' });
-    } catch (error) {
-      await debugLog('AUTH_STORE_ERROR', { step: 'A6_ERR', error: String(error) });
-      throw error;
+      return await SecureStore.getItemAsync(name);
+    } catch {
+      return null;
     }
-    await debugLog('AUTH_STORE', { step: 'A7', message: 'loginAdmin completing' });
   },
-
-  loginStaff: async (staff, token) => {
-    await SecureStore.setItemAsync(STORAGE_KEYS.ROLE, 'staff');
-    await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, token);
-    await SecureStore.setItemAsync(STORAGE_KEYS.STAFF, JSON.stringify(staff));
-
-    // API 서비스에 토큰 설정
-    api.setToken(token);
-
-    set({
-      role: 'staff',
-      staff,
-      token,
-      isAuthenticated: true,
-    });
-  },
-
-  logout: async () => {
+  setItem: async (name: string, value: string): Promise<void> => {
     try {
-      await Promise.all([
-        SecureStore.deleteItemAsync(STORAGE_KEYS.ROLE),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.ADMIN),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.STAFF),
-      ]);
+      await SecureStore.setItemAsync(name, value);
     } catch (error) {
-      console.error('Failed to clear secure storage:', error);
+      console.error('SecureStore setItem error:', error);
     }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try {
+      await SecureStore.deleteItemAsync(name);
+    } catch (error) {
+      console.error('SecureStore removeItem error:', error);
+    }
+  },
+};
 
-    // API 서비스에서 토큰 제거
-    api.setToken(null);
+interface AuthStore {
+  state: 'idle' | 'roleSelected' | 'authenticating' | 'authenticated';
+  role: UserRole | null;
+  admin: Admin | null;
+  staff: Staff | null;
+  token: string | null;
+  error: string | null;
+  isLoading: boolean;
+  
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isStaff: boolean;
+  
+  selectRole: (role: UserRole) => void;
+  loginAdmin: (email: string) => Promise<boolean>;
+  verifyMagicLink: (token: string) => Promise<boolean>;
+  loginStaff: (qrToken: string, name: string) => Promise<boolean>;
+  logout: () => void;
+  clearError: () => void;
+  restore: () => Promise<void>;
+}
 
-    set({
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set, get) => ({
+      state: 'idle',
       role: null,
       admin: null,
       staff: null,
       token: null,
-      isAuthenticated: false,
-    });
-  },
+      error: null,
+      isLoading: false,
+      
+      get isAuthenticated() {
+        return get().state === 'authenticated' && get().token !== null;
+      },
+      get isAdmin() {
+        return get().role === 'admin' && get().admin !== null;
+      },
+      get isStaff() {
+        return get().role === 'staff' && get().staff !== null;
+      },
+      
+      selectRole: (role) => {
+        set({ role, state: 'roleSelected', error: null });
+      },
 
-  restoreSession: async () => {
-    await debugLog('RESTORE', { step: 'R1', message: 'restoreSession start' });
-    try {
-      const [role, token, adminStr, staffStr] = await Promise.all([
-        SecureStore.getItemAsync(STORAGE_KEYS.ROLE),
-        SecureStore.getItemAsync(STORAGE_KEYS.TOKEN),
-        SecureStore.getItemAsync(STORAGE_KEYS.ADMIN),
-        SecureStore.getItemAsync(STORAGE_KEYS.STAFF),
-      ]);
-      await debugLog('RESTORE', { step: 'R2', role, hasToken: !!token, hasAdmin: !!adminStr, hasStaff: !!staffStr });
-
-      if (role && token) {
-        api.setToken(token);
-        await debugLog('RESTORE', { step: 'R3', message: 'token set' });
-
-        if (role === 'admin' && adminStr) {
-          const admin = JSON.parse(adminStr) as Admin;
-          await debugLog('RESTORE', { step: 'R4', message: 'calling set() for admin' });
-          set({
-            role: 'admin',
-            admin,
-            token,
-            isAuthenticated: true,
+      loginAdmin: async (email) => {
+        set({ isLoading: true, error: null, state: 'authenticating' });
+        
+        try {
+          const result = await authApi.sendMagicLink(email);
+          
+          if (result.success && result.data) {
+            if (result.data.token && result.data.admin) {
+              set({
+                state: 'authenticated',
+                admin: result.data.admin,
+                token: result.data.token,
+                isLoading: false,
+              });
+              return true;
+            }
+            set({ state: 'roleSelected', isLoading: false });
+            return true;
+          } else {
+            set({ 
+              error: result.error || '로그인에 실패했습니다.',
+              state: 'roleSelected',
+              isLoading: false,
+            });
+            return false;
+          }
+        } catch (error) {
+          set({ 
+            error: '네트워크 오류가 발생했습니다.',
+            state: 'roleSelected',
             isLoading: false,
           });
-          await debugLog('RESTORE', { step: 'R5', message: 'set() completed for admin' });
-        } else if (role === 'staff' && staffStr) {
-          const staff = JSON.parse(staffStr) as Staff;
-          await debugLog('RESTORE', { step: 'R4', message: 'calling set() for staff' });
-          set({
-            role: 'staff',
-            staff,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-          await debugLog('RESTORE', { step: 'R5', message: 'set() completed for staff' });
-        } else {
-          await debugLog('RESTORE', { step: 'R4', message: 'no valid session, clearing loading' });
-          set({ isLoading: false });
+          return false;
         }
-      } else {
-        await debugLog('RESTORE', { step: 'R3', message: 'no saved session' });
-        set({ isLoading: false });
-      }
-    } catch (error) {
-      await debugLog('RESTORE_ERROR', { error: String(error) });
-      set({ isLoading: false });
+      },
+
+      verifyMagicLink: async (magicToken) => {
+        set({ isLoading: true, error: null, state: 'authenticating' });
+        
+        try {
+          const result = await authApi.verifyMagicLink(magicToken);
+          
+          if (result.success && result.data?.token && result.data?.admin) {
+            set({
+              state: 'authenticated',
+              admin: result.data.admin,
+              token: result.data.token,
+              role: 'admin',
+              isLoading: false,
+            });
+            return true;
+          } else {
+            set({ 
+              error: result.error || '링크가 만료되었습니다.',
+              state: 'roleSelected',
+              isLoading: false,
+            });
+            return false;
+          }
+        } catch (error) {
+          set({ 
+            error: '인증에 실패했습니다.',
+            state: 'roleSelected',
+            isLoading: false,
+          });
+          return false;
+        }
+      },
+
+      loginStaff: async (qrToken, name) => {
+        set({ isLoading: true, error: null, state: 'authenticating' });
+        
+        try {
+          const result = await authApi.staffLogin(qrToken, name);
+          
+          if (result.success && result.data) {
+            set({
+              state: 'authenticated',
+              staff: result.data.staff,
+              token: result.data.token,
+              isLoading: false,
+            });
+            return true;
+          } else {
+            set({ 
+              error: result.error || '로그인에 실패했습니다.',
+              state: 'roleSelected',
+              isLoading: false,
+            });
+            return false;
+          }
+        } catch (error) {
+          set({ 
+            error: '네트워크 오류가 발생했습니다.',
+            state: 'roleSelected',
+            isLoading: false,
+          });
+          return false;
+        }
+      },
+
+      logout: () => {
+        set({
+          state: 'idle',
+          role: null,
+          admin: null,
+          staff: null,
+          token: null,
+          error: null,
+          isLoading: false,
+        });
+      },
+
+      clearError: () => {
+        set({ error: null });
+      },
+
+      restore: async () => {
+        const { token, role, admin, staff } = get();
+        if (token && role) {
+          set({ state: 'authenticated' });
+        }
+      },
+    }),
+    {
+      name: 'auth-storage',
+      storage: createJSONStorage(() => secureStorage),
+      partialize: (state) => ({
+        role: state.role,
+        admin: state.admin,
+        staff: state.staff,
+        token: state.token,
+        state: state.state,
+      }),
     }
-    await debugLog('RESTORE', { step: 'R6', message: 'restoreSession done' });
-  },
-  hardReset: async () => {
-    try {
-      await Promise.all(
-        Object.values(STORAGE_KEYS).map((key) => SecureStore.deleteItemAsync(key))
-      );
-    } catch (error) {
-      console.error('Failed to hard reset storage:', error);
-    }
-    api.setToken(null);
-    set({
-      role: null,
-      admin: null,
-      staff: null,
-      token: null,
-      isAuthenticated: false,
-    });
-  },
-}));
+  )
+);

@@ -1,62 +1,84 @@
-import { useEffect, useRef } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
-import { AuthProvider, useAuth } from '@/providers/AuthProvider';
-import { api } from '@/services/api';
-import { debugLog } from '@/utils/debugLog';
+import { View, useColorScheme, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
+import { useAuthStore } from '../src/stores/auth';
 
-function RootLayoutInner() {
+function useDeepLinking() {
+  const verifyMagicLink = useAuthStore((s) => s.verifyMagicLink);
+
+  useEffect(() => {
+    const handleInitialUrl = async () => {
+      const url = await Linking.getInitialURL();
+      if (url) handleUrl(url);
+    };
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleUrl(event.url);
+    });
+
+    const handleUrl = (url: string) => {
+      const parsed = Linking.parse(url);
+      if (parsed.path === 'auth/verify' && parsed.queryParams?.token) {
+        const token = parsed.queryParams.token as string;
+        verifyMagicLink(token);
+      }
+    };
+
+    handleInitialUrl();
+    return () => subscription.remove();
+  }, [verifyMagicLink]);
+}
+
+function useAppInit() {
+  const [isReady, setIsReady] = useState(false);
+  const restore = useAuthStore((s) => s.restore);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await restore();
+      } catch (error) {
+        console.error('App init error:', error);
+      } finally {
+        setIsReady(true);
+      }
+    };
+    
+    init();
+  }, [restore]);
+
+  return isReady;
+}
+
+export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const router = useRouter();
-  const segments = useSegments();
-  const { token, stateName } = useAuth();
+  const isReady = useAppInit();
+  
+  useDeepLinking();
 
-  // 이전 FSM 상태 추적
-  const prevStateRef = useRef<string | null>(null);
-
-  // Sync API token
-  useEffect(() => {
-    api.setToken(token);
-  }, [token]);
-
-  // FSM 상태 전이 감지 - loggingOut → unauthenticated 시 홈으로 이동
-  useEffect(() => {
-    const prevState = prevStateRef.current;
-    prevStateRef.current = stateName;
-
-    // loggingOut → unauthenticated 전이 감지
-    if (prevState === '"loggingOut"' && stateName === '"unauthenticated"') {
-      debugLog('LAYOUT_FSM', { action: 'logout_transition', prevState, stateName, segments });
-      router.dismissTo('/');
-    }
-  }, [stateName, router, segments]);
+  if (!isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? '#111827' : '#f9fafb' }}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
 
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: {
-            backgroundColor: colorScheme === 'dark' ? '#0f0f1a' : '#f5f5f5',
+            backgroundColor: colorScheme === 'dark' ? '#111827' : '#f9fafb',
           },
-          animation: 'none',
+          animation: 'slide_from_right',
         }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth" />
-        <Stack.Screen name="(admin)" />
-        <Stack.Screen name="(staff)" />
-      </Stack>
-    </>
-  );
-}
-
-export default function RootLayout() {
-  return (
-    <AuthProvider>
-      <RootLayoutInner />
-    </AuthProvider>
+      />
+    </SafeAreaProvider>
   );
 }

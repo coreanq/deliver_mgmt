@@ -1,151 +1,139 @@
-import { API_BASE_URL } from '@/constants';
+import Constants from 'expo-constants';
 import type {
   ApiResponse,
-  Delivery,
-  DeliveryListResponse,
-  MagicLinkRequest,
-  MagicLinkVerifyResponse,
-  QRGenerateRequest,
+  MagicLinkResponse,
   QRGenerateResponse,
-  QRVerifyResponse,
-  DeliveryStatusRequest,
-  DeliveryCompleteRequest,
-  SubscriptionStatus,
-} from '@/types';
+  StaffLoginResponse,
+  DeliveryListResponse,
+  Delivery,
+  Subscription,
+} from '../types';
 
-class ApiService {
-  private baseUrl: string;
-  private token: string | null = null;
-
-  constructor() {
-    this.baseUrl = API_BASE_URL;
+const getApiBase = (): string => {
+  const extra = Constants.expoConfig?.extra;
+  if (extra?.apiUrl) {
+    return extra.apiUrl;
   }
-
-  setToken(token: string | null) {
-    this.token = token;
+  
+  if (__DEV__) {
+    return 'http://localhost:8787';
   }
+  
+  return 'https://deliver-mgmt-worker.coreanq.workers.dev';
+};
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...(this.token && { Authorization: `Bearer ${this.token}` }),
-      ...options.headers,
+const API_BASE = getApiBase();
+
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const url = `${API_BASE}${endpoint}`;
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    const data = await response.json();
+    return data as ApiResponse<T>;
+  } catch (error) {
+    console.error(`API Error [${endpoint}]:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error',
     };
-
-    try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        ...options,
-        headers,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: data.error || 'API 요청에 실패했습니다.',
-        };
-      }
-
-      // API 응답이 이미 {success, data} 형식이면 그대로 반환
-      if (data && typeof data === 'object' && 'success' in data) {
-        return data as ApiResponse<T>;
-      }
-
-      return { success: true, data };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '네트워크 오류가 발생했습니다.',
-      };
-    }
-  }
-
-  // 인증 API
-
-  async sendMagicLink(email: string): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/api/auth/magic-link/send', {
-      method: 'POST',
-      body: JSON.stringify({ email } as MagicLinkRequest),
-    });
-  }
-
-  async verifyMagicLink(token: string): Promise<ApiResponse<MagicLinkVerifyResponse>> {
-    return this.request('/api/auth/magic-link/verify', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
-  }
-
-  // QR 토큰 생성 (관리자용)
-  async generateQRToken(date: string): Promise<ApiResponse<{ token: string; expiresAt: string }>> {
-    return this.request('/api/auth/qr/generate', {
-      method: 'POST',
-      body: JSON.stringify({ date }),
-    });
-  }
-
-  // 배송담당자 로그인 (QR 토큰 + 이름)
-  async staffLogin(
-    token: string,
-    name: string
-  ): Promise<ApiResponse<{ token: string; staff: { id: string; name: string; adminId: string } }>> {
-    return this.request('/api/auth/staff/login', {
-      method: 'POST',
-      body: JSON.stringify({ token, name }),
-    });
-  }
-
-  // 배송 API
-
-  async getDeliveryList(
-    date?: string,
-    staffName?: string
-  ): Promise<ApiResponse<DeliveryListResponse>> {
-    const params = new URLSearchParams();
-    if (date) params.append('date', date);
-    if (staffName) params.append('staffName', staffName);
-
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.request(`/api/delivery/list${query}`);
-  }
-
-  async getStaffList(): Promise<ApiResponse<{ staff: string[] }>> {
-    return this.request('/api/delivery/staff-list');
-  }
-
-  async getStaffDeliveries(name: string): Promise<ApiResponse<DeliveryListResponse>> {
-    return this.request(`/api/delivery/staff/${encodeURIComponent(name)}`);
-  }
-
-  async updateDeliveryStatus(
-    id: string,
-    status: DeliveryStatusRequest['status']
-  ): Promise<ApiResponse<Delivery>> {
-    return this.request(`/api/delivery/${id}/status`, {
-      method: 'PUT',
-      body: JSON.stringify({ status } as DeliveryStatusRequest),
-    });
-  }
-
-  async completeDelivery(
-    id: string,
-    photoBase64: string
-  ): Promise<ApiResponse<Delivery>> {
-    return this.request(`/api/delivery/${id}/complete`, {
-      method: 'POST',
-      body: JSON.stringify({ photoBase64 } as DeliveryCompleteRequest),
-    });
-  }
-
-  // 구독 API
-
-  async getSubscriptionStatus(): Promise<ApiResponse<SubscriptionStatus>> {
-    return this.request('/api/subscription/status');
   }
 }
 
-export const api = new ApiService();
+function withAuth(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export const authApi = {
+  sendMagicLink: (email: string) =>
+    request<MagicLinkResponse>('/api/auth/magic-link/send', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  verifyMagicLink: (token: string) =>
+    request<MagicLinkResponse>('/api/auth/magic-link/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  generateQR: (token: string, date: string, expiresIn = 86400) =>
+    request<QRGenerateResponse>('/api/auth/qr/generate', {
+      method: 'POST',
+      headers: withAuth(token),
+      body: JSON.stringify({ date, expiresIn }),
+    }),
+
+  staffLogin: (qrToken: string, name: string) =>
+    request<StaffLoginResponse>('/api/auth/staff/login', {
+      method: 'POST',
+      body: JSON.stringify({ token: qrToken, name }),
+    }),
+};
+
+export const deliveryApi = {
+  getList: (token: string, date: string, staffName?: string) => {
+    const params = new URLSearchParams({ date });
+    if (staffName) params.append('staffName', staffName);
+    
+    return request<DeliveryListResponse>(`/api/delivery/list?${params}`, {
+      headers: withAuth(token),
+    });
+  },
+
+  getStaffList: (token: string) =>
+    request<{ staff: string[] }>('/api/delivery/staff-list', {
+      headers: withAuth(token),
+    }),
+
+  getStaffDeliveries: (token: string, name: string) =>
+    request<DeliveryListResponse>(`/api/delivery/staff/${encodeURIComponent(name)}`, {
+      headers: withAuth(token),
+    }),
+
+  updateStatus: (token: string, deliveryId: string, status: string) =>
+    request<Delivery>(`/api/delivery/${deliveryId}/status`, {
+      method: 'PUT',
+      headers: withAuth(token),
+      body: JSON.stringify({ status }),
+    }),
+
+  complete: (token: string, deliveryId: string, photoBase64: string) =>
+    request<Delivery>(`/api/delivery/${deliveryId}/complete`, {
+      method: 'POST',
+      headers: withAuth(token),
+      body: JSON.stringify({ photoBase64 }),
+    }),
+};
+
+export const subscriptionApi = {
+  getStatus: (token: string) =>
+    request<{ subscription: Subscription; isPro: boolean }>('/api/subscription/status', {
+      headers: withAuth(token),
+    }),
+};
+
+export const logApi = {
+  send: (data: Record<string, unknown>) =>
+    request('/api/log', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+export const healthCheck = () =>
+  request<{ status: string; buildDate: string }>('/api/health');

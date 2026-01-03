@@ -1,316 +1,179 @@
 import { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
   Pressable,
-  useColorScheme,
-  StyleSheet,
-  Alert,
+  Share,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '@/providers/AuthProvider';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  FadeInDown,
-} from 'react-native-reanimated';
-import Svg, { Path, Rect } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import QRCode from 'react-native-qrcode-svg';
-import { api } from '@/services/api';
+import { useAuthStore } from '../../src/stores/auth';
+import { authApi } from '../../src/services/api';
+import { Loading, Button } from '../../src/components';
+import { useTheme } from '../../src/theme';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+function getTodayString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
-interface StaffItem {
-  name: string;
-  selected: boolean;
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const weekday = weekdays[date.getDay()];
+  return `${month}월 ${day}일 (${weekday})`;
 }
 
 export default function QRGenerateScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const router = useRouter();
-  // XState 기반 인증 상태
-  const { admin } = useAuth();
-
-  const [staffList, setStaffList] = useState<StaffItem[]>([]);
-  const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [qrData, setQrData] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const buttonScale = useSharedValue(1);
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
+  const { colors, radius, shadows, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  
+  const { token } = useAuthStore();
+  
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStaffList();
-  }, []);
+    if (token) {
+      generateQR();
+    }
+  }, [token, selectedDate]);
 
-  const fetchStaffList = async () => {
+  const generateQR = async () => {
+    if (!token) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      const result = await api.getStaffList();
+      const result = await authApi.generateQR(token, selectedDate);
+      
       if (result.success && result.data) {
-        setStaffList(result.data.staff.map((name: string) => ({ name, selected: false })));
+        setQrToken(result.data.token);
+        setExpiresAt(result.data.expiresAt);
+      } else {
+        setError(result.error || 'QR 코드 생성에 실패했습니다.');
       }
-    } catch (error) {
-      console.error('Failed to fetch staff list:', error);
+    } catch (err) {
+      setError('네트워크 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSelectStaff = (name: string) => {
-    setSelectedStaff(selectedStaff === name ? null : name);
-    setQrData(null);
+  const handleClose = () => {
+    router.back();
   };
 
-  const handleGenerateQR = async () => {
-    setIsGenerating(true);
+  const handleShare = async () => {
+    if (!qrToken) return;
+    
     try {
-      // API로 QR 토큰 생성
-      const result = await api.generateQRToken(selectedDate);
-
-      if (result.success && result.data) {
-        // QR 데이터: {token, date} JSON 형식
-        const qrPayload = JSON.stringify({
-          token: result.data.token,
-          date: selectedDate,
-        });
-        setQrData(qrPayload);
-      } else {
-        Alert.alert('오류', result.error || 'QR 코드 생성에 실패했습니다.');
-      }
-    } catch (error) {
-      Alert.alert('오류', 'QR 코드 생성에 실패했습니다.');
-    } finally {
-      setIsGenerating(false);
+      await Share.share({
+        message: `배송담당자 인증 코드: ${qrToken}\n날짜: ${formatDate(selectedDate)}`,
+      });
+    } catch (err) {
+      console.error('Share error:', err);
     }
   };
 
-  const bgColors = isDark ? ['#0a0a12', '#12121f'] as const : ['#f0f4f8', '#e8eef5'] as const;
+  const qrValue = qrToken ? JSON.stringify({ token: qrToken, date: selectedDate }) : '';
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
-
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: isDark ? '#1a1a2e' : '#e2e8f0' }]}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <View style={[styles.backButtonInner, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M19 12H5M5 12L12 19M5 12L12 5"
-                stroke={isDark ? '#fff' : '#1a1a2e'}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </View>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-          QR 코드 생성
+    <View style={[
+      styles.container, 
+      { 
+        backgroundColor: colors.background,
+        paddingTop: insets.top + 16,
+        paddingBottom: insets.bottom + 16,
+      }
+    ]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>
+          배송담당자 QR
         </Text>
-        <View style={{ width: 44 }} />
+        <Pressable onPress={handleClose} style={styles.closeButton}>
+          <Text style={[styles.closeText, { color: colors.textSecondary }]}>
+            닫기
+          </Text>
+        </Pressable>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* QR Display Area */}
-        {qrData ? (
-          <Animated.View
-            entering={FadeInDown.springify()}
-            style={[styles.qrContainer, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-          >
-            <View style={styles.qrWrapper}>
+      <View style={styles.content}>
+        {isLoading ? (
+          <Loading message="QR 코드 생성 중..." />
+        ) : error ? (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
+            <Text style={[styles.errorText, { color: colors.error }]}>
+              {error}
+            </Text>
+            <Button title="다시 시도" onPress={generateQR} variant="outline" />
+          </Animated.View>
+        ) : qrToken ? (
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.qrContainer}>
+            <View style={[
+              styles.qrWrapper, 
+              { 
+                backgroundColor: '#ffffff',
+                borderRadius: radius['2xl'],
+              },
+              shadows.xl,
+            ]}>
               <QRCode
-                value={qrData}
-                size={200}
-                backgroundColor={isDark ? '#1a1a2e' : '#fff'}
-                color={isDark ? '#fff' : '#1a1a2e'}
+                value={qrValue}
+                size={240}
+                color="#1f2937"
+                backgroundColor="#ffffff"
               />
             </View>
-            <Text style={[styles.qrStaffName, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-              {selectedStaff}
-            </Text>
-            <Text style={[styles.qrHint, { color: isDark ? '#666' : '#94a3b8' }]}>
-              배송담당자가 이 QR 코드를 스캔합니다
-            </Text>
-            <View style={[styles.qrExpiryBadge, { backgroundColor: isDark ? '#3b82f620' : '#dbeafe' }]}>
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  stroke="#3b82f6"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <Text style={styles.qrExpiryText}>24시간 유효</Text>
+
+            <View style={[
+              styles.dateTag, 
+              { 
+                backgroundColor: colors.surfaceSecondary,
+                borderRadius: radius.full,
+              }
+            ]}>
+              <Text style={[styles.dateTagText, { color: colors.text }]}>
+                📅 {formatDate(selectedDate)}
+              </Text>
             </View>
+
+            {expiresAt && (
+              <Text style={[styles.expiresText, { color: colors.textTertiary }]}>
+                24시간 후 만료
+              </Text>
+            )}
           </Animated.View>
-        ) : (
-          <View style={[styles.qrPlaceholder, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}>
-            <Svg width={64} height={64} viewBox="0 0 24 24" fill="none">
-              <Rect x="3" y="3" width="7" height="7" rx="1" stroke={isDark ? '#333' : '#cbd5e1'} strokeWidth="1.5" />
-              <Rect x="14" y="3" width="7" height="7" rx="1" stroke={isDark ? '#333' : '#cbd5e1'} strokeWidth="1.5" />
-              <Rect x="3" y="14" width="7" height="7" rx="1" stroke={isDark ? '#333' : '#cbd5e1'} strokeWidth="1.5" />
-              <Rect x="14" y="14" width="7" height="7" rx="1" stroke={isDark ? '#333' : '#cbd5e1'} strokeWidth="1.5" />
-            </Svg>
-            <Text style={[styles.placeholderText, { color: isDark ? '#555' : '#94a3b8' }]}>
-              담당자를 선택하고{'\n'}QR 코드를 생성하세요
-            </Text>
-          </View>
+        ) : null}
+      </View>
+
+      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.footer}>
+        <Text style={[styles.instructionText, { color: colors.textSecondary }]}>
+          배송담당자가 이 QR을 스캔하면{'\n'}이름 입력 후 배송 목록을 확인할 수 있습니다
+        </Text>
+
+        {qrToken && (
+          <Button
+            title="공유하기"
+            onPress={handleShare}
+            variant="secondary"
+            style={styles.shareButton}
+          />
         )}
-
-        {/* Staff List */}
-        <Animated.View entering={FadeInDown.delay(100).springify()}>
-          <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-            배송담당자 선택
-          </Text>
-
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={[styles.loadingText, { color: isDark ? '#666' : '#94a3b8' }]}>
-                로딩 중...
-              </Text>
-            </View>
-          ) : staffList.length === 0 ? (
-            <View style={[styles.emptyStaff, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}>
-              <Text style={[styles.emptyText, { color: isDark ? '#666' : '#94a3b8' }]}>
-                등록된 배송담당자가 없습니다.{'\n'}
-                엑셀 업로드 시 담당자 컬럼을 매핑하세요.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.staffGrid}>
-              {staffList.map((staff, index) => (
-                <Animated.View
-                  key={staff.name}
-                  entering={FadeInDown.delay(150 + index * 30).springify()}
-                >
-                  <Pressable
-                    onPress={() => handleSelectStaff(staff.name)}
-                    style={[
-                      styles.staffCard,
-                      { backgroundColor: isDark ? '#1a1a2e' : '#fff' },
-                      selectedStaff === staff.name && styles.staffCardSelected,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.staffAvatar,
-                        {
-                          backgroundColor:
-                            selectedStaff === staff.name
-                              ? '#3b82f6'
-                              : isDark
-                              ? '#2a2a3e'
-                              : '#f0f4f8',
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.staffInitial,
-                          {
-                            color:
-                              selectedStaff === staff.name
-                                ? '#fff'
-                                : isDark
-                                ? '#888'
-                                : '#64748b',
-                          },
-                        ]}
-                      >
-                        {staff.name.charAt(0)}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.staffName,
-                        {
-                          color:
-                            selectedStaff === staff.name
-                              ? '#3b82f6'
-                              : isDark
-                              ? '#fff'
-                              : '#1a1a2e',
-                        },
-                      ]}
-                    >
-                      {staff.name}
-                    </Text>
-                    {selectedStaff === staff.name && (
-                      <View style={styles.checkIcon}>
-                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                          <Path
-                            d="M20 6L9 17l-5-5"
-                            stroke="#3b82f6"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </Svg>
-                      </View>
-                    )}
-                  </Pressable>
-                </Animated.View>
-              ))}
-            </View>
-          )}
-        </Animated.View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      {/* Generate Button */}
-      {selectedStaff && (
-        <Animated.View
-          entering={FadeInDown.springify()}
-          style={styles.bottomBar}
-        >
-          <AnimatedPressable
-            style={[styles.generateButton, buttonStyle]}
-            onPress={handleGenerateQR}
-            onPressIn={() => {
-              buttonScale.value = withSpring(0.96, { damping: 15, stiffness: 400 });
-            }}
-            onPressOut={() => {
-              buttonScale.value = withSpring(1, { damping: 15, stiffness: 400 });
-            }}
-            disabled={isGenerating}
-          >
-            <LinearGradient
-              colors={['#3b82f6', '#1d4ed8']}
-              style={styles.generateGradient}
-            >
-              {isGenerating ? (
-                <Text style={styles.generateText}>생성 중...</Text>
-              ) : (
-                <>
-                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                    <Rect x="3" y="3" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
-                    <Rect x="14" y="3" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
-                    <Rect x="3" y="14" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
-                    <Rect x="14" y="14" width="7" height="7" rx="1" stroke="#fff" strokeWidth="2" />
-                  </Svg>
-                  <Text style={styles.generateText}>QR 코드 생성</Text>
-                </>
-              )}
-            </LinearGradient>
-          </AnimatedPressable>
-        </Animated.View>
-      )}
+      </Animated.View>
     </View>
   );
 }
@@ -318,174 +181,69 @@ export default function QRGenerateScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingHorizontal: 24,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-  },
-  backButton: {},
-  backButtonInner: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 32,
   },
-  headerTitle: {
-    fontSize: 18,
+  title: {
+    fontSize: 24,
     fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   content: {
     flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   qrContainer: {
-    padding: 32,
-    borderRadius: 24,
     alignItems: 'center',
-    marginBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
   },
   qrWrapper: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginBottom: 20,
+    padding: 24,
   },
-  qrStaffName: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 8,
+  dateTag: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  qrHint: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  qrExpiryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 6,
-  },
-  qrExpiryText: {
-    fontSize: 13,
+  dateTagText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#3b82f6',
   },
-  qrPlaceholder: {
-    padding: 48,
-    borderRadius: 24,
+  expiresText: {
+    marginTop: 12,
+    fontSize: 13,
+  },
+  errorContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    gap: 16,
   },
-  placeholderText: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  loadingText: {
+  errorText: {
     fontSize: 14,
+    textAlign: 'center',
   },
-  emptyStaff: {
-    padding: 32,
-    borderRadius: 16,
+  footer: {
     alignItems: 'center',
+    paddingTop: 32,
   },
-  emptyText: {
+  instructionText: {
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 22,
+    marginBottom: 24,
   },
-  staffGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  staffCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  staffCardSelected: {
-    borderWidth: 2,
-    borderColor: '#3b82f6',
-  },
-  staffAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  staffInitial: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  staffName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  checkIcon: {
-    marginLeft: 4,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    paddingBottom: 36,
-  },
-  generateButton: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  generateGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 60,
-    gap: 10,
-  },
-  generateText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+  shareButton: {
+    paddingHorizontal: 48,
   },
 });

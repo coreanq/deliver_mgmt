@@ -1,279 +1,192 @@
-import { useState } from 'react';
-import {
-  View,
-  Text,
+import { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
   TextInput,
-  Pressable,
-  useColorScheme,
-  StyleSheet,
+  StyleSheet, 
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-  FadeInDown,
-} from 'react-native-reanimated';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { api } from '@/services/api';
-import { useAuth } from '@/providers/AuthProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useAuthStore } from '../../src/stores/auth';
+import { Button } from '../../src/components';
+import { useTheme } from '../../src/theme';
+import { logApi } from '../../src/services/api';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const weekday = weekdays[date.getDay()];
+  return `${month}월 ${day}일 (${weekday})`;
+}
 
-export default function StaffVerifyScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+export default function VerifyScreen() {
   const router = useRouter();
-  const rawParams = useLocalSearchParams<{ token: string; date: string }>();
-  // XState 기반 인증 상태
-  const { loginStaff } = useAuth();
+  const params = useLocalSearchParams<{ token: string; date: string }>();
+  const { colors, radius, shadows } = useTheme();
+  const insets = useSafeAreaInsets();
+  
+  const { loginStaff, isLoading, error, clearError } = useAuthStore();
+  
+  const [name, setName] = useState('');
 
-  // params가 배열로 올 수 있으므로 첫 번째 값 사용
-  const token = Array.isArray(rawParams.token) ? rawParams.token[0] : rawParams.token;
-  const date = Array.isArray(rawParams.date) ? rawParams.date[0] : rawParams.date;
-
-  const [inputName, setInputName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const buttonScale = useSharedValue(1);
-  const shakeX = useSharedValue(0);
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const inputStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shakeX.value }],
-  }));
-
-  const triggerShake = () => {
-    shakeX.value = withSequence(
-      withTiming(-10, { duration: 50 }),
-      withTiming(10, { duration: 50 }),
-      withTiming(-10, { duration: 50 }),
-      withTiming(10, { duration: 50 }),
-      withTiming(0, { duration: 50 })
-    );
-  };
-
-  // 날짜 포맷팅
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-    const weekday = weekdays[date.getDay()];
-    return `${month}월 ${day}일 (${weekday})`;
-  };
+  useEffect(() => {
+    logApi.send({
+      event: 'VERIFY_SCREEN_MOUNTED',
+      token: params.token ? `${params.token.substring(0, 8)}...` : 'undefined',
+      date: params.date || 'undefined',
+      timestamp: new Date().toISOString(),
+    });
+  }, [params.token, params.date]);
 
   const handleVerify = async () => {
-    if (!inputName.trim()) {
-      setError('이름을 입력하세요.');
-      triggerShake();
+    if (!name.trim() || !params.token) {
+      logApi.send({
+        event: 'VERIFY_VALIDATION_FAILED',
+        hasName: !!name.trim(),
+        hasToken: !!params.token,
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
-
-    setIsLoading(true);
-    setError('');
-
+    
+    logApi.send({
+      event: 'VERIFY_LOGIN_START',
+      name: name.trim(),
+      token: `${params.token.substring(0, 8)}...`,
+      timestamp: new Date().toISOString(),
+    });
+    
+    clearError();
+    
     try {
-      // 담당자 로그인 API 호출 (token + name)
-      const result = await api.staffLogin(
-        token || '',
-        inputName.trim()
-      );
-
-      if (result.success && result.data) {
-        // 로그인 성공
-        await loginStaff(
-          {
-            id: result.data.staff.id,
-            name: result.data.staff.name,
-            adminId: result.data.staff.adminId,
-            createdAt: new Date().toISOString(),
-          },
-          result.data.token
-        );
+      const success = await loginStaff(params.token, name.trim());
+      
+      logApi.send({
+        event: 'VERIFY_LOGIN_RESULT',
+        success,
+        timestamp: new Date().toISOString(),
+      });
+      
+      if (success) {
+        logApi.send({
+          event: 'VERIFY_NAVIGATING',
+          to: '/(staff)',
+          timestamp: new Date().toISOString(),
+        });
         router.replace('/(staff)');
-      } else {
-        setError(result.error || '해당 날짜에 배송이 없습니다.');
-        triggerShake();
       }
     } catch (err) {
-      setError('인증에 실패했습니다. 다시 시도해주세요.');
-      triggerShake();
-    } finally {
-      setIsLoading(false);
+      logApi.send({
+        event: 'VERIFY_LOGIN_ERROR',
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
-  const bgColors = isDark
-    ? ['#0a0a12', '#0d0d1a', '#0a0a12'] as const
-    : ['#f0f4f8', '#e8eef5', '#f0f4f8'] as const;
+  const handleBack = () => {
+    clearError();
+    router.back();
+  };
 
   return (
-    <LinearGradient colors={bgColors} style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        {/* Back Button */}
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <View style={[styles.backButtonInner, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M19 12H5M5 12L12 19M5 12L12 5"
-                stroke={isDark ? '#fff' : '#1a1a2e'}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </View>
+    <KeyboardAvoidingView 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+        <Pressable onPress={handleBack} style={styles.backButton}>
+          <Text style={[styles.backText, { color: colors.textSecondary }]}>
+            ← 뒤로
+          </Text>
         </Pressable>
 
-        <View style={styles.content}>
-          {/* Icon */}
-          <Animated.View entering={FadeInDown.delay(100).springify()}>
-            <LinearGradient
-              colors={['#10b981', '#059669']}
-              style={styles.iconBg}
-            >
-              <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
-                <Circle cx="12" cy="8" r="4" stroke="#fff" strokeWidth="2" />
-                <Path
-                  d="M4 20c0-4 4-6 8-6s8 2 8 6"
-                  stroke="#fff"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </Svg>
-            </LinearGradient>
-          </Animated.View>
-
-          {/* Title */}
-          <Animated.Text
-            entering={FadeInDown.delay(150).springify()}
-            style={[styles.title, { color: isDark ? '#fff' : '#1a1a2e' }]}
-          >
-            이름 입력
-          </Animated.Text>
-
-          <Animated.Text
-            entering={FadeInDown.delay(200).springify()}
-            style={[styles.subtitle, { color: isDark ? '#666680' : '#64748b' }]}
-          >
+        <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.header}>
+          <Text style={styles.headerEmoji}>🔐</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            본인 인증
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             배송담당자 이름을 입력하세요
-          </Animated.Text>
+          </Text>
+          
+          {params.date && (
+            <View style={[
+              styles.dateBadge, 
+              { 
+                backgroundColor: colors.surfaceSecondary,
+                borderRadius: radius.full,
+              }
+            ]}>
+              <Text style={[styles.dateText, { color: colors.text }]}>
+                📅 {formatDate(params.date)}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
 
-          {/* Date Display */}
-          <Animated.View
-            entering={FadeInDown.delay(250).springify()}
-            style={[styles.dateContainer, { backgroundColor: isDark ? '#1a1a2e' : '#fff' }]}
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                stroke="#3b82f6"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </Svg>
-            <Text style={[styles.dateText, { color: isDark ? '#fff' : '#1a1a2e' }]}>
-              {date ? formatDate(date) : '날짜 정보 없음'}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              담당자 이름
             </Text>
-          </Animated.View>
-
-          {/* Input */}
-          <Animated.View entering={FadeInDown.delay(300).springify()}>
-            <Animated.View
-              style={[
-                styles.inputContainer,
-                inputStyle,
-                { backgroundColor: isDark ? '#1a1a2e' : '#fff' },
-                error ? { borderColor: '#ef4444', borderWidth: 2 } : {},
-              ]}
-            >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Circle cx="12" cy="8" r="4" stroke={isDark ? '#666' : '#94a3b8'} strokeWidth="1.5" />
-              <Path
-                d="M4 20c0-4 4-6 8-6s8 2 8 6"
-                stroke={isDark ? '#666' : '#94a3b8'}
-                strokeWidth="1.5"
-              />
-            </Svg>
             <TextInput
-              style={[styles.input, { color: isDark ? '#fff' : '#1a1a2e' }]}
-              placeholder="이름 입력"
-              placeholderTextColor={isDark ? '#555' : '#94a3b8'}
-              value={inputName}
-              onChangeText={(text) => {
-                setInputName(text);
-                setError('');
-              }}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                  borderColor: colors.border,
+                  borderRadius: radius.lg,
+                },
+                shadows.sm,
+              ]}
+              placeholder="예: 홍길동"
+              placeholderTextColor={colors.textTertiary}
+              value={name}
+              onChangeText={setName}
               autoCapitalize="none"
               autoCorrect={false}
-              returnKeyType="done"
-              onSubmitEditing={handleVerify}
+              editable={!isLoading}
             />
-            </Animated.View>
-          </Animated.View>
+          </View>
 
-          {/* Error */}
-          {error ? (
-            <Animated.Text
-              entering={FadeInDown.springify()}
-              style={styles.errorText}
-            >
-              {error}
-            </Animated.Text>
-          ) : null}
+          {error && (
+            <View style={[
+              styles.errorContainer, 
+              { 
+                backgroundColor: colors.errorLight,
+                borderRadius: radius.lg,
+              }
+            ]}>
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {error}
+              </Text>
+            </View>
+          )}
 
-          {/* Button */}
-          <Animated.View entering={FadeInDown.delay(350).springify()}>
-            <AnimatedPressable
-              style={[styles.button, buttonStyle]}
-              onPress={handleVerify}
-              onPressIn={() => {
-                buttonScale.value = withSpring(0.96, { damping: 15, stiffness: 400 });
-              }}
-              onPressOut={() => {
-                buttonScale.value = withSpring(1, { damping: 15, stiffness: 400 });
-              }}
-              disabled={isLoading}
-            >
-              <LinearGradient
-                colors={['#10b981', '#059669']}
-                style={styles.buttonGradient}
-              >
-                {isLoading ? (
-                  <Text style={styles.buttonText}>확인 중...</Text>
-                ) : (
-                  <>
-                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M20 6L9 17l-5-5"
-                        stroke="#fff"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    <Text style={styles.buttonText}>확인</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </AnimatedPressable>
-          </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+          <Button
+            title="확인"
+            onPress={handleVerify}
+            loading={isLoading}
+            disabled={!name.trim()}
+            style={styles.button}
+          />
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.hint}>
+          <Text style={[styles.hintText, { color: colors.textTertiary }]}>
+            관리자가 등록한 이름과 정확히 일치해야 합니다
+          </Text>
+        </Animated.View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -281,111 +194,81 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  keyboardView: {
-    flex: 1,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    zIndex: 10,
-  },
-  backButtonInner: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     paddingHorizontal: 24,
   },
-  iconBg: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
     marginBottom: 24,
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+  },
+  backText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  headerEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    letterSpacing: -0.5,
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    fontWeight: '400',
-    marginBottom: 32,
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    marginBottom: 24,
-    gap: 10,
+  dateBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   dateText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  form: {
+    gap: 20,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 60,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
+    gap: 8,
   },
-  input: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '500',
-  },
-  errorText: {
-    color: '#ef4444',
+  label: {
     fontSize: 14,
     fontWeight: '500',
-    marginTop: 12,
+  },
+  input: {
+    height: 52,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  errorContainer: {
+    padding: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   button: {
-    marginTop: 24,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+    marginTop: 8,
   },
-  buttonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 48,
-    height: 56,
-    gap: 10,
+  hint: {
+    position: 'absolute',
+    bottom: 40,
+    left: 24,
+    right: 24,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
+  hintText: {
+    fontSize: 13,
+    textAlign: 'center',
   },
 });
