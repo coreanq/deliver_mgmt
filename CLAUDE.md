@@ -72,8 +72,6 @@
       ├── package.json
       ├── wrangler.toml
       └── src/
-# UI 구현 시 
-- XState로 인증 상태 머신을 구현
 
 ## 버전 관리
 

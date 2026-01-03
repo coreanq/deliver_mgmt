@@ -92,7 +92,7 @@ export default function VerifyScreen() {
 
   const handleBack = () => {
     clearError();
-    router.back();
+    router.replace('/(staff)/scan');
   };
 
   return (

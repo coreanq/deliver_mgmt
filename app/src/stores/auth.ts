@@ -1,106 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import * as SecureStore from 'expo-secure-store';
-import { createMachine, assign } from 'xstate';
 import type { Admin, Staff, UserRole } from '../types';
 import { authApi } from '../services/api';
-
-type AuthContext = {
-  role: UserRole | null;
-  admin: Admin | null;
-  staff: Staff | null;
-  token: string | null;
-  error: string | null;
-};
-
-type AuthEvent =
-  | { type: 'SELECT_ROLE'; role: UserRole }
-  | { type: 'LOGIN_ADMIN'; email: string }
-  | { type: 'LOGIN_ADMIN_SUCCESS'; admin: Admin; token: string }
-  | { type: 'LOGIN_STAFF'; qrToken: string; name: string }
-  | { type: 'LOGIN_STAFF_SUCCESS'; staff: Staff; token: string }
-  | { type: 'LOGIN_ERROR'; error: string }
-  | { type: 'LOGOUT' }
-  | { type: 'RESTORE'; admin?: Admin; staff?: Staff; token: string; role: UserRole };
-
-export const authMachine = createMachine({
-  id: 'auth',
-  initial: 'idle',
-  context: {
-    role: null,
-    admin: null,
-    staff: null,
-    token: null,
-    error: null,
-  } as AuthContext,
-  states: {
-    idle: {
-      on: {
-        SELECT_ROLE: {
-          target: 'roleSelected',
-          actions: assign({ role: ({ event }) => event.role }),
-        },
-        RESTORE: {
-          target: 'authenticated',
-          actions: assign({
-            role: ({ event }) => event.role,
-            admin: ({ event }) => event.admin ?? null,
-            staff: ({ event }) => event.staff ?? null,
-            token: ({ event }) => event.token,
-          }),
-        },
-      },
-    },
-    roleSelected: {
-      on: {
-        LOGIN_ADMIN: 'authenticating',
-        LOGIN_STAFF: 'authenticating',
-        SELECT_ROLE: {
-          target: 'roleSelected',
-          actions: assign({ role: ({ event }) => event.role }),
-        },
-      },
-    },
-    authenticating: {
-      on: {
-        LOGIN_ADMIN_SUCCESS: {
-          target: 'authenticated',
-          actions: assign({
-            admin: ({ event }) => event.admin,
-            token: ({ event }) => event.token,
-            error: null,
-          }),
-        },
-        LOGIN_STAFF_SUCCESS: {
-          target: 'authenticated',
-          actions: assign({
-            staff: ({ event }) => event.staff,
-            token: ({ event }) => event.token,
-            error: null,
-          }),
-        },
-        LOGIN_ERROR: {
-          target: 'roleSelected',
-          actions: assign({ error: ({ event }) => event.error }),
-        },
-      },
-    },
-    authenticated: {
-      on: {
-        LOGOUT: {
-          target: 'idle',
-          actions: assign({
-            role: null,
-            admin: null,
-            staff: null,
-            token: null,
-            error: null,
-          }),
-        },
-      },
-    },
-  },
-});
 
 const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -291,7 +193,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       restore: async () => {
-        const { token, role, admin, staff } = get();
+        const { token, role } = get();
         if (token && role) {
           set({ state: 'authenticated' });
         }

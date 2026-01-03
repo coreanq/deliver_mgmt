@@ -82,7 +82,7 @@ export default function QRScanScreen() {
   };
 
   const handleBack = () => {
-    router.back();
+    router.replace('/');
   };
 
   const handleRescan = () => {
@@ -132,7 +132,7 @@ export default function QRScanScreen() {
       <View style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.header}>
           <Pressable onPress={handleBack} style={styles.backButton}>
-            <Text style={styles.backText}>← 뒤로</Text>
+            <Text style={styles.backText}>🏠</Text>
           </Pressable>
           <Text style={styles.title}>QR 코드 스캔</Text>
           <View style={styles.placeholder} />
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '500',
   },
   title: {

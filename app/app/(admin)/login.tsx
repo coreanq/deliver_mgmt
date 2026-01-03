@@ -33,8 +33,8 @@ export default function AdminLoginScreen() {
     const success = await loginAdmin(email.trim().toLowerCase());
     
     if (success) {
-      const { isAuthenticated } = useAuthStore.getState();
-      if (isAuthenticated) {
+      const { state, token } = useAuthStore.getState();
+      if (state === 'authenticated' && token) {
         router.replace('/(admin)');
       } else {
         setEmailSent(true);
@@ -43,7 +43,7 @@ export default function AdminLoginScreen() {
   };
 
   const handleBack = () => {
-    router.back();
+    router.replace('/');
   };
 
   const handleResend = () => {
@@ -59,7 +59,7 @@ export default function AdminLoginScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <Pressable onPress={handleBack} style={styles.backButton}>
           <Text style={[styles.backText, { color: colors.textSecondary }]}>
-            ← 뒤로
+            🏠
           </Text>
         </Pressable>
 
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backText: {
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '500',
   },
   header: {

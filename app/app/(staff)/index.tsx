@@ -7,7 +7,7 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { useRouter, Redirect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
@@ -91,8 +91,6 @@ export default function StaffDeliveryListScreen() {
   
   const [refreshing, setRefreshing] = useState(false);
   
-  const hasAuth = !!token && !!staff;
-
   useEffect(() => {
     if (token && staff?.name) {
       logApi.send({
@@ -110,10 +108,6 @@ export default function StaffDeliveryListScreen() {
     }
   }, [token, staff, fetchStaffDeliveries]);
 
-  if (!hasAuth) {
-    return <Redirect href="/" />;
-  }
-
   const stats = useMemo(() => ({
     total: deliveries.length,
     pending: deliveries.filter((d) => d.status === 'pending').length,
@@ -130,6 +124,7 @@ export default function StaffDeliveryListScreen() {
 
   const handleLogout = () => {
     logout();
+    router.replace('/(staff)/scan');
   };
 
   const handleDeliveryPress = (delivery: Delivery) => {

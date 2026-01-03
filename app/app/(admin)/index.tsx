@@ -7,7 +7,7 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { useRouter, Redirect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
@@ -95,10 +95,6 @@ export default function AdminDashboardScreen() {
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [refreshing, setRefreshing] = useState(false);
 
-  if (!isAuthenticated || !token) {
-    return <Redirect href="/" />;
-  }
-
   useEffect(() => {
     if (token) {
       fetchDeliveries(token, selectedDate);
@@ -121,6 +117,7 @@ export default function AdminDashboardScreen() {
 
   const handleLogout = () => {
     logout();
+    router.replace('/(admin)/login');
   };
 
   const handleGenerateQR = () => {
