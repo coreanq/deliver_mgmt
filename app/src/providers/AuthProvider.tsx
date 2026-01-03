@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useMemo } from 'react';
 import { useActor } from '@xstate/react';
-import { useRouter } from 'expo-router';
 import {
   authMachine,
   selectIsLoading,
@@ -38,34 +37,21 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  // useRef로 router 참조를 안정적으로 유지 (머신 재생성 방지)
-  const routerRef = useRef(router);
-  routerRef.current = router;
-
-  // 라우팅 액션을 주입한 머신 생성 (한 번만 생성)
+  // 라우팅은 _layout.tsx에서 처리
   const machineWithRouter = useMemo(
     () =>
       authMachine.provide({
         actions: {
-          navigateToHome: () => {
-            routerRef.current.replace('/');
-          },
-          navigateToAdmin: () => {
-            routerRef.current.replace('/(admin)');
-          },
-          navigateToStaff: () => {
-            routerRef.current.replace('/(staff)');
-          },
+          // 라우팅 액션은 _layout.tsx에서 isAuthenticated 상태 변경으로 처리
+          navigateToHome: () => {},
+          navigateToAdmin: () => {},
+          navigateToStaff: () => {},
         },
       }),
-    [] // 의존성 제거 - 머신은 한 번만 생성
+    []
   );
 
   const [state, send] = useActor(machineWithRouter);
-
-  // 이전 상태 추적 (로그아웃 감지용)
-  const prevStateRef = useRef<string | null>(null);
 
   // Derived state
   const isLoading = selectIsLoading(state);
@@ -77,27 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const staff = selectStaff(state);
   const token = selectToken(state);
 
-  // 현재 상태를 문자열로 변환
+  // 현재 상태를 문자열로 변환 (디버깅용)
   const currentStateName = typeof state.value === 'string'
     ? state.value
     : JSON.stringify(state.value);
 
-  // 상태 전이 기반 라우팅
+  // 상태 변경 로깅
   useEffect(() => {
-    const prevState = prevStateRef.current;
-    debugLog('FSM', { prev: prevState, current: currentStateName });
-    prevStateRef.current = currentStateName;
-
-    // loggingOut → unauthenticated 전이 시 홈으로 이동
-    if (prevState === 'loggingOut' && state.matches('unauthenticated')) {
-      debugLog('FSM', { action: 'navigateToHome' });
-      // expo-router에서 그룹 라우트에서 루트로 나가려면 dismissAll 필요
-      if (routerRef.current.canDismiss()) {
-        routerRef.current.dismissAll();
-      }
-      routerRef.current.replace('/');
-    }
-  }, [currentStateName, state]);
+    debugLog('FSM', { current: currentStateName, isAuthenticated, isLoading });
+  }, [currentStateName, isAuthenticated, isLoading]);
 
   // Start session restoration on mount
   useEffect(() => {

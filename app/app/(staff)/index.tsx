@@ -228,7 +228,7 @@ export default function StaffDeliveryList() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
-  // XState 기반 인증 상태
+  // XState 기반 인증 상태 - 라우팅은 _layout.tsx에서 FSM 전이로 처리
   const { staff, logout } = useAuth();
 
   const handleLogout = () => {
@@ -240,7 +240,7 @@ export default function StaffDeliveryList() {
         {
           text: '로그아웃',
           style: 'destructive',
-          onPress: () => logout(), // FSM이 라우팅 처리
+          onPress: () => logout(),
         },
       ]
     );

@@ -13,7 +13,6 @@ import {
   Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -30,6 +29,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
 import { api } from '@/services/api';
 import { useAuth } from '@/providers/AuthProvider';
+import { debugLog } from '@/utils/debugLog';
 import type { Delivery, DeliveryStatus } from '@/types';
 import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS, API_BASE_URL } from '@/constants';
 import { VersionInfo } from '@/components/VersionInfo';
@@ -166,8 +166,7 @@ type FilterType = 'all' | 'status' | 'staff';
 export default function AdminDashboard() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const router = useRouter();
-  // XState 기반 인증 상태
+  // XState 기반 인증 상태 - 라우팅은 _layout.tsx에서 FSM 전이로 처리
   const { admin, logout } = useAuth();
 
   const handleLogout = () => {
@@ -179,7 +178,10 @@ export default function AdminDashboard() {
         {
           text: '로그아웃',
           style: 'destructive',
-          onPress: () => logout(), // FSM이 라우팅 처리
+          onPress: () => {
+            debugLog('ADMIN', { action: 'logout_pressed' });
+            logout();
+          },
         },
       ]
     );
