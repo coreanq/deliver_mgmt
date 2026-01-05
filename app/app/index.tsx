@@ -1,88 +1,226 @@
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { 
-  FadeInDown, 
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeIn,
+  FadeInDown,
   FadeInUp,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withDelay,
+  withSequence,
+  withTiming,
+  withRepeat,
+  interpolate,
+  Easing,
 } from 'react-native-reanimated';
+import { useEffect } from 'react';
 import { useAuthStore } from '../src/stores/auth';
 import { VersionInfo } from '../src/components';
 import { useTheme } from '../src/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Floating orb background decoration
+function FloatingOrb({ color, size, initialX, initialY, delay }: {
+  color: string;
+  size: number;
+  initialX: number;
+  initialY: number;
+  delay: number;
+}) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: 1000 }));
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(-20, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(20, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value * 0.6,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: `${initialX}%`,
+          top: `${initialY}%`,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+// Modern role card with glass effect
 interface RoleCardProps {
   title: string;
   description: string;
-  icon: string;
+  icon: React.ReactNode;
   onPress: () => void;
-  delay: number;
+  index: number;
   accentColor: string;
 }
 
-function RoleCard({ title, description, icon, onPress, delay, accentColor }: RoleCardProps) {
-  const { colors, radius, shadows } = useTheme();
+function RoleCard({ title, description, icon, onPress, index, accentColor }: RoleCardProps) {
+  const { colors, radius, typography, springs, isDark } = useTheme();
   const scale = useSharedValue(1);
+  const pressed = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  const accentLineStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(pressed.value, [0, 1], [0.5, 1]),
+    transform: [{ scaleY: interpolate(pressed.value, [0, 1], [1, 1.2]) }],
+  }));
+
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(0.98, springs.snappy);
+    pressed.value = withSpring(1, springs.snappy);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(1, springs.snappy);
+    pressed.value = withSpring(0, springs.snappy);
   };
 
   return (
     <AnimatedPressable
-      entering={FadeInDown.delay(delay).duration(400).springify()}
-      style={[
-        styles.card,
-        { 
-          backgroundColor: colors.surface,
-          borderRadius: radius.xl,
-        },
-        shadows.lg,
-        animatedStyle,
-      ]}
+      entering={FadeInDown.delay(300 + index * 150).duration(600).springify()}
+      style={[styles.roleCard, animatedStyle]}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >
-      <View style={[styles.iconContainer, { backgroundColor: accentColor }]}>
-        <Text style={styles.icon}>{icon}</Text>
-      </View>
-      <View style={styles.cardContent}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          {title}
-        </Text>
-        <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-          {description}
-        </Text>
-      </View>
-      <View style={styles.arrowContainer}>
-        <Text style={[styles.arrow, { color: colors.textTertiary }]}>
-          →
-        </Text>
+      <View
+        style={[
+          styles.roleCardGlass,
+          {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)',
+            borderRadius: radius['2xl'],
+            borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)',
+          },
+        ]}
+      >
+        {/* Accent line */}
+        <Animated.View
+          style={[
+            styles.accentLine,
+            { backgroundColor: accentColor, borderRadius: radius.full },
+            accentLineStyle,
+          ]}
+        />
+
+        <View style={styles.roleCardContent}>
+          {/* Icon */}
+          <View
+            style={[
+              styles.iconWrapper,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                borderRadius: radius.xl,
+              },
+            ]}
+          >
+            {icon}
+          </View>
+
+          {/* Text */}
+          <View style={styles.roleTextContainer}>
+            <Text style={[typography.h3, { color: colors.text, letterSpacing: -0.5 }]}>
+              {title}
+            </Text>
+            <Text
+              style={[
+                typography.bodySmall,
+                { color: colors.textSecondary, marginTop: 6, lineHeight: 20 },
+              ]}
+            >
+              {description}
+            </Text>
+          </View>
+
+          {/* Arrow */}
+          <View
+            style={[
+              styles.arrowCircle,
+              {
+                backgroundColor: accentColor,
+                borderRadius: radius.full,
+              },
+            ]}
+          >
+            <Text style={styles.arrowIcon}>→</Text>
+          </View>
+        </View>
       </View>
     </AnimatedPressable>
   );
 }
 
+// Admin icon component
+function AdminIcon() {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.iconInner}>
+      <View style={[styles.adminGrid]}>
+        {[0, 1, 2, 3].map((i) => (
+          <View
+            key={i}
+            style={[
+              styles.adminDot,
+              { backgroundColor: i === 0 ? colors.primary : colors.textMuted },
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// Staff icon component
+function StaffIcon() {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.iconInner}>
+      <View style={[styles.qrFrame, { borderColor: colors.accent }]}>
+        <View style={[styles.qrInner, { backgroundColor: colors.accent }]} />
+      </View>
+    </View>
+  );
+}
+
 export default function RoleSelectionScreen() {
   const router = useRouter();
-  const { colors, radius } = useTheme();
+  const { colors, typography, radius, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  
+
   const { selectRole, role, state, token } = useAuthStore();
   const isAuthenticated = state === 'authenticated' && token !== null;
 
+  // Redirect if already authenticated
   if (isAuthenticated && role === 'admin') {
     return <Redirect href="/(admin)" />;
   }
@@ -101,66 +239,141 @@ export default function RoleSelectionScreen() {
   };
 
   return (
-    <View style={[
-      styles.container, 
-      { 
-        backgroundColor: colors.background,
-        paddingTop: insets.top + 40,
-        paddingBottom: insets.bottom + 20,
-      }
-    ]}>
-      <Animated.View 
-        entering={FadeInUp.delay(100).duration(400)}
-        style={styles.header}
-      >
-        <View style={[styles.logoContainer, { borderRadius: radius['2xl'] }]}>
-          <Image 
-            source={require('../assets/icon.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={[styles.title, { color: colors.text }]}>
-          배매니저
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          배송 관리를 더 쉽고 빠르게
-        </Text>
-      </Animated.View>
-
-      <View style={styles.cardsContainer}>
-        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>
-          역할을 선택하세요
-        </Text>
-
-        <RoleCard
-          title="관리자"
-          description="배송 데이터 관리, QR 코드 생성"
-          icon="👔"
-          onPress={handleSelectAdmin}
-          delay={200}
-          accentColor={colors.primary}
-        />
-
-        <RoleCard
-          title="배송담당자"
-          description="QR 스캔으로 오늘 배송 확인"
-          icon="🚚"
-          onPress={handleSelectStaff}
-          delay={300}
-          accentColor={colors.success}
-        />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Background decorations */}
+      <View style={styles.orbContainer} pointerEvents="none">
+        <FloatingOrb color={colors.primary} size={200} initialX={-10} initialY={10} delay={0} />
+        <FloatingOrb color={colors.accent} size={150} initialX={70} initialY={60} delay={500} />
+        <FloatingOrb color={colors.primary} size={100} initialX={80} initialY={5} delay={300} />
       </View>
 
-      <Animated.View 
-        entering={FadeInUp.delay(400).duration(400)}
-        style={styles.footer}
+      {/* Gradient overlay */}
+      <LinearGradient
+        colors={[
+          'transparent',
+          isDark ? 'rgba(12, 15, 20, 0.8)' : 'rgba(250, 250, 252, 0.9)',
+          colors.background,
+        ]}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      <View
+        style={[
+          styles.content,
+          { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 },
+        ]}
       >
-        <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-          PC에서 엑셀 업로드는 웹에서 진행하세요
-        </Text>
-        <VersionInfo />
-      </Animated.View>
+        {/* Header */}
+        <Animated.View entering={FadeInUp.delay(100).duration(800)} style={styles.header}>
+          {/* App icon */}
+          <View
+            style={[
+              styles.logoMark,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                borderRadius: radius['2xl'],
+              },
+            ]}
+          >
+            <Image
+              source={require('../assets/icon.png')}
+              style={[styles.logoImage, { borderRadius: radius.xl }]}
+            />
+          </View>
+
+          <Text
+            style={[
+              typography.h1,
+              {
+                color: colors.text,
+                marginTop: 28,
+                fontSize: 36,
+                letterSpacing: -1.5,
+                fontWeight: '700',
+              },
+            ]}
+          >
+            배매니저
+          </Text>
+
+          <Animated.Text
+            entering={FadeIn.delay(400).duration(600)}
+            style={[
+              typography.body,
+              {
+                color: colors.textSecondary,
+                marginTop: 12,
+                textAlign: 'center',
+                lineHeight: 24,
+              },
+            ]}
+          >
+            배송 관리의 새로운 기준
+          </Animated.Text>
+        </Animated.View>
+
+        {/* Role selection */}
+        <View style={styles.cardsSection}>
+          <Animated.Text
+            entering={FadeInDown.delay(200).duration(500)}
+            style={[
+              typography.overline,
+              {
+                color: colors.textMuted,
+                marginBottom: 16,
+                marginLeft: 4,
+              },
+            ]}
+          >
+            시작하기
+          </Animated.Text>
+
+          <View style={styles.cardsWrapper}>
+            <RoleCard
+              title="관리자"
+              description="배송 데이터를 관리하고 QR 코드를 생성합니다"
+              icon={<AdminIcon />}
+              onPress={handleSelectAdmin}
+              index={0}
+              accentColor={colors.primary}
+            />
+
+            <RoleCard
+              title="배송담당자"
+              description="QR 스캔으로 오늘의 배송을 확인합니다"
+              icon={<StaffIcon />}
+              onPress={handleSelectStaff}
+              index={1}
+              accentColor={colors.accent}
+            />
+          </View>
+        </View>
+
+        {/* Footer */}
+        <Animated.View
+          entering={FadeInUp.delay(700).duration(500)}
+          style={styles.footer}
+        >
+          <View
+            style={[
+              styles.footerPill,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                borderRadius: radius.full,
+              },
+            ]}
+          >
+            <Text style={[typography.caption, { color: colors.textMuted }]}>
+              PC에서 엑셀 업로드는 웹에서 진행하세요
+            </Text>
+          </View>
+          <View style={{ marginTop: 16 }}>
+            <VersionInfo />
+          </View>
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -168,84 +381,112 @@ export default function RoleSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  orbContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  content: {
+    flex: 1,
     paddingHorizontal: 24,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    paddingTop: 20,
   },
-  logoContainer: {
-    marginBottom: 16,
-    overflow: 'hidden',
+  logoMark: {
+    padding: 6,
   },
-  logo: {
-    width: 80,
-    height: 80,
+  logoImage: {
+    width: 72,
+    height: 72,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-  },
-  cardsContainer: {
+  cardsSection: {
     flex: 1,
     justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  cardsWrapper: {
     gap: 16,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  roleCard: {
+    overflow: 'hidden',
   },
-  card: {
+  roleCardGlass: {
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  accentLine: {
+    position: 'absolute',
+    left: 0,
+    top: 20,
+    bottom: 20,
+    width: 4,
+  },
+  roleCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
+    paddingLeft: 24,
+    gap: 16,
   },
-  iconContainer: {
+  iconWrapper: {
     width: 56,
     height: 56,
-    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  icon: {
-    fontSize: 28,
-  },
-  cardContent: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  cardDescription: {
-    fontSize: 14,
-  },
-  arrowContainer: {
+  iconInner: {
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  arrow: {
-    fontSize: 20,
-    fontWeight: '300',
+  adminGrid: {
+    width: 24,
+    height: 24,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  adminDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 3,
+  },
+  qrFrame: {
+    width: 24,
+    height: 24,
+    borderWidth: 2.5,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  roleTextContainer: {
+    flex: 1,
+  },
+  arrowCircle: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrowIcon: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   footer: {
     alignItems: 'center',
-    paddingTop: 24,
+    paddingBottom: 8,
   },
-  footerText: {
-    fontSize: 13,
-    marginBottom: 8,
+  footerPill: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
 });

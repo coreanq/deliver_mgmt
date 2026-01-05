@@ -1,19 +1,77 @@
 import { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Pressable,
-  Share,
-} from 'react-native';
+import { View, Text, StyleSheet, Share, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuthStore } from '../../src/stores/auth';
 import { authApi } from '../../src/services/api';
 import { Loading, Button } from '../../src/components';
 import { useTheme } from '../../src/theme';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Floating orb
+function FloatingOrb({ color, size, initialX, initialY, delay }: {
+  color: string;
+  size: number;
+  initialX: number;
+  initialY: number;
+  delay: number;
+}) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: 1000 }));
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(-15, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(15, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value * 0.5,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: `${initialX}%`,
+          top: `${initialY}%`,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
 
 function getTodayString(): string {
   const now = new Date();
@@ -34,16 +92,18 @@ function formatDate(dateStr: string): string {
 
 export default function QRGenerateScreen() {
   const router = useRouter();
-  const { colors, radius, shadows, isDark } = useTheme();
+  const { colors, radius, typography, isDark, springs } = useTheme();
   const insets = useSafeAreaInsets();
-  
+
   const { token } = useAuthStore();
-  
-  const [selectedDate, setSelectedDate] = useState(getTodayString());
+
+  const [selectedDate] = useState(getTodayString());
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const closeScale = useSharedValue(1);
 
   useEffect(() => {
     if (token) {
@@ -53,13 +113,13 @@ export default function QRGenerateScreen() {
 
   const generateQR = async () => {
     if (!token) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const result = await authApi.generateQR(token, selectedDate);
-      
+
       if (result.success && result.data) {
         setQrToken(result.data.token);
         setExpiresAt(result.data.expiresAt);
@@ -79,7 +139,7 @@ export default function QRGenerateScreen() {
 
   const handleShare = async () => {
     if (!qrToken) return;
-    
+
     try {
       await Share.share({
         message: `배송담당자 인증 코드: ${qrToken}\n날짜: ${formatDate(selectedDate)}`,
@@ -91,89 +151,147 @@ export default function QRGenerateScreen() {
 
   const qrValue = qrToken ? JSON.stringify({ token: qrToken, date: selectedDate }) : '';
 
+  const closeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: closeScale.value }],
+  }));
+
   return (
-    <View style={[
-      styles.container, 
-      { 
-        backgroundColor: colors.background,
-        paddingTop: insets.top + 16,
-        paddingBottom: insets.bottom + 16,
-      }
-    ]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          배송담당자 QR
-        </Text>
-        <Pressable onPress={handleClose} style={styles.closeButton}>
-          <Text style={[styles.closeText, { color: colors.textSecondary }]}>
-            닫기
-          </Text>
-        </Pressable>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Background orbs */}
+      <View style={styles.orbContainer} pointerEvents="none">
+        <FloatingOrb color={colors.primary} size={180} initialX={-15} initialY={5} delay={0} />
+        <FloatingOrb color={colors.accent} size={140} initialX={65} initialY={55} delay={300} />
       </View>
 
-      <View style={styles.content}>
-        {isLoading ? (
-          <Loading message="QR 코드 생성 중..." />
-        ) : error ? (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: colors.error }]}>
-              {error}
-            </Text>
-            <Button title="다시 시도" onPress={generateQR} variant="outline" />
-          </Animated.View>
-        ) : qrToken ? (
-          <Animated.View entering={FadeInDown.duration(400)} style={styles.qrContainer}>
-            <View style={[
-              styles.qrWrapper, 
-              { 
-                backgroundColor: '#ffffff',
+      {/* Gradient overlay */}
+      <LinearGradient
+        colors={[
+          'transparent',
+          isDark ? 'rgba(12, 15, 20, 0.85)' : 'rgba(250, 250, 252, 0.9)',
+          colors.background,
+        ]}
+        locations={[0, 0.4, 0.7]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      <View style={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}>
+        {/* Header */}
+        <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
+          <Text
+            style={[
+              typography.h1,
+              {
+                color: colors.text,
+                fontSize: 28,
+                letterSpacing: -1,
+              },
+            ]}
+          >
+            배송담당자 QR
+          </Text>
+          <AnimatedPressable
+            style={[
+              styles.closeButton,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                borderRadius: radius.lg,
+              },
+              closeAnimatedStyle,
+            ]}
+            onPress={handleClose}
+            onPressIn={() => { closeScale.value = withSpring(0.95, springs.snappy); }}
+            onPressOut={() => { closeScale.value = withSpring(1, springs.snappy); }}
+          >
+            <Text style={[styles.closeIcon, { color: colors.textSecondary }]}>✕</Text>
+          </AnimatedPressable>
+        </Animated.View>
+
+        {/* Content */}
+        <View style={styles.mainContent}>
+          {isLoading ? (
+            <Loading message="QR 코드 생성 중..." />
+          ) : error ? (
+            <Animated.View entering={FadeIn.duration(300)} style={styles.errorBox}>
+              <Text style={[typography.body, { color: colors.error, textAlign: 'center', marginBottom: 20 }]}>
+                {error}
+              </Text>
+              <Button title="다시 시도" onPress={generateQR} variant="outline" />
+            </Animated.View>
+          ) : qrToken ? (
+            <Animated.View entering={FadeInDown.duration(500)} style={styles.qrSection}>
+              {/* QR Card */}
+              <View
+                style={[
+                  styles.qrCard,
+                  {
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: radius['3xl'],
+                  },
+                ]}
+              >
+                <QRCode
+                  value={qrValue}
+                  size={200}
+                  color="#1a1f2b"
+                  backgroundColor="#FFFFFF"
+                />
+              </View>
+
+              {/* Date Badge */}
+              <Animated.View
+                entering={FadeInUp.delay(200).duration(400)}
+                style={[
+                  styles.dateBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: radius.full,
+                  },
+                ]}
+              >
+                <Text style={[typography.button, { color: colors.text }]}>
+                  {formatDate(selectedDate)}
+                </Text>
+              </Animated.View>
+
+              {/* Expiry */}
+              {expiresAt && (
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: 12 }]}>
+                  24시간 후 만료
+                </Text>
+              )}
+            </Animated.View>
+          ) : null}
+        </View>
+
+        {/* Footer */}
+        <Animated.View entering={FadeInUp.delay(300).duration(400)} style={styles.footer}>
+          <View
+            style={[
+              styles.instructionCard,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.8)',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
                 borderRadius: radius['2xl'],
               },
-              shadows.xl,
-            ]}>
-              <QRCode
-                value={qrValue}
-                size={240}
-                color="#1f2937"
-                backgroundColor="#ffffff"
-              />
-            </View>
+            ]}
+          >
+            <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', lineHeight: 24 }]}>
+              배송담당자가 이 QR을 스캔하면{'\n'}이름 입력 후 배송 목록을 확인할 수 있습니다
+            </Text>
+          </View>
 
-            <View style={[
-              styles.dateTag, 
-              { 
-                backgroundColor: colors.surfaceSecondary,
-                borderRadius: radius.full,
-              }
-            ]}>
-              <Text style={[styles.dateTagText, { color: colors.text }]}>
-                📅 {formatDate(selectedDate)}
-              </Text>
-            </View>
-
-            {expiresAt && (
-              <Text style={[styles.expiresText, { color: colors.textTertiary }]}>
-                24시간 후 만료
-              </Text>
-            )}
-          </Animated.View>
-        ) : null}
+          {qrToken && (
+            <Button
+              title="공유하기"
+              onPress={handleShare}
+              variant="secondary"
+              size="lg"
+              fullWidth
+            />
+          )}
+        </Animated.View>
       </View>
-
-      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.footer}>
-        <Text style={[styles.instructionText, { color: colors.textSecondary }]}>
-          배송담당자가 이 QR을 스캔하면{'\n'}이름 입력 후 배송 목록을 확인할 수 있습니다
-        </Text>
-
-        {qrToken && (
-          <Button
-            title="공유하기"
-            onPress={handleShare}
-            variant="secondary"
-            style={styles.shareButton}
-          />
-        )}
-      </Animated.View>
     </View>
   );
 }
@@ -181,69 +299,62 @@ export default function QRGenerateScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  orbContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  content: {
+    flex: 1,
     paddingHorizontal: 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+    marginBottom: 24,
   },
   closeButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  closeText: {
+  closeIcon: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  content: {
+  mainContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  qrContainer: {
+  qrSection: {
     alignItems: 'center',
   },
-  qrWrapper: {
+  qrCard: {
+    padding: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  dateBadge: {
+    marginTop: 28,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  errorBox: {
+    alignItems: 'center',
     padding: 24,
   },
-  dateTag: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  dateTagText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  expiresText: {
-    marginTop: 12,
-    fontSize: 13,
-  },
-  errorContainer: {
-    alignItems: 'center',
+  footer: {
     gap: 16,
   },
-  errorText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  footer: {
-    alignItems: 'center',
-    paddingTop: 32,
-  },
-  instructionText: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  shareButton: {
-    paddingHorizontal: 48,
+  instructionCard: {
+    padding: 20,
+    borderWidth: 1,
+    marginBottom: 8,
   },
 });

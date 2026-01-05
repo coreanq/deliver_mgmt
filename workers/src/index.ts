@@ -34,13 +34,16 @@ app.use('/api/*', async (c, next) => {
   return corsMiddleware(c, next);
 });
 
-// 헬스 체크 (API 전용)
+// 헬스 체크 (API 전용) - ApiResponse 형식으로 반환
 app.get('/api/health', (c) => {
   return c.json({
-    name: 'deliver-mgmt-worker',
-    version: '1.0.0',
-    buildDate: c.env.BUILD_DATE,
-    status: 'healthy',
+    success: true,
+    data: {
+      name: 'deliver-mgmt-worker',
+      version: '1.0.0',
+      buildDate: c.env.BUILD_DATE,
+      status: 'healthy',
+    },
   });
 });
 

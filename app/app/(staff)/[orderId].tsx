@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  StyleSheet,
   ScrollView,
   Pressable,
   Linking,
@@ -10,12 +10,27 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
-import { Card, StatusBadge, Loading, Button } from '../../src/components';
+import { StatusBadge, Loading } from '../../src/components';
 import { useTheme } from '../../src/theme';
 import type { DeliveryStatus } from '../../src/types';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const STATUS_FLOW: DeliveryStatus[] = ['pending', 'in_transit', 'completed'];
 
@@ -27,27 +42,80 @@ function getNextStatus(current: DeliveryStatus): DeliveryStatus | null {
   return null;
 }
 
-function getStatusButtonLabel(nextStatus: DeliveryStatus | null): string {
+function getStatusButtonConfig(nextStatus: DeliveryStatus | null) {
   switch (nextStatus) {
     case 'in_transit':
-      return '🚗 배송 출발';
+      return { label: '배송 출발', icon: '🚚' };
     case 'completed':
-      return '📸 배송 완료';
+      return { label: '배송 완료', icon: '✓' };
     default:
-      return '';
+      return null;
   }
+}
+
+// Floating orb background
+function FloatingOrb({ color, size, initialX, initialY, delay }: {
+  color: string;
+  size: number;
+  initialX: number;
+  initialY: number;
+  delay: number;
+}) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: 1000 }));
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(-12, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(12, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value * 0.4,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: `${initialX}%`,
+          top: `${initialY}%`,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
 }
 
 export default function DeliveryDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ orderId: string }>();
-  const { colors, radius, shadows } = useTheme();
+  const { colors, radius, typography, springs, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  
+
   const { token } = useAuthStore();
-  const { deliveries, selectedDelivery, selectDelivery, updateDeliveryStatus, isLoading } = useDeliveryStore();
-  
+  const { deliveries, selectedDelivery, selectDelivery, updateDeliveryStatus, isLoading } =
+    useDeliveryStore();
+
   const [updating, setUpdating] = useState(false);
+
+  const backScale = useSharedValue(1);
+  const fabScale = useSharedValue(1);
 
   useEffect(() => {
     const delivery = deliveries.find((d) => d.id === params.orderId);
@@ -71,7 +139,7 @@ export default function DeliveryDetailScreen() {
 
   const handleUpdateStatus = async () => {
     if (!token || !selectedDelivery) return;
-    
+
     const nextStatus = getNextStatus(selectedDelivery.status);
     if (!nextStatus) return;
 
@@ -92,139 +160,234 @@ export default function DeliveryDetailScreen() {
     }
   };
 
+  const backAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: backScale.value }],
+  }));
+
+  const fabAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: fabScale.value }],
+  }));
+
   if (!selectedDelivery) {
     return <Loading fullScreen message="배송 정보를 불러오는 중..." />;
   }
 
   const nextStatus = getNextStatus(selectedDelivery.status);
-  const buttonLabel = getStatusButtonLabel(nextStatus);
+  const buttonConfig = getStatusButtonConfig(nextStatus);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Animated.View 
-        entering={FadeInUp.duration(300)}
-        style={[
-          styles.header, 
-          { 
-            paddingTop: insets.top + 16,
-            backgroundColor: colors.surface,
-            borderBottomColor: colors.border,
-          },
-          shadows.sm,
+      {/* Background orbs */}
+      <View style={styles.orbContainer} pointerEvents="none">
+        <FloatingOrb color={colors.primary} size={150} initialX={-15} initialY={5} delay={0} />
+        <FloatingOrb color={colors.accent} size={100} initialX={75} initialY={50} delay={300} />
+      </View>
+
+      {/* Gradient overlay */}
+      <LinearGradient
+        colors={[
+          'transparent',
+          isDark ? 'rgba(12, 15, 20, 0.85)' : 'rgba(250, 250, 252, 0.9)',
+          colors.background,
         ]}
+        locations={[0, 0.4, 0.7]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      {/* Header */}
+      <Animated.View
+        entering={FadeIn.duration(300)}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
-        <Pressable onPress={handleBack} style={styles.backButton}>
-          <Text style={[styles.backText, { color: colors.textSecondary }]}>
-            ← 목록
-          </Text>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          배송 상세
-        </Text>
-        <View style={styles.placeholder} />
+        <AnimatedPressable
+          style={[
+            styles.backButton,
+            {
+              backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+              borderRadius: radius.lg,
+            },
+            backAnimatedStyle,
+          ]}
+          onPress={handleBack}
+          onPressIn={() => { backScale.value = withSpring(0.95, springs.snappy); }}
+          onPressOut={() => { backScale.value = withSpring(1, springs.snappy); }}
+        >
+          <Text style={[styles.backIcon, { color: colors.textSecondary }]}>←</Text>
+        </AnimatedPressable>
+        <Text style={[typography.h3, { color: colors.text, letterSpacing: -0.5 }]}>배송 상세</Text>
+        <View style={{ width: 44 }} />
       </Animated.View>
 
-      <ScrollView 
+      {/* Content */}
+      <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
       >
+        {/* Main Card */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          <Card style={styles.mainCard}>
-            <View style={styles.statusRow}>
-              <StatusBadge status={selectedDelivery.status} />
-            </View>
+          <View
+            style={[
+              styles.mainCard,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.8)',
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                borderRadius: radius['2xl'],
+              },
+            ]}
+          >
+            <StatusBadge status={selectedDelivery.status} size="lg" showPulse />
 
             <View style={styles.recipientSection}>
-              <Text style={[styles.recipientName, { color: colors.text }]}>
+              <Text
+                style={[
+                  typography.h1,
+                  { color: colors.text, marginTop: 20, fontSize: 28, letterSpacing: -1 },
+                ]}
+              >
                 {selectedDelivery.recipientName}
               </Text>
               <Pressable onPress={handleCall} style={styles.phoneRow}>
-                <Text style={[styles.phone, { color: colors.primary }]}>
-                  📞 {selectedDelivery.recipientPhone}
-                </Text>
+                <LinearGradient
+                  colors={[colors.primary, colors.accent]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.phoneBadge, { borderRadius: radius.full }]}
+                >
+                  <Text style={styles.phoneIcon}>📞</Text>
+                  <Text style={[typography.label, { color: '#FFFFFF' }]}>
+                    {selectedDelivery.recipientPhone}
+                  </Text>
+                </LinearGradient>
               </Pressable>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+            <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]} />
 
+            {/* Address */}
             <View style={styles.infoSection}>
-              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>
-                배송 주소
-              </Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
+              <Text style={[typography.overline, { color: colors.textMuted }]}>배송 주소</Text>
+              <Text style={[typography.body, { color: colors.text, marginTop: 10, lineHeight: 24 }]}>
                 {selectedDelivery.recipientAddress}
               </Text>
             </View>
 
+            {/* Product */}
             <View style={styles.infoSection}>
-              <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>
-                상품 정보
-              </Text>
-              <View style={[
-                styles.productBadge, 
-                { 
-                  backgroundColor: colors.surfaceSecondary,
-                  borderRadius: radius.md,
-                }
-              ]}>
-                <Text style={[styles.productText, { color: colors.textSecondary }]}>
-                  📦 {selectedDelivery.productName} x {selectedDelivery.quantity}
+              <Text style={[typography.overline, { color: colors.textMuted }]}>상품 정보</Text>
+              <View
+                style={[
+                  styles.productBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: radius.lg,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <Text style={[typography.body, { color: colors.text }]}>
+                  {selectedDelivery.productName} × {selectedDelivery.quantity}
                 </Text>
               </View>
             </View>
 
+            {/* Memo */}
             {selectedDelivery.memo && (
               <View style={styles.infoSection}>
-                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>
-                  메모
-                </Text>
-                <Text style={[styles.memo, { color: colors.textSecondary }]}>
-                  {selectedDelivery.memo}
-                </Text>
+                <Text style={[typography.overline, { color: colors.textMuted }]}>메모</Text>
+                <View
+                  style={[
+                    styles.memoCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                      borderRadius: radius.lg,
+                      marginTop: 10,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.body,
+                      { color: colors.textSecondary, fontStyle: 'italic', lineHeight: 22 },
+                    ]}
+                  >
+                    {selectedDelivery.memo}
+                  </Text>
+                </View>
               </View>
             )}
-          </Card>
+          </View>
         </Animated.View>
 
+        {/* Photo Card (if exists) */}
         {selectedDelivery.photoUrl && (
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <Card style={styles.photoCard}>
-              <Text style={[styles.photoLabel, { color: colors.textTertiary }]}>
-                배송 완료 사진
-              </Text>
-              <View style={[
-                styles.photoPlaceholder, 
-                { 
-                  backgroundColor: colors.primaryLight + '20',
-                  borderRadius: radius.lg,
-                }
-              ]}>
-                <Text style={styles.photoIcon}>📷</Text>
+            <View
+              style={[
+                styles.photoCard,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.8)',
+                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                  borderRadius: radius['2xl'],
+                },
+              ]}
+            >
+              <Text style={[typography.overline, { color: colors.textMuted }]}>배송 완료 사진</Text>
+              <View
+                style={[
+                  styles.photoPlaceholder,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: radius.xl,
+                    marginTop: 12,
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 40 }}>📷</Text>
               </View>
-            </Card>
+            </View>
           </Animated.View>
         )}
       </ScrollView>
 
-      {nextStatus && (
-        <Animated.View 
+      {/* Bottom Action */}
+      {buttonConfig && (
+        <Animated.View
           entering={FadeInUp.delay(300).duration(400)}
           style={[
             styles.bottomBar,
-            { 
+            {
               paddingBottom: insets.bottom + 16,
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
+              backgroundColor: isDark ? 'rgba(12, 15, 20, 0.95)' : 'rgba(250, 250, 252, 0.95)',
+              borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
             },
-            shadows.lg,
           ]}
         >
-          <Button
-            title={buttonLabel}
+          <AnimatedPressable
+            style={[styles.actionButtonWrapper, fabAnimatedStyle]}
             onPress={handleUpdateStatus}
-            loading={updating || isLoading}
-            style={styles.actionButton}
-          />
+            onPressIn={() => { fabScale.value = withSpring(0.95, springs.snappy); }}
+            onPressOut={() => { fabScale.value = withSpring(1, springs.snappy); }}
+            disabled={updating || isLoading}
+          >
+            <LinearGradient
+              colors={nextStatus === 'completed' ? [colors.accent, colors.primary] : [colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.actionButton, { borderRadius: radius.xl }]}
+            >
+              {updating || isLoading ? (
+                <Loading size="sm" />
+              ) : (
+                <>
+                  <Text style={styles.actionIcon}>{buttonConfig.icon}</Text>
+                  <Text style={[typography.button, { color: '#FFFFFF', fontSize: 17 }]}>
+                    {buttonConfig.label}
+                  </Text>
+                </>
+              )}
+            </LinearGradient>
+          </AnimatedPressable>
         </Animated.View>
       )}
     </View>
@@ -235,28 +398,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  orbContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 16,
-    borderBottomWidth: 1,
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backText: {
-    fontSize: 16,
+  backIcon: {
+    fontSize: 20,
     fontWeight: '500',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  placeholder: {
-    width: 60,
   },
   scrollView: {
     flex: 1,
@@ -266,72 +427,48 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   mainCard: {
-    gap: 16,
-  },
-  statusRow: {
-    alignItems: 'flex-start',
+    padding: 24,
+    borderWidth: 1,
   },
   recipientSection: {
-    gap: 8,
-  },
-  recipientName: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+    marginTop: 8,
   },
   phoneRow: {
+    marginTop: 16,
     alignSelf: 'flex-start',
   },
-  phone: {
+  phoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  phoneIcon: {
     fontSize: 16,
-    fontWeight: '500',
   },
   divider: {
     height: 1,
+    marginVertical: 24,
   },
   infoSection: {
-    gap: 8,
-  },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  infoValue: {
-    fontSize: 16,
-    lineHeight: 24,
+    marginBottom: 20,
   },
   productBadge: {
+    padding: 14,
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
-  productText: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  memo: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontStyle: 'italic',
+  memoCard: {
+    padding: 14,
   },
   photoCard: {
-    gap: 12,
-  },
-  photoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    padding: 20,
+    borderWidth: 1,
   },
   photoPlaceholder: {
     height: 200,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  photoIcon: {
-    fontSize: 48,
   },
   bottomBar: {
     position: 'absolute',
@@ -342,7 +479,17 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
   },
+  actionButtonWrapper: {
+    overflow: 'hidden',
+  },
   actionButton: {
-    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 10,
+  },
+  actionIcon: {
+    fontSize: 20,
   },
 });

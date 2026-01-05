@@ -1,34 +1,133 @@
 import { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Pressable,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withSpring,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
 import { Button, Loading } from '../../src/components';
 import { useTheme } from '../../src/theme';
 import type { QRScanData } from '../../src/types';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Floating orb for permission screen
+function FloatingOrb({ color, size, initialX, initialY, delay }: {
+  color: string;
+  size: number;
+  initialX: number;
+  initialY: number;
+  delay: number;
+}) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: 1000 }));
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(-15, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(15, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value * 0.5,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          left: `${initialX}%`,
+          top: `${initialY}%`,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: color,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+function ScanFrame() {
+  const { colors } = useTheme();
+  const scanLineY = useSharedValue(0);
+
+  useEffect(() => {
+    scanLineY.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const scanLineStyle = useAnimatedStyle(() => ({
+    top: `${scanLineY.value * 100}%`,
+  }));
+
+  return (
+    <View style={styles.scanFrame}>
+      {/* Corners */}
+      <View style={[styles.corner, styles.topLeft, { borderColor: colors.accent }]} />
+      <View style={[styles.corner, styles.topRight, { borderColor: colors.accent }]} />
+      <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.accent }]} />
+      <View style={[styles.corner, styles.bottomRight, { borderColor: colors.accent }]} />
+
+      {/* Scan line */}
+      <Animated.View style={[styles.scanLine, scanLineStyle]}>
+        <LinearGradient
+          colors={['transparent', colors.accent, 'transparent']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.scanLineGradient}
+        />
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function QRScanScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const rootNavigation = navigation.getParent();
-  const { colors, radius } = useTheme();
+  const { colors, radius, typography, isDark, springs } = useTheme();
   const insets = useSafeAreaInsets();
-  
+
   const { isAuthenticated, state, logout } = useAuthStore();
-  
+
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [scanData, setScanData] = useState<QRScanData | null>(null);
+
+  const backScale = useSharedValue(1);
 
   useEffect(() => {
     if (isAuthenticated && state === 'authenticated') {
@@ -38,14 +137,12 @@ export default function QRScanScreen() {
 
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
     if (scanned) return;
-    
+
     try {
       const data = JSON.parse(result.data) as QRScanData;
-      
+
       if (data.token && data.date) {
         setScanned(true);
-        setScanData(data);
-        
         router.push({
           pathname: '/(staff)/verify',
           params: { token: data.token, date: data.date },
@@ -70,8 +167,11 @@ export default function QRScanScreen() {
 
   const handleRescan = () => {
     setScanned(false);
-    setScanData(null);
   };
+
+  const backAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: backScale.value }],
+  }));
 
   if (!permission) {
     return <Loading fullScreen message="카메라 권한 확인 중..." />;
@@ -79,24 +179,60 @@ export default function QRScanScreen() {
 
   if (!permission.granted) {
     return (
-      <View style={[
-        styles.container, 
-        { 
-          backgroundColor: colors.background,
-          paddingTop: insets.top + 20,
-        }
-      ]}>
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.permissionContainer}>
-          <Text style={styles.permissionEmoji}>📷</Text>
-          <Text style={[styles.permissionTitle, { color: colors.text }]}>
-            카메라 권한이 필요합니다
-          </Text>
-          <Text style={[styles.permissionDescription, { color: colors.textSecondary }]}>
-            QR 코드를 스캔하려면 카메라 권한을 허용해주세요
-          </Text>
-          <Button title="권한 허용하기" onPress={requestPermission} style={styles.permissionButton} />
-          <Button title="뒤로 가기" onPress={handleBack} variant="ghost" />
-        </Animated.View>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Background orbs */}
+        <View style={styles.orbContainer} pointerEvents="none">
+          <FloatingOrb color={colors.accent} size={180} initialX={-15} initialY={10} delay={0} />
+          <FloatingOrb color={colors.primary} size={120} initialX={70} initialY={60} delay={300} />
+        </View>
+
+        {/* Gradient overlay */}
+        <LinearGradient
+          colors={[
+            'transparent',
+            isDark ? 'rgba(12, 15, 20, 0.85)' : 'rgba(250, 250, 252, 0.9)',
+            colors.background,
+          ]}
+          locations={[0, 0.4, 0.7]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+
+        <View style={[styles.permissionContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+          <Animated.View entering={FadeInDown.duration(500)} style={styles.permissionBox}>
+            <View
+              style={[
+                styles.permissionIcon,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                  borderRadius: radius.full,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 44 }}>📷</Text>
+            </View>
+            <Text
+              style={[
+                typography.h2,
+                { color: colors.text, marginTop: 28, fontSize: 26, letterSpacing: -0.5 },
+              ]}
+            >
+              카메라 권한 필요
+            </Text>
+            <Text
+              style={[
+                typography.body,
+                { color: colors.textSecondary, marginTop: 12, textAlign: 'center', lineHeight: 24 },
+              ]}
+            >
+              QR 코드를 스캔하려면{'\n'}카메라 권한을 허용해주세요
+            </Text>
+            <View style={{ marginTop: 36, gap: 12, width: '100%' }}>
+              <Button title="권한 허용하기" onPress={requestPermission} size="lg" fullWidth />
+              <Button title="뒤로 가기" onPress={handleBack} variant="ghost" />
+            </View>
+          </Animated.View>
+        </View>
       </View>
     );
   }
@@ -106,45 +242,64 @@ export default function QRScanScreen() {
       <CameraView
         style={StyleSheet.absoluteFillObject}
         facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
       />
 
-      <View style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      {/* Overlay */}
+      <LinearGradient
+        colors={['rgba(12, 15, 20, 0.85)', 'rgba(12, 15, 20, 0.3)', 'rgba(12, 15, 20, 0.85)']}
+        locations={[0, 0.5, 1]}
+        style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
+      >
+        {/* Header */}
         <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.header}>
-          <Pressable onPress={handleBack} style={styles.backButton}>
-            <Text style={styles.backText}>←</Text>
-          </Pressable>
-          <Text style={styles.title}>QR 코드 스캔</Text>
-          <View style={styles.placeholder} />
+          <AnimatedPressable
+            style={[
+              styles.backButton,
+              { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: radius.lg },
+              backAnimatedStyle,
+            ]}
+            onPress={handleBack}
+            onPressIn={() => { backScale.value = withSpring(0.95, springs.snappy); }}
+            onPressOut={() => { backScale.value = withSpring(1, springs.snappy); }}
+          >
+            <Text style={styles.backIcon}>←</Text>
+          </AnimatedPressable>
+          <Text style={[typography.h3, { color: '#FFFFFF', letterSpacing: -0.5 }]}>QR 스캔</Text>
+          <View style={{ width: 44 }} />
         </Animated.View>
 
+        {/* Scan Area */}
         <View style={styles.scanArea}>
-          <View style={styles.scanFrame}>
-            <View style={[styles.corner, styles.topLeft, { borderColor: colors.primary }]} />
-            <View style={[styles.corner, styles.topRight, { borderColor: colors.primary }]} />
-            <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.primary }]} />
-            <View style={[styles.corner, styles.bottomRight, { borderColor: colors.primary }]} />
-          </View>
+          <ScanFrame />
         </View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.footer}>
-          <Text style={styles.instruction}>
-            관리자가 보여주는 QR 코드를{'\n'}화면 중앙에 맞춰주세요
-          </Text>
-          
+        {/* Footer */}
+        <Animated.View entering={FadeInUp.delay(300).duration(400)} style={styles.footer}>
+          <View
+            style={[
+              styles.instructionCard,
+              {
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderRadius: radius.xl,
+              },
+            ]}
+          >
+            <Text style={[typography.body, { color: 'rgba(255,255,255,0.9)', textAlign: 'center', lineHeight: 24 }]}>
+              관리자가 보여주는 QR 코드를{'\n'}프레임 안에 맞춰주세요
+            </Text>
+          </View>
+
           {scanned && (
-            <Button 
-              title="다시 스캔하기" 
-              onPress={handleRescan} 
+            <Button
+              title="다시 스캔하기"
+              onPress={handleRescan}
               variant="secondary"
-              style={styles.rescanButton}
             />
           )}
         </Animated.View>
-      </View>
+      </LinearGradient>
     </View>
   );
 }
@@ -153,13 +308,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  orbContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  permissionContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  permissionBox: {
+    alignItems: 'center',
+  },
+  permissionIcon: {
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cameraContainer: {
     flex: 1,
     backgroundColor: '#000',
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     paddingHorizontal: 24,
   },
   header: {
@@ -168,20 +340,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backText: {
-    color: '#ffffff',
-    fontSize: 24,
+  backIcon: {
+    fontSize: 20,
+    color: '#FFFFFF',
     fontWeight: '500',
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  placeholder: {
-    width: 60,
   },
   scanArea: {
     flex: 1,
@@ -189,14 +356,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scanFrame: {
-    width: 280,
-    height: 280,
+    width: 260,
+    height: 260,
     position: 'relative',
   },
   corner: {
     position: 'absolute',
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
   },
   topLeft: {
     top: 0,
@@ -226,44 +393,22 @@ const styles = StyleSheet.create({
     borderRightWidth: 4,
     borderBottomRightRadius: 12,
   },
+  scanLine: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    height: 2,
+  },
+  scanLineGradient: {
+    flex: 1,
+  },
   footer: {
     alignItems: 'center',
-    paddingVertical: 32,
+    gap: 20,
+    paddingVertical: 24,
   },
-  instruction: {
-    color: '#ffffff',
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  rescanButton: {
-    paddingHorizontal: 32,
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  permissionEmoji: {
-    fontSize: 64,
-    marginBottom: 24,
-  },
-  permissionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  permissionDescription: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  permissionButton: {
-    marginBottom: 16,
-    paddingHorizontal: 48,
+  instructionCard: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
 });

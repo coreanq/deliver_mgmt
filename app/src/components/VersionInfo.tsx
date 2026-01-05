@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { healthCheck } from '../services/api';
+import { useTheme } from '../theme';
 
 const getUpdateDate = (): string => {
   if (!Updates.isEmbeddedLaunch && Updates.createdAt) {
@@ -18,31 +19,38 @@ const getUpdateDate = (): string => {
 };
 
 export function VersionInfo() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const [serverDate, setServerDate] = useState<string>('');
+  const { colors, typography } = useTheme();
+  const [serverDate, setServerDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const updateDate = getUpdateDate();
 
   useEffect(() => {
-    healthCheck().then((res) => {
-      if (res.success && res.data?.buildDate) {
-        setServerDate(res.data.buildDate);
-      }
-    });
+    healthCheck()
+      .then((res) => {
+        if (res.success && res.data?.buildDate) {
+          setServerDate(res.data.buildDate);
+        } else {
+          setServerDate('-');
+        }
+      })
+      .catch(() => {
+        setServerDate('-');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.text, { color: isDark ? '#6b7280' : '#9ca3af' }]}>
+      <Text style={[styles.text, typography.caption, { color: colors.textMuted }]}>
         App v{appVersion} ({updateDate})
       </Text>
-      {serverDate && (
-        <Text style={[styles.text, { color: isDark ? '#6b7280' : '#9ca3af' }]}>
-          Server {serverDate}
-        </Text>
-      )}
+      <Text style={[styles.text, typography.caption, { color: colors.textMuted }]}>
+        Server {loading ? '...' : serverDate}
+      </Text>
     </View>
   );
 }
@@ -51,7 +59,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: 8,
-    gap: 2,
+    gap: 4,
   },
   text: {
     fontSize: 11,
