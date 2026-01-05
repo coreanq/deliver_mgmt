@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -27,7 +28,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
-import { StatusBadge, Loading, Button } from '../../src/components';
+import { StatusBadge, Loading, Button, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
 import type { Delivery } from '../../src/types';
 
@@ -148,7 +149,11 @@ function StatCard({ value, label, color, delay, isSelected, onPress }: {
 }
 
 // Delivery item component
-function DeliveryItem({ delivery, index }: { delivery: Delivery; index: number }) {
+function DeliveryItem({ delivery, index, onPhotoPress }: {
+  delivery: Delivery;
+  index: number;
+  onPhotoPress?: (url: string) => void;
+}) {
   const { colors, radius, typography, isDark, springs } = useTheme();
   const scale = useSharedValue(1);
 
@@ -214,6 +219,29 @@ function DeliveryItem({ delivery, index }: { delivery: Delivery; index: number }
               </Text>
             )}
           </View>
+
+          {/* 배송 완료 사진 썸네일 */}
+          {delivery.photoUrl && (
+            <Pressable
+              style={[
+                styles.photoThumbnail,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                  borderRadius: radius.lg,
+                },
+              ]}
+              onPress={() => onPhotoPress?.(delivery.photoUrl!)}
+            >
+              <Image
+                source={{ uri: delivery.photoUrl }}
+                style={[styles.thumbnailImage, { borderRadius: radius.md }]}
+                resizeMode="cover"
+              />
+              <Text style={[typography.caption, { color: colors.textMuted, marginLeft: 10 }]}>
+                배송 완료 사진
+              </Text>
+            </Pressable>
+          )}
         </View>
       </Pressable>
     </Animated.View>
@@ -233,6 +261,7 @@ export default function AdminDashboardScreen() {
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+  const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
 
   // 날짜 변경 함수
   const changeDate = (days: number) => {
@@ -487,7 +516,12 @@ export default function AdminDashboardScreen() {
           </Animated.View>
         ) : (
           filteredDeliveries.map((delivery, index) => (
-            <DeliveryItem key={delivery.id} delivery={delivery} index={index} />
+            <DeliveryItem
+              key={delivery.id}
+              delivery={delivery}
+              index={index}
+              onPhotoPress={setFullScreenPhoto}
+            />
           ))
         )}
       </ScrollView>
@@ -514,6 +548,13 @@ export default function AdminDashboardScreen() {
           </LinearGradient>
         </AnimatedPressable>
       </Animated.View>
+
+      {/* 전체 화면 사진 뷰어 */}
+      <ImageViewer
+        visible={!!fullScreenPhoto}
+        imageUrl={fullScreenPhoto}
+        onClose={() => setFullScreenPhoto(null)}
+      />
     </View>
   );
 }
@@ -631,5 +672,15 @@ const styles = StyleSheet.create({
   fabIcon: {
     fontSize: 20,
     color: '#FFFFFF',
+  },
+  photoThumbnail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 8,
+  },
+  thumbnailImage: {
+    width: 48,
+    height: 48,
   },
 });

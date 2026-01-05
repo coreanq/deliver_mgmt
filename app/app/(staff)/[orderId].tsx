@@ -7,6 +7,7 @@ import {
   Pressable,
   Linking,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,7 +27,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
-import { StatusBadge, Loading } from '../../src/components';
+import { StatusBadge, Loading, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
 import type { DeliveryStatus } from '../../src/types';
 
@@ -113,6 +114,7 @@ export default function DeliveryDetailScreen() {
     useDeliveryStore();
 
   const [updating, setUpdating] = useState(false);
+  const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
 
   const backScale = useSharedValue(1);
   const fabScale = useSharedValue(1);
@@ -333,18 +335,26 @@ export default function DeliveryDetailScreen() {
               ]}
             >
               <Text style={[typography.overline, { color: colors.textMuted }]}>배송 완료 사진</Text>
-              <View
+              <Pressable
                 style={[
-                  styles.photoPlaceholder,
+                  styles.photoWrapper,
                   {
                     backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
                     borderRadius: radius.xl,
                     marginTop: 12,
                   },
                 ]}
+                onPress={() => setFullScreenPhoto(selectedDelivery.photoUrl)}
               >
-                <Text style={{ fontSize: 40 }}>📷</Text>
-              </View>
+                <Image
+                  source={{ uri: selectedDelivery.photoUrl }}
+                  style={[styles.photo, { borderRadius: radius.lg }]}
+                  resizeMode="cover"
+                />
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: 8, textAlign: 'center' }]}>
+                  탭하여 크게 보기
+                </Text>
+              </Pressable>
             </View>
           </Animated.View>
         )}
@@ -390,6 +400,13 @@ export default function DeliveryDetailScreen() {
           </AnimatedPressable>
         </Animated.View>
       )}
+
+      {/* 전체 화면 사진 뷰어 */}
+      <ImageViewer
+        visible={!!fullScreenPhoto}
+        imageUrl={fullScreenPhoto}
+        onClose={() => setFullScreenPhoto(null)}
+      />
     </View>
   );
 }
@@ -465,10 +482,12 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
   },
-  photoPlaceholder: {
-    height: 200,
-    alignItems: 'center',
-    justifyContent: 'center',
+  photoWrapper: {
+    overflow: 'hidden',
+  },
+  photo: {
+    width: '100%',
+    height: 250,
   },
   bottomBar: {
     position: 'absolute',
