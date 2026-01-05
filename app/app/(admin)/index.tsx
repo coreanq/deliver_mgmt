@@ -230,9 +230,22 @@ export default function AdminDashboardScreen() {
   const { admin, token, logout } = useAuthStore();
   const { deliveries, isLoading, error, fetchDeliveries } = useDeliveryStore();
 
-  const [selectedDate] = useState(getTodayString());
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+
+  // 날짜 변경 함수
+  const changeDate = (days: number) => {
+    const current = new Date(selectedDate);
+    current.setDate(current.getDate() + days);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
+    setSelectedFilter('all'); // 날짜 변경 시 필터 초기화
+  };
+
+  const isToday = selectedDate === getTodayString();
 
   const fabScale = useSharedValue(1);
 
@@ -330,19 +343,57 @@ export default function AdminDashboardScreen() {
           </Pressable>
         </View>
 
-        <Text
-          style={[
-            typography.h1,
-            {
-              color: colors.text,
-              fontSize: 28,
-              letterSpacing: -1,
-              marginTop: 20,
-            },
-          ]}
-        >
-          {formatDate(selectedDate)}
-        </Text>
+        {/* 날짜 네비게이션 */}
+        <View style={styles.dateNav}>
+          <Pressable
+            style={[
+              styles.dateNavBtn,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                borderRadius: radius.lg,
+              },
+            ]}
+            onPress={() => changeDate(-1)}
+          >
+            <Text style={[styles.dateNavIcon, { color: colors.textSecondary }]}>‹</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.dateTextContainer}
+            onPress={() => !isToday && setSelectedDate(getTodayString())}
+          >
+            <Text
+              style={[
+                typography.h1,
+                {
+                  color: colors.text,
+                  fontSize: 26,
+                  letterSpacing: -1,
+                },
+              ]}
+            >
+              {formatDate(selectedDate)}
+            </Text>
+            {!isToday && (
+              <Text style={[typography.caption, { color: colors.primary, marginTop: 2 }]}>
+                오늘로 이동
+              </Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.dateNavBtn,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                borderRadius: radius.lg,
+              },
+            ]}
+            onPress={() => changeDate(1)}
+          >
+            <Text style={[styles.dateNavIcon, { color: colors.textSecondary }]}>›</Text>
+          </Pressable>
+        </View>
 
         {/* Stats - clickable filters */}
         <View style={styles.statsRow}>
@@ -488,6 +539,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderWidth: 1,
+  },
+  dateNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  dateNavBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateNavIcon: {
+    fontSize: 28,
+    fontWeight: '300',
+  },
+  dateTextContainer: {
+    flex: 1,
+    alignItems: 'center',
   },
   statsRow: {
     flexDirection: 'row',

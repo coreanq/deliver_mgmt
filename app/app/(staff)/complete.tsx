@@ -385,7 +385,7 @@ export default function CompleteDeliveryScreen() {
               ]}
             >
               <Image
-                source={{ uri: photo }}
+                source={{ uri: photoUri || photo }}
                 style={[styles.previewImage, { borderRadius: radius.xl }]}
                 resizeMode="contain"
               />
