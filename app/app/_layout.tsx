@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, useColorScheme, ActivityIndicator } from 'react-native';
@@ -33,24 +33,8 @@ function useDeepLinking() {
 }
 
 function useAppInit() {
-  const [isReady, setIsReady] = useState(false);
-  const restore = useAuthStore((s) => s.restore);
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        await restore();
-      } catch (error) {
-        console.error('App init error:', error);
-      } finally {
-        setIsReady(true);
-      }
-    };
-    
-    init();
-  }, [restore]);
-
-  return isReady;
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
+  return hasHydrated;
 }
 
 export default function RootLayout() {

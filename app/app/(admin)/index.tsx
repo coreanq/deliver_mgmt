@@ -8,6 +8,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
@@ -86,6 +88,8 @@ function DeliveryCard({ delivery, index }: DeliveryCardProps) {
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const rootNavigation = navigation.getParent();
   const { colors, radius, shadows } = useTheme();
   const insets = useSafeAreaInsets();
   
@@ -117,7 +121,12 @@ export default function AdminDashboardScreen() {
 
   const handleLogout = () => {
     logout();
-    router.replace('/(admin)/login');
+    rootNavigation?.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'index' }],
+      })
+    );
   };
 
   const handleGenerateQR = () => {

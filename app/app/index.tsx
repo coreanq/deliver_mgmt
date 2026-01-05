@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { 
   FadeInDown, 
@@ -11,7 +11,6 @@ import Animated, {
 import { useAuthStore } from '../src/stores/auth';
 import { VersionInfo } from '../src/components';
 import { useTheme } from '../src/theme';
-import { useEffect } from 'react';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -81,17 +80,15 @@ export default function RoleSelectionScreen() {
   const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
   
-  const { selectRole, isAuthenticated, role, state } = useAuthStore();
+  const { selectRole, role, state, token } = useAuthStore();
+  const isAuthenticated = state === 'authenticated' && token !== null;
 
-  useEffect(() => {
-    if (isAuthenticated && state === 'authenticated') {
-      if (role === 'admin') {
-        router.replace('/(admin)');
-      } else if (role === 'staff') {
-        router.replace('/(staff)');
-      }
-    }
-  }, [isAuthenticated, role, state, router]);
+  if (isAuthenticated && role === 'admin') {
+    return <Redirect href="/(admin)" />;
+  }
+  if (isAuthenticated && role === 'staff') {
+    return <Redirect href="/(staff)" />;
+  }
 
   const handleSelectAdmin = () => {
     selectRole('admin');

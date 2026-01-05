@@ -8,13 +8,14 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
 import { Card, StatusBadge, Loading, Button } from '../../src/components';
 import { useTheme } from '../../src/theme';
-import { logApi } from '../../src/services/api';
 import type { Delivery } from '../../src/types';
 
 function formatDate(dateStr: string): string {
@@ -83,6 +84,8 @@ function DeliveryItem({ delivery, index, onPress }: DeliveryItemProps) {
 
 export default function StaffDeliveryListScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const rootNavigation = navigation.getParent();
   const { colors, shadows } = useTheme();
   const insets = useSafeAreaInsets();
   
@@ -93,18 +96,7 @@ export default function StaffDeliveryListScreen() {
   
   useEffect(() => {
     if (token && staff?.name) {
-      logApi.send({
-        event: 'STAFF_LIST_FETCHING',
-        staffName: staff.name,
-        timestamp: new Date().toISOString(),
-      });
-      fetchStaffDeliveries(token, staff.name).catch((err) => {
-        logApi.send({
-          event: 'STAFF_LIST_FETCH_ERROR',
-          error: err instanceof Error ? err.message : String(err),
-          timestamp: new Date().toISOString(),
-        });
-      });
+      fetchStaffDeliveries(token, staff.name);
     }
   }, [token, staff, fetchStaffDeliveries]);
 
@@ -124,7 +116,12 @@ export default function StaffDeliveryListScreen() {
 
   const handleLogout = () => {
     logout();
-    router.replace('/(staff)/scan');
+    rootNavigation?.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'index' }],
+      })
+    );
   };
 
   const handleDeliveryPress = (delivery: Delivery) => {

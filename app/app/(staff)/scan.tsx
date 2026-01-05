@@ -7,21 +7,24 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
 import { Button, Loading } from '../../src/components';
 import { useTheme } from '../../src/theme';
-import { logApi } from '../../src/services/api';
 import type { QRScanData } from '../../src/types';
 
 export default function QRScanScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const rootNavigation = navigation.getParent();
   const { colors, radius } = useTheme();
   const insets = useSafeAreaInsets();
   
-  const { isAuthenticated, state } = useAuthStore();
+  const { isAuthenticated, state, logout } = useAuthStore();
   
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -36,53 +39,33 @@ export default function QRScanScreen() {
   const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
     if (scanned) return;
     
-    logApi.send({ 
-      event: 'QR_SCAN_START', 
-      rawData: result.data?.substring(0, 100),
-      timestamp: new Date().toISOString(),
-    });
-    
     try {
       const data = JSON.parse(result.data) as QRScanData;
-      
-      logApi.send({ 
-        event: 'QR_SCAN_PARSED', 
-        hasToken: !!data.token,
-        hasDate: !!data.date,
-        date: data.date,
-      });
       
       if (data.token && data.date) {
         setScanned(true);
         setScanData(data);
-        
-        logApi.send({ 
-          event: 'QR_SCAN_NAVIGATING', 
-          to: '/(staff)/verify',
-          token: data.token.substring(0, 10) + '...',
-          date: data.date,
-        });
         
         router.push({
           pathname: '/(staff)/verify',
           params: { token: data.token, date: data.date },
         });
       } else {
-        logApi.send({ event: 'QR_SCAN_INVALID', reason: 'missing_token_or_date' });
         Alert.alert('오류', '유효하지 않은 QR 코드입니다.');
       }
     } catch (error) {
-      logApi.send({ 
-        event: 'QR_SCAN_ERROR', 
-        error: error instanceof Error ? error.message : String(error),
-        rawData: result.data?.substring(0, 50),
-      });
       Alert.alert('오류', 'QR 코드를 인식할 수 없습니다.');
     }
   };
 
   const handleBack = () => {
-    router.replace('/');
+    rootNavigation?.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'index' }],
+      })
+    );
+    setTimeout(() => logout(), 100);
   };
 
   const handleRescan = () => {
@@ -132,7 +115,7 @@ export default function QRScanScreen() {
       <View style={[styles.overlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.header}>
           <Pressable onPress={handleBack} style={styles.backButton}>
-            <Text style={styles.backText}>🏠</Text>
+            <Text style={styles.backText}>←</Text>
           </Pressable>
           <Text style={styles.title}>QR 코드 스캔</Text>
           <View style={styles.placeholder} />

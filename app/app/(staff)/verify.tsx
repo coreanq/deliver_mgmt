@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -14,7 +14,6 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
 import { Button } from '../../src/components';
 import { useTheme } from '../../src/theme';
-import { logApi } from '../../src/services/api';
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -35,58 +34,15 @@ export default function VerifyScreen() {
   
   const [name, setName] = useState('');
 
-  useEffect(() => {
-    logApi.send({
-      event: 'VERIFY_SCREEN_MOUNTED',
-      token: params.token ? `${params.token.substring(0, 8)}...` : 'undefined',
-      date: params.date || 'undefined',
-      timestamp: new Date().toISOString(),
-    });
-  }, [params.token, params.date]);
-
   const handleVerify = async () => {
-    if (!name.trim() || !params.token) {
-      logApi.send({
-        event: 'VERIFY_VALIDATION_FAILED',
-        hasName: !!name.trim(),
-        hasToken: !!params.token,
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
-    
-    logApi.send({
-      event: 'VERIFY_LOGIN_START',
-      name: name.trim(),
-      token: `${params.token.substring(0, 8)}...`,
-      timestamp: new Date().toISOString(),
-    });
+    if (!name.trim() || !params.token) return;
     
     clearError();
     
-    try {
-      const success = await loginStaff(params.token, name.trim());
-      
-      logApi.send({
-        event: 'VERIFY_LOGIN_RESULT',
-        success,
-        timestamp: new Date().toISOString(),
-      });
-      
-      if (success) {
-        logApi.send({
-          event: 'VERIFY_NAVIGATING',
-          to: '/(staff)',
-          timestamp: new Date().toISOString(),
-        });
-        router.replace('/(staff)');
-      }
-    } catch (err) {
-      logApi.send({
-        event: 'VERIFY_LOGIN_ERROR',
-        error: err instanceof Error ? err.message : String(err),
-        timestamp: new Date().toISOString(),
-      });
+    const success = await loginStaff(params.token, name.trim());
+    
+    if (success) {
+      router.replace('/(staff)');
     }
   };
 

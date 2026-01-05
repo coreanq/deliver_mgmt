@@ -10,6 +10,8 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/auth';
@@ -18,10 +20,12 @@ import { useTheme } from '../../src/theme';
 
 export default function AdminLoginScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const rootNavigation = navigation.getParent();
   const { colors, radius, shadows } = useTheme();
   const insets = useSafeAreaInsets();
   
-  const { loginAdmin, isLoading, error, clearError } = useAuthStore();
+  const { loginAdmin, logout, isLoading, error, clearError } = useAuthStore();
   
   const [email, setEmail] = useState('');
   const [emailSent, setEmailSent] = useState(false);
@@ -43,7 +47,13 @@ export default function AdminLoginScreen() {
   };
 
   const handleBack = () => {
-    router.replace('/');
+    rootNavigation?.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'index' }],
+      })
+    );
+    setTimeout(() => logout(), 100);
   };
 
   const handleResend = () => {
@@ -59,7 +69,7 @@ export default function AdminLoginScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         <Pressable onPress={handleBack} style={styles.backButton}>
           <Text style={[styles.backText, { color: colors.textSecondary }]}>
-            🏠
+            ←
           </Text>
         </Pressable>
 
