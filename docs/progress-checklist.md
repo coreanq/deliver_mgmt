@@ -1,6 +1,6 @@
 # 배송 관리 시스템 - 진척도 체크리스트
 
-> 마지막 업데이트: 2025-12-31
+> 마지막 업데이트: 2025-01-06
 
 ## 진척률 요약
 
@@ -9,8 +9,10 @@
 | Phase 1: 핵심 기능 | 5 | 5 | 100% |
 | Phase 2: 배송완료 플로우 | 3 | 3 | 100% |
 | Phase 3: 관리자 기능 | 3 | 3 | 100% |
-| Phase 4: 구독 및 고도화 | 2 | 4 | 50% |
-| **전체** | **13** | **15** | **87%** |
+| Phase 4: 구독 시스템 | 8 | 24 | 33% |
+| **전체** | **19** | **35** | **54%** |
+
+> **Note**: RevenueCat SDK가 바이너리에 포함됨. 나머지 기능은 OTA로 활성화 예정
 
 ---
 
@@ -88,23 +90,65 @@
 
 ## Phase 4: 구독 및 고도화
 
-### 유료 구독 시스템
-- [x] 구독 상태 조회 API
-- [ ] Apple IAP 연동
-- [ ] Google Play Billing 연동
+### 유료 구독 시스템 (RevenueCat)
+- [x] 구독 상태 조회 API (서버)
+- [x] 플랜 설정 (free/basic/pro)
 - [x] 보관일수 관리 로직
 
-### AdMob 광고
-- [x] 테스트 광고 ID 설정
-- [ ] 배너 광고 컴포넌트
-- [ ] 보상형 광고 (Expo Go 대응)
-- [ ] EAS OTA로 실제 ID 변경
+#### RevenueCat SDK 통합 (바이너리)
+- [x] react-native-purchases 패키지 설치
+- [x] app.config.js 플러그인 추가
+- [x] RevenueCat 서비스 기본 구조 (비활성화 상태)
+- [x] 구독 Store 생성 (subscription.ts)
+
+#### RevenueCat 대시보드 설정
+- [ ] RevenueCat 프로젝트 생성
+- [ ] Apple App Store Connect 인앱 구매 상품 등록
+- [ ] Google Play Console 인앱 상품 등록
+- [ ] RevenueCat에 스토어 연동 (App Store/Play Store)
+- [ ] Entitlements 및 Offerings 설정
+
+#### RevenueCat 앱 연동 (OTA)
+- [ ] API 키 발급 및 적용 (iOS/Android)
+- [ ] 구독 Paywall UI 구현
+- [ ] 구매 플로우 연동
+- [ ] 구독 복원 기능
+- [ ] Feature flag 활성화
+
+#### 서버 연동
+- [ ] RevenueCat Webhook 설정
+- [ ] 서버 구독 상태 동기화 API
+- [ ] 구독 만료 처리 로직
 
 ### EAS 빌드 및 배포
 - [x] eas.json 설정
 - [ ] development 빌드 테스트
 - [ ] preview 빌드 테스트
-- [ ] production 빌드 및 배포
+- [ ] production 빌드 및 스토어 배포
+
+---
+
+## OTA 활성화 변수
+
+> RevenueCat 구독 기능을 OTA로 활성화할 때 변경해야 하는 변수들
+
+### 📁 `app/src/services/revenuecat.ts`
+
+| 변수 | 현재 값 | 활성화 시 |
+|------|---------|----------|
+| `FEATURE_ENABLED` | `false` | `true` |
+| `REVENUECAT_API_KEY_IOS` | `'appl_YOUR_IOS_API_KEY'` | RevenueCat에서 발급받은 실제 iOS API 키 |
+| `REVENUECAT_API_KEY_ANDROID` | `'goog_YOUR_ANDROID_API_KEY'` | RevenueCat에서 발급받은 실제 Android API 키 |
+
+### 활성화 순서
+
+1. RevenueCat 대시보드에서 프로젝트 생성
+2. App Store Connect / Google Play Console에서 인앱 상품 등록
+3. RevenueCat에 스토어 연동 완료
+4. API 키 발급 후 위 변수에 적용
+5. `FEATURE_ENABLED = true` 변경
+6. Paywall UI 구현
+7. EAS Update로 OTA 배포
 
 ---
 
@@ -116,8 +160,7 @@
 2. **R2 버킷 생성 및 테스트** - 배송 완료 사진 저장
 3. **Cloudflare D1 마이그레이션 실행** - `npm run db:migrate`
 4. **환경 변수 설정** - `wrangler secret put JWT_SECRET` 등
-5. **AdMob 광고 실제 ID 적용** - EAS OTA 활용
-6. **인앱 결제 연동** - Apple/Google 결제 시스템
+5. **RevenueCat 연동** - 대시보드 설정 후 OTA 활성화
 
 ---
 
@@ -136,3 +179,4 @@
 |------|----------|
 | 2025-12-31 | 초기 체크리스트 생성 |
 | 2025-12-31 | Workers Assets 통합, camelCase 변환, PC 웹 빌드 완료 |
+| 2025-01-06 | RevenueCat 구독 시스템 기본 구조 추가 (SDK 설치, Store 생성) |

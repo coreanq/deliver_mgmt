@@ -32,12 +32,24 @@ export interface Delivery {
   updatedAt: string;
 }
 
+export type PlanType = 'free' | 'basic' | 'pro';
+
 export interface Subscription {
   id: string;
   adminId: string;
-  type: 'free' | 'basic' | 'pro';
+  type: PlanType;
   retentionDays: number;
   expiresAt: string | null;
+}
+
+export interface SubscriptionStatus {
+  type: PlanType;
+  retentionDays: number;
+  expiresAt: string | null;
+  isPro: boolean;
+  dailyLimit: number;
+  todayUsage: number;
+  remaining: number;
 }
 
 export interface ApiResponse<T = unknown> {
