@@ -6,6 +6,35 @@ import DeliveryDatePicker from '../components/DeliveryDatePicker';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
 
+const getMappingCacheKey = (headers: string[]) => {
+  // 헤더 정렬하여 순서 무관하게 동일한 키 생성
+  return `mapping_cache_${headers.slice().sort().join('|')}`;
+};
+
+const getCachedMapping = (headers: string[]): Record<string, string> | null => {
+  try {
+    const cached = localStorage.getItem(getMappingCacheKey(headers));
+    if (!cached) return null;
+
+    const parsed = JSON.parse(cached);
+    const validMapping: Record<string, string> = {};
+    for (const [targetField, sourceColumn] of Object.entries(parsed)) {
+      if (headers.includes(sourceColumn as string)) {
+        validMapping[targetField] = sourceColumn as string;
+      }
+    }
+    return Object.keys(validMapping).length > 0 ? validMapping : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveMappingToCache = (headers: string[], mapping: Record<string, string>) => {
+  try {
+    localStorage.setItem(getMappingCacheKey(headers), JSON.stringify(mapping));
+  } catch {}
+};
+
 const TARGET_FIELDS = [
   { key: 'recipientName', label: '수령인 이름', required: true },
   { key: 'recipientPhone', label: '연락처', required: true },
@@ -39,11 +68,16 @@ export default function Mapping() {
     }
   }, [headers, navigate]);
 
-  // AI 매핑 추천 요청
   useEffect(() => {
-    if (headers.length > 0 && Object.keys(mapping).length === 0) {
-      fetchMappingSuggestion();
+    if (headers.length === 0 || Object.keys(mapping).length > 0) return;
+
+    const cached = getCachedMapping(headers);
+    if (cached) {
+      setMapping(cached);
+      return;
     }
+
+    fetchMappingSuggestion();
   }, [headers]);
 
   const fetchMappingSuggestion = async (retryCount = 0): Promise<void> => {
@@ -81,6 +115,7 @@ export default function Mapping() {
           }
         }
         setMapping(newMapping);
+        saveMappingToCache(headers, newMapping);
         setAiError({ show: false, canRetry: false });
       } else {
         throw new Error(result.error || 'AI 매핑 추천 실패');
@@ -139,6 +174,7 @@ export default function Mapping() {
 
       const result = await response.json();
       if (result.success) {
+        saveMappingToCache(headers, mapping);
         reset();
         navigate('/', {
           state: {
