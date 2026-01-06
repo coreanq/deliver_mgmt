@@ -52,6 +52,9 @@ export default function Dashboard() {
 
   // PRO 구독 상태
   const [isPro, setIsPro] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState<number>(100);
+  const [todayUsage, setTodayUsage] = useState<number>(0);
+  const [planType, setPlanType] = useState<string>('free');
 
   // 서버 빌드 날짜
   const [serverBuildDate, setServerBuildDate] = useState('');
@@ -70,6 +73,9 @@ export default function Dashboard() {
         const result = await response.json();
         if (result.success) {
           setIsPro(result.data.isPro || false);
+          setDailyLimit(result.data.dailyLimit ?? 100);
+          setTodayUsage(result.data.todayUsage ?? 0);
+          setPlanType(result.data.type ?? 'free');
         }
       } catch (error) {
         console.error('Failed to fetch subscription:', error);
@@ -258,6 +264,37 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* 일일 사용량 표시 */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">오늘</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {dailyLimit === -1 ? (
+                      <>{todayUsage} / ∞</>
+                    ) : (
+                      <>{todayUsage} / {dailyLimit}</>
+                    )}
+                  </span>
+                </div>
+                {dailyLimit !== -1 && (
+                  <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        todayUsage / dailyLimit >= 0.9 
+                          ? 'bg-red-500' 
+                          : todayUsage / dailyLimit >= 0.7 
+                            ? 'bg-amber-500' 
+                            : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(100, (todayUsage / dailyLimit) * 100)}%` }}
+                    />
+                  </div>
+                )}
+                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase">
+                  {planType}
+                </span>
+              </div>
+
               {/* QR 생성 버튼 */}
               <button
                 onClick={generateQR}

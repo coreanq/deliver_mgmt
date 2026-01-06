@@ -1,8 +1,10 @@
 import { Hono } from 'hono';
-import type { Env, FieldMapping } from '../types';
+import type { Env, FieldMapping, Subscription } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId, getDateString, getTodayKST } from '../lib/utils';
 import { callAI } from '../services/ai';
+import { checkCanCreateDelivery, getTodayUsage } from '../lib/usage';
+import { getPlanConfig } from '../lib/plans';
 
 const upload = new Hono<{ Bindings: Env }>();
 
@@ -157,6 +159,50 @@ upload.post('/save', async (c) => {
   const targetDate = deliveryDate || getTodayKST();
 
   try {
+    const subscription = await c.env.DB.prepare(
+      'SELECT type FROM subscriptions WHERE admin_id = ?'
+    )
+      .bind(payload.sub)
+      .first<Pick<Subscription, 'type'>>();
+
+    const planType = subscription?.type || 'free';
+    const planConfig = getPlanConfig(planType);
+    const todayUsage = await getTodayUsage(c.env.DB, payload.sub);
+    const requestCount = rows.length;
+
+    if (planConfig.dailyLimit !== -1) {
+      const remaining = planConfig.dailyLimit - todayUsage;
+      
+      if (remaining <= 0) {
+        return c.json({
+          success: false,
+          error: `일일 등록 한도를 초과했습니다. (${todayUsage}/${planConfig.dailyLimit})`,
+          limitExceeded: true,
+          usage: {
+            current: todayUsage,
+            limit: planConfig.dailyLimit,
+            remaining: 0,
+            planType,
+          },
+        }, 429);
+      }
+
+      if (requestCount > remaining) {
+        return c.json({
+          success: false,
+          error: `등록 가능 건수를 초과했습니다. 요청: ${requestCount}건, 남은 한도: ${remaining}건`,
+          limitExceeded: true,
+          usage: {
+            current: todayUsage,
+            limit: planConfig.dailyLimit,
+            remaining,
+            requested: requestCount,
+            planType,
+          },
+        }, 429);
+      }
+    }
+
     // 해당 날짜에 기존 데이터 확인
     const existingData = await c.env.DB.prepare(
       'SELECT COUNT(*) as count FROM deliveries WHERE admin_id = ? AND delivery_date = ?'

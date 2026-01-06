@@ -83,7 +83,6 @@ export interface Delivery {
   updated_at: string;
 }
 
-// 구독 정보
 export interface Subscription {
   id: string;
   admin_id: string;

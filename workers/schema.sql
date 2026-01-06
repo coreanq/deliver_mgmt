@@ -57,4 +57,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- 구독 인덱스
 CREATE INDEX IF NOT EXISTS idx_subscriptions_admin_id ON subscriptions(admin_id);
 
+CREATE INDEX IF NOT EXISTS idx_deliveries_admin_created ON deliveries(admin_id, created_at);
+
 
