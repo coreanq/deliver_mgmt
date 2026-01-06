@@ -56,8 +56,8 @@ export default function Dashboard() {
   const [todayUsage, setTodayUsage] = useState<number>(0);
   const [planType, setPlanType] = useState<string>('free');
 
-  // 서버 빌드 날짜
   const [serverBuildDate, setServerBuildDate] = useState('');
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDeliveries();
@@ -168,6 +168,30 @@ export default function Dashboard() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleStatusChange = async (deliveryId: string, newStatus: 'pending' | 'in_transit' | 'completed') => {
+    setUpdatingStatusId(deliveryId);
+    try {
+      const response = await fetch(`${API_BASE}/api/delivery/${deliveryId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setDeliveries((prev) =>
+          prev.map((d) => (d.id === deliveryId ? { ...d, status: newStatus } : d))
+        );
+      }
+    } catch (error) {
+      console.error('Status update error:', error);
+    } finally {
+      setUpdatingStatusId(null);
+    }
   };
 
   // QR 코드 생성 (API 호출)
@@ -530,9 +554,16 @@ export default function Dashboard() {
                       {delivery.staffName || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[delivery.status]}`}>
-                        {STATUS_LABELS[delivery.status]}
-                      </span>
+                      <select
+                        value={delivery.status}
+                        onChange={(e) => handleStatusChange(delivery.id, e.target.value as 'pending' | 'in_transit' | 'completed')}
+                        disabled={updatingStatusId === delivery.id}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 cursor-pointer focus:ring-2 focus:ring-offset-1 ${STATUS_COLORS[delivery.status]} ${updatingStatusId === delivery.id ? 'opacity-50' : ''}`}
+                      >
+                        <option value="pending">배송 준비</option>
+                        <option value="in_transit">배송 중</option>
+                        <option value="completed">완료</option>
+                      </select>
                     </td>
                   </tr>
                 ))}
