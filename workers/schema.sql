@@ -59,4 +59,18 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_admin_id ON subscriptions(admin_id)
 
 CREATE INDEX IF NOT EXISTS idx_deliveries_admin_created ON deliveries(admin_id, created_at);
 
+-- SMS 템플릿 테이블
+CREATE TABLE IF NOT EXISTS sms_templates (
+  id TEXT PRIMARY KEY,
+  admin_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  use_ai INTEGER DEFAULT 0,
+  is_default INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+);
 
+-- SMS 템플릿 인덱스
+CREATE INDEX IF NOT EXISTS idx_sms_templates_admin_id ON sms_templates(admin_id);

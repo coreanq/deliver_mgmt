@@ -8,6 +8,7 @@ import authRoutes from './routes/auth';
 import deliveryRoutes from './routes/delivery';
 import uploadRoutes from './routes/upload';
 import subscriptionRoutes from './routes/subscription';
+import smsTemplateRoutes from './routes/sms-template';
 import r2Routes from './routes/r2';
 
 // Cron 임포트
@@ -59,6 +60,7 @@ app.route('/api/auth', authRoutes);
 app.route('/api/delivery', deliveryRoutes);
 app.route('/api/upload', uploadRoutes);
 app.route('/api/subscription', subscriptionRoutes);
+app.route('/api/sms-template', smsTemplateRoutes);
 
 // R2 파일 서빙 (Public Access 대신 Worker에서 처리)
 app.route('/r2', r2Routes);

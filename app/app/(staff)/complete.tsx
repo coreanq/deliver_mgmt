@@ -23,6 +23,7 @@ import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
 import { Button, Loading, LoadingOverlay } from '../../src/components';
 import { useTheme } from '../../src/theme';
+import { smsTemplateApi } from '../../src/services/api';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -131,6 +132,53 @@ export default function CompleteDeliveryScreen() {
     setPhotoUri(null);
   };
 
+  const buildSmsMessage = async (): Promise<string> => {
+    const fallbackMessage = `[배송완료] ${delivery?.recipientName}님, ${delivery?.productName} 배송이 완료되었습니다. 좋은 하루 되세요!`;
+    
+    if (!token || !delivery) return fallbackMessage;
+
+    try {
+      const result = await smsTemplateApi.getDefault(token);
+      if (!result.success || !result.data?.template) {
+        return fallbackMessage;
+      }
+
+      const { template, isPro } = result.data;
+      const variables: Record<string, string> = {
+        recipientName: delivery.recipientName,
+        recipientPhone: delivery.recipientPhone,
+        recipientAddress: delivery.recipientAddress,
+        productName: delivery.productName,
+        quantity: String(delivery.quantity),
+        staffName: delivery.staffName || '',
+        deliveryDate: delivery.deliveryDate,
+        memo: delivery.memo || '',
+      };
+
+      if (template.use_ai && isPro) {
+        const aiResult = await smsTemplateApi.generate(token, template.content, variables);
+        if (aiResult.success && aiResult.data?.message) {
+          return aiResult.data.message;
+        }
+      }
+
+      let message = template.content;
+      message = message.replace(/\$\{수령인\}/g, variables.recipientName);
+      message = message.replace(/\$\{연락처\}/g, variables.recipientPhone);
+      message = message.replace(/\$\{주소\}/g, variables.recipientAddress);
+      message = message.replace(/\$\{상품명\}/g, variables.productName);
+      message = message.replace(/\$\{수량\}/g, variables.quantity);
+      message = message.replace(/\$\{배송담당자\}/g, variables.staffName);
+      message = message.replace(/\$\{배송일\}/g, variables.deliveryDate);
+      message = message.replace(/\$\{메모\}/g, variables.memo);
+      
+      return message;
+    } catch (error) {
+      console.log('SMS template error:', error);
+      return fallbackMessage;
+    }
+  };
+
   const handleComplete = async () => {
     if (!token || !params.orderId || !photo || !delivery) return;
 
@@ -142,10 +190,9 @@ export default function CompleteDeliveryScreen() {
       const isSmsAvailable = await SMS.isAvailableAsync();
 
       if (isSmsAvailable) {
-        const message = `[배송완료] ${delivery.recipientName}님, ${delivery.productName} 배송이 완료되었습니다. 좋은 하루 되세요!`;
+        const message = await buildSmsMessage();
 
         try {
-          // MMS with photo attachment
           const smsOptions: SMS.SMSOptions = photoUri
             ? {
                 attachments: {

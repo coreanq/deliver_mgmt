@@ -93,6 +93,17 @@ export interface Subscription {
   updated_at: string;
 }
 
+export interface SmsTemplate {
+  id: string;
+  admin_id: string;
+  name: string;
+  content: string;
+  use_ai: number;
+  is_default: number;
+  created_at: string;
+  updated_at: string;
+}
+
 
 
 

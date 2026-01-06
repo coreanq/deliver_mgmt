@@ -137,6 +137,29 @@ export const subscriptionApi = {
   },
 };
 
+export const smsTemplateApi = {
+  getDefault: (token: string) =>
+    request<{
+      template: {
+        id: string;
+        name: string;
+        content: string;
+        use_ai: number;
+        is_default: number;
+      } | null;
+      isPro: boolean;
+    }>('/api/sms-template/default', {
+      headers: withAuth(token),
+    }),
+
+  generate: (token: string, templateContent: string, variables: Record<string, string>) =>
+    request<{ message: string }>('/api/sms-template/generate', {
+      method: 'POST',
+      headers: withAuth(token),
+      body: JSON.stringify({ templateContent, variables }),
+    }),
+};
+
 export const logApi = {
   send: (data: Record<string, unknown>) =>
     request('/api/log', {

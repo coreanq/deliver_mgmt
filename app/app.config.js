@@ -65,7 +65,6 @@ export default {
           photosPermission: '배송 완료 사진 저장을 위해 사진 라이브러리 접근이 필요합니다.',
         },
       ],
-      'react-native-purchases',
     ],
     experiments: {
       typedRoutes: true,

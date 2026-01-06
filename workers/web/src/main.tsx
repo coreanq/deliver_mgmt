@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import Mapping from './pages/Mapping';
+import SmsTemplate from './pages/SmsTemplate';
 
 // Auth Guard
 import { useAuthStore } from './stores/auth';
@@ -57,6 +58,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Mapping />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sms-template"
+          element={
+            <ProtectedRoute>
+              <SmsTemplate />
             </ProtectedRoute>
           }
         />
