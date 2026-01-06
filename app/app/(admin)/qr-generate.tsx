@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Share, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -92,12 +92,13 @@ function formatDate(dateStr: string): string {
 
 export default function QRGenerateScreen() {
   const router = useRouter();
+  const { date } = useLocalSearchParams<{ date?: string }>();
   const { colors, radius, typography, isDark, springs } = useTheme();
   const insets = useSafeAreaInsets();
 
   const { token } = useAuthStore();
 
-  const [selectedDate] = useState(getTodayString());
+  const selectedDate = date || getTodayString();
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);

@@ -339,7 +339,7 @@ export default function AdminDashboardScreen() {
   };
 
   const handleGenerateQR = () => {
-    router.push('/(admin)/qr-generate');
+    router.push(`/(admin)/qr-generate?date=${selectedDate}`);
   };
 
   const fabAnimatedStyle = useAnimatedStyle(() => ({
