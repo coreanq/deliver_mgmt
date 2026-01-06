@@ -67,12 +67,17 @@ auth.post('/magic-link/send', async (c) => {
   }
 
   try {
-    // 1분 재전송 제한 체크 (KV 사용)
-    // 참고: 정확한 1분 체크를 위해 별도 키를 쓸 수도 있지만, 여기서는 단순화를 위해 생략하거나
-    // 필요하다면 rate-limit용 KV 키를 따로 둘 수 있습니다. 
-    // 기존 SQL 로직은 삭제하고, 바로 발송 로직으로 넘어갑니다.
+    const rateLimitKey = `magic_link_rate:${email.toLowerCase()}`;
+    const lastSent = await c.env['KV-DELIVER-MGMT'].get(rateLimitKey);
+    
+    if (lastSent) {
+      return c.json({ 
+        success: false, 
+        error: '1분 후에 다시 시도해주세요.',
+        retryAfter: 60,
+      }, 429);
+    }
 
-    // Magic Link 토큰 생성
     const token = generateRandomToken(32);
 
     // KV에 토큰 저장 (15분 = 900초)
@@ -95,6 +100,8 @@ auth.post('/magic-link/send', async (c) => {
     if (!result.success) {
       return c.json({ success: false, error: 'Failed to send email' }, 500);
     }
+
+    await c.env['KV-DELIVER-MGMT'].put(rateLimitKey, '1', { expirationTtl: 60 });
 
     return c.json({
       success: true,
