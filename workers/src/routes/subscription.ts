@@ -59,7 +59,7 @@ subscription.get('/status', async (c) => {
       };
     }
 
-    const isPro = isTestAccount || sub.type === 'pro';
+    const isPro = isTestAccount || sub.type !== 'free';
     const planConfig = getPlanConfig(sub.type);
     
     const deliveryDate = c.req.query('date') || getTodayKST();

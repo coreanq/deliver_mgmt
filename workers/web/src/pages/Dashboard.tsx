@@ -329,7 +329,7 @@ export default function Dashboard() {
                 엑셀 저장
                 {!isPro && (
                   <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-amber-400 text-amber-900 text-[10px] font-bold rounded-md">
-                    PRO
+                    유료
                   </span>
                 )}
               </button>
@@ -587,7 +587,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">엑셀 저장</h3>
-                {!isPro && <span className="px-2 py-0.5 bg-amber-400 text-amber-900 text-xs font-bold rounded-md">PRO</span>}
+                {!isPro && <span className="px-2 py-0.5 bg-amber-400 text-amber-900 text-xs font-bold rounded-md">유료</span>}
               </div>
               <button
                 onClick={() => setShowExcelModal(false)}
@@ -613,7 +613,7 @@ export default function Dashboard() {
               </p>
               {!isPro && (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  이 기능은 <span className="text-amber-600 dark:text-amber-400 font-semibold">PRO 구독자</span> 전용입니다
+                  이 기능은 <span className="text-amber-600 dark:text-amber-400 font-semibold">유료 구독자</span> 전용입니다
                 </p>
               )}
             </div>
@@ -644,7 +644,7 @@ export default function Dashboard() {
                     onClick={() => setShowExcelModal(false)}
                     className="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/25 transition-all"
                   >
-                    PRO 구독하기
+                    유료 구독하기
                   </button>
                 </>
               )}

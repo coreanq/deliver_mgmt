@@ -6,6 +6,7 @@ export interface PlanConfig {
   dailyLimit: number;
   retentionDays: number;
   priceKRW: number;
+  smsTemplateLimit: number;
 }
 
 export const PLANS: Record<PlanType, PlanConfig> = {
@@ -13,16 +14,19 @@ export const PLANS: Record<PlanType, PlanConfig> = {
     dailyLimit: 100,
     retentionDays: 3,
     priceKRW: 0,
+    smsTemplateLimit: 1,
   },
   basic: {
     dailyLimit: 500,
     retentionDays: 30,
     priceKRW: 1900,
+    smsTemplateLimit: 1,
   },
   pro: {
     dailyLimit: 1000,
     retentionDays: 90,
     priceKRW: 9900,
+    smsTemplateLimit: 1,
   },
 } as const;
 

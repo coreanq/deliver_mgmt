@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Env, SmsTemplate, Subscription } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId } from '../lib/utils';
+import { getPlanConfig } from '../lib/plans';
 import { callAI } from '../services/ai';
 
 const smsTemplate = new Hono<{ Bindings: Env }>();
@@ -33,11 +34,11 @@ async function getAdminFromToken(c: { req: { header: (name: string) => string | 
   return payload;
 }
 
-async function isPro(db: D1Database, adminId: string): Promise<boolean> {
+async function isPaidUser(db: D1Database, adminId: string): Promise<boolean> {
   const sub = await db.prepare('SELECT type FROM subscriptions WHERE admin_id = ?')
     .bind(adminId)
     .first<Pick<Subscription, 'type'>>();
-  return sub?.type === 'pro';
+  return sub?.type !== 'free' && sub?.type !== undefined;
 }
 
 smsTemplate.get('/', async (c) => {
@@ -95,16 +96,16 @@ smsTemplate.get('/default', async (c) => {
       });
     }
 
-    const userIsPro = await isPro(c.env.DB, adminId);
+    const userIsPaid = await isPaidUser(c.env.DB, adminId);
 
     return c.json({
       success: true,
       data: {
         template: {
           ...template,
-          use_ai: userIsPro ? template.use_ai : 0,
+          use_ai: userIsPaid ? template.use_ai : 0,
         },
-        isPro: userIsPro,
+        isPro: userIsPaid,
       },
     });
   } catch (error) {
@@ -120,36 +121,45 @@ smsTemplate.post('/', async (c) => {
   }
 
   try {
-    const { name, content, useAi, isDefault } = await c.req.json<{
+    const sub = await c.env.DB.prepare('SELECT type FROM subscriptions WHERE admin_id = ?')
+      .bind(admin.sub)
+      .first<Pick<Subscription, 'type'>>();
+    const planConfig = getPlanConfig(sub?.type || 'free');
+
+    const existingCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM sms_templates WHERE admin_id = ?'
+    )
+      .bind(admin.sub)
+      .first<{ count: number }>();
+
+    if ((existingCount?.count || 0) >= planConfig.smsTemplateLimit) {
+      return c.json({ 
+        success: false, 
+        error: `템플릿은 ${planConfig.smsTemplateLimit}개만 저장할 수 있습니다. 기존 템플릿을 수정해주세요.` 
+      }, 400);
+    }
+
+    const { name, content, useAi } = await c.req.json<{
       name: string;
       content: string;
       useAi?: boolean;
-      isDefault?: boolean;
     }>();
 
     if (!name || !content) {
       return c.json({ success: false, error: 'Name and content are required' }, 400);
     }
 
-    const userIsPro = await isPro(c.env.DB, admin.sub);
-    const finalUseAi = userIsPro && useAi ? 1 : 0;
-
-    if (isDefault) {
-      await c.env.DB.prepare(
-        'UPDATE sms_templates SET is_default = 0 WHERE admin_id = ?'
-      )
-        .bind(admin.sub)
-        .run();
-    }
+    const userIsPaid = await isPaidUser(c.env.DB, admin.sub);
+    const finalUseAi = userIsPaid && useAi ? 1 : 0;
 
     const id = generateId();
     const now = new Date().toISOString();
 
     await c.env.DB.prepare(
       `INSERT INTO sms_templates (id, admin_id, name, content, use_ai, is_default, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
     )
-      .bind(id, admin.sub, name, content, finalUseAi, isDefault ? 1 : 0, now, now)
+      .bind(id, admin.sub, name, content, finalUseAi, now, now)
       .run();
 
     return c.json({
@@ -188,7 +198,7 @@ smsTemplate.put('/:id', async (c) => {
       isDefault?: boolean;
     }>();
 
-    const userIsPro = await isPro(c.env.DB, admin.sub);
+    const userIsPaid = await isPaidUser(c.env.DB, admin.sub);
 
     if (isDefault) {
       await c.env.DB.prepare(
@@ -211,7 +221,7 @@ smsTemplate.put('/:id', async (c) => {
     }
     if (useAi !== undefined) {
       updates.push('use_ai = ?');
-      values.push(userIsPro && useAi ? 1 : 0);
+      values.push(userIsPaid && useAi ? 1 : 0);
     }
     if (isDefault !== undefined) {
       updates.push('is_default = ?');
@@ -279,9 +289,9 @@ smsTemplate.post('/generate', async (c) => {
     return c.json({ success: false, error: 'Admin ID not found' }, 400);
   }
 
-  const userIsPro = await isPro(c.env.DB, adminId);
-  if (!userIsPro) {
-    return c.json({ success: false, error: 'PRO subscription required' }, 403);
+  const userIsPaid = await isPaidUser(c.env.DB, adminId);
+  if (!userIsPaid) {
+    return c.json({ success: false, error: 'Paid subscription required' }, 403);
   }
 
   try {
