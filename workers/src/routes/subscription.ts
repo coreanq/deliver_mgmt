@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import type { Env, Subscription } from '../types';
 import { verifyToken } from '../lib/jwt';
-import { getTodayUsage } from '../lib/usage';
+import { getUsageForDate } from '../lib/usage';
+import { getTodayKST } from '../lib/utils';
 import { getPlanConfig, UNLIMITED } from '../lib/plans';
 
 const subscription = new Hono<{ Bindings: Env }>();
@@ -60,7 +61,12 @@ subscription.get('/status', async (c) => {
 
     const isPro = isTestAccount || sub.type === 'pro';
     const planConfig = getPlanConfig(sub.type);
-    const todayUsage = await getTodayUsage(c.env.DB, payload.sub);
+    
+    const deliveryDate = c.req.query('date') || getTodayKST();
+    const currentUsage = await getUsageForDate(c.env.DB, payload.sub, deliveryDate);
+    const remaining = planConfig.dailyLimit === UNLIMITED 
+      ? UNLIMITED 
+      : Math.max(0, planConfig.dailyLimit - currentUsage);
 
     return c.json({
       success: true,
@@ -70,8 +76,9 @@ subscription.get('/status', async (c) => {
         expiresAt: sub.expires_at,
         isPro,
         dailyLimit: planConfig.dailyLimit,
-        todayUsage,
-        remaining: planConfig.dailyLimit === UNLIMITED ? UNLIMITED : Math.max(0, planConfig.dailyLimit - todayUsage),
+        currentUsage,
+        remaining,
+        deliveryDate,
       },
     });
   } catch (error) {

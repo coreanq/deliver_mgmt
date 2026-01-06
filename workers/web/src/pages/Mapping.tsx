@@ -60,6 +60,7 @@ export default function Mapping() {
     show: false,
     existingCount: 0,
   });
+  const [usage, setUsage] = useState<{ current: number; limit: number; remaining: number } | null>(null);
 
   // 데이터가 없으면 업로드 페이지로 리다이렉트
   useEffect(() => {
@@ -79,6 +80,30 @@ export default function Mapping() {
 
     fetchMappingSuggestion();
   }, [headers]);
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/subscription/status?date=${deliveryDate}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await response.json();
+        if (result.success) {
+          setUsage({
+            current: result.data.currentUsage,
+            limit: result.data.dailyLimit,
+            remaining: result.data.remaining,
+          });
+        }
+      } catch (err) {
+        console.error('Usage fetch error:', err);
+      }
+    };
+
+    if (token && deliveryDate) {
+      fetchUsage();
+    }
+  }, [token, deliveryDate]);
 
   const fetchMappingSuggestion = async (retryCount = 0): Promise<void> => {
     const MAX_RETRIES = 3;
@@ -274,13 +299,63 @@ export default function Mapping() {
           </div>
         )}
 
-        {/* Delivery Date */}
-        <div className="mb-6">
-          <DeliveryDatePicker
-            value={deliveryDate}
-            onChange={setDeliveryDate}
-            description="이 날짜로 모든 배송 데이터가 저장됩니다"
-          />
+        {/* Delivery Date & Usage */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <DeliveryDatePicker
+              value={deliveryDate}
+              onChange={setDeliveryDate}
+              description="이 날짜로 모든 배송 데이터가 저장됩니다"
+            />
+          </div>
+          
+          {usage && (
+            <div className="sm:w-72 card p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 dark:from-emerald-900/20 dark:to-teal-900/20 dark:border-emerald-700">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">기존 등록</p>
+                    <p className="text-xs text-emerald-500 dark:text-emerald-500">
+                      한도 {usage.limit === -1 ? '무제한' : `${usage.limit}건`}
+                    </p>
+                  </div>
+                  <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+                    {usage.current}<span className="text-sm font-normal text-emerald-600 dark:text-emerald-400 ml-1">건</span>
+                  </p>
+                </div>
+              </div>
+              
+              {usage.limit !== -1 && (
+                <>
+                  <div className="h-2 bg-emerald-200 dark:bg-emerald-800 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className="h-full bg-emerald-500 dark:bg-emerald-400 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (usage.current / usage.limit) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      + 신규 <span className="font-bold">{rows.length}건</span>
+                    </span>
+                    {usage.remaining >= rows.length ? (
+                      <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-full font-medium">
+                        → {usage.current + rows.length}/{usage.limit} 가능
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full font-medium">
+                        한도 초과 +{rows.length - usage.remaining}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Mapping Grid */}

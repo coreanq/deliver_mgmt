@@ -1,35 +1,48 @@
-import type { Env } from '../types';
-import { getPlanConfig, isWithinDailyLimit, getRemainingLimit, UNLIMITED } from './plans';
+import { getPlanConfig, UNLIMITED } from './plans';
 
 export interface UsageInfo {
   planType: string;
   dailyLimit: number;
-  todayUsage: number;
+  currentUsage: number;
   remaining: number;
   canCreate: boolean;
+  deliveryDate: string;
 }
 
-export async function getTodayUsage(db: D1Database, adminId: string): Promise<number> {
+export async function getUsageForDate(
+  db: D1Database,
+  adminId: string,
+  deliveryDate: string
+): Promise<number> {
   const result = await db.prepare(
     `SELECT COUNT(*) as count FROM deliveries 
-     WHERE admin_id = ? AND DATE(created_at) = DATE('now')`
+     WHERE admin_id = ? AND delivery_date = ?`
   )
-    .bind(adminId)
+    .bind(adminId, deliveryDate)
     .first<{ count: number }>();
   
   return result?.count ?? 0;
 }
 
-export async function getUsageInfo(db: D1Database, adminId: string, planType: string): Promise<UsageInfo> {
-  const todayUsage = await getTodayUsage(db, adminId);
+export async function getUsageInfo(
+  db: D1Database,
+  adminId: string,
+  planType: string,
+  deliveryDate: string
+): Promise<UsageInfo> {
+  const currentUsage = await getUsageForDate(db, adminId, deliveryDate);
   const config = getPlanConfig(planType);
+  const remaining = config.dailyLimit === UNLIMITED 
+    ? UNLIMITED 
+    : Math.max(0, config.dailyLimit - currentUsage);
   
   return {
     planType,
     dailyLimit: config.dailyLimit,
-    todayUsage,
-    remaining: getRemainingLimit(planType, todayUsage),
-    canCreate: isWithinDailyLimit(planType, todayUsage),
+    currentUsage,
+    remaining,
+    canCreate: config.dailyLimit === UNLIMITED || currentUsage < config.dailyLimit,
+    deliveryDate,
   };
 }
 
@@ -37,23 +50,25 @@ export async function checkCanCreateDelivery(
   db: D1Database,
   adminId: string,
   planType: string,
+  deliveryDate: string,
   count: number = 1
-): Promise<{ allowed: boolean; message?: string }> {
+): Promise<{ allowed: boolean; remaining: number; message?: string }> {
   const config = getPlanConfig(planType);
   
   if (config.dailyLimit === UNLIMITED) {
-    return { allowed: true };
+    return { allowed: true, remaining: UNLIMITED };
   }
   
-  const todayUsage = await getTodayUsage(db, adminId);
-  const remaining = config.dailyLimit - todayUsage;
+  const currentUsage = await getUsageForDate(db, adminId, deliveryDate);
+  const remaining = config.dailyLimit - currentUsage;
   
   if (remaining < count) {
     return {
       allowed: false,
-      message: `일일 한도를 초과했습니다. (${todayUsage}/${config.dailyLimit})`,
+      remaining: Math.max(0, remaining),
+      message: `${deliveryDate} 등록 한도를 초과했습니다. (${currentUsage}/${config.dailyLimit})`,
     };
   }
   
-  return { allowed: true };
+  return { allowed: true, remaining };
 }

@@ -6,7 +6,6 @@ import type {
   StaffLoginResponse,
   DeliveryListResponse,
   Delivery,
-  Subscription,
 } from '../types';
 
 const getApiBase = (): string => {
@@ -121,10 +120,21 @@ export const deliveryApi = {
 };
 
 export const subscriptionApi = {
-  getStatus: (token: string) =>
-    request<{ subscription: Subscription; isPro: boolean }>('/api/subscription/status', {
+  getStatus: (token: string, date?: string) => {
+    const params = date ? `?date=${date}` : '';
+    return request<{
+      type: string;
+      retentionDays: number;
+      expiresAt: string | null;
+      isPro: boolean;
+      dailyLimit: number;
+      currentUsage: number;
+      remaining: number;
+      deliveryDate: string;
+    }>(`/api/subscription/status${params}`, {
       headers: withAuth(token),
-    }),
+    });
+  },
 };
 
 export const logApi = {

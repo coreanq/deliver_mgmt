@@ -30,6 +30,7 @@ import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
 import { StatusBadge, Loading, Button, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
+import { subscriptionApi } from '../../src/services/api';
 import type { Delivery } from '../../src/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -262,6 +263,11 @@ export default function AdminDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<{
+    type: string;
+    dailyLimit: number;
+    currentUsage: number;
+  } | null>(null);
 
   // 날짜 변경 함수
   const changeDate = (days: number) => {
@@ -283,6 +289,21 @@ export default function AdminDashboardScreen() {
       fetchDeliveries(token, selectedDate);
     }
   }, [token, selectedDate, fetchDeliveries]);
+
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (!token) return;
+      const result = await subscriptionApi.getStatus(token, selectedDate);
+      if (result.success && result.data) {
+        setSubscriptionInfo({
+          type: result.data.type,
+          dailyLimit: result.data.dailyLimit,
+          currentUsage: result.data.currentUsage,
+        });
+      }
+    };
+    fetchSubscription();
+  }, [token, selectedDate]);
 
   const stats = useMemo(
     () => ({
@@ -357,19 +378,39 @@ export default function AdminDashboardScreen() {
               {admin?.email}
             </Text>
           </View>
-          <Pressable
-            style={[
-              styles.logoutBtn,
-              {
-                backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)',
-                borderColor: isDark ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.2)',
-                borderRadius: radius.lg,
-              },
-            ]}
-            onPress={handleLogout}
-          >
-            <Text style={[typography.caption, { color: colors.error, fontWeight: '600' }]}>로그아웃</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            {subscriptionInfo && (
+              <View
+                style={[
+                  styles.usageBadge,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                    borderRadius: radius.lg,
+                  },
+                ]}
+              >
+                <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                  {subscriptionInfo.type.toUpperCase()}
+                </Text>
+                <Text style={[typography.caption, { color: colors.primary, fontWeight: '600', marginLeft: 6 }]}>
+                  {subscriptionInfo.currentUsage}/{subscriptionInfo.dailyLimit}
+                </Text>
+              </View>
+            )}
+            <Pressable
+              style={[
+                styles.logoutBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)',
+                  borderColor: isDark ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.2)',
+                  borderRadius: radius.lg,
+                },
+              ]}
+              onPress={handleLogout}
+            >
+              <Text style={[typography.caption, { color: colors.error, fontWeight: '600' }]}>로그아웃</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* 날짜 네비게이션 */}
@@ -575,6 +616,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  usageBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   logoutBtn: {
     paddingHorizontal: 14,

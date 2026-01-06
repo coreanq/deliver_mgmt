@@ -63,18 +63,18 @@ export default function Dashboard() {
     fetchDeliveries();
   }, [selectedDate]);
 
-  // 구독 상태 조회
+  // 구독 상태 조회 (선택된 날짜 기준)
   useEffect(() => {
     const fetchSubscription = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/subscription/status`, {
+        const response = await fetch(`${API_BASE}/api/subscription/status?date=${selectedDate}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const result = await response.json();
         if (result.success) {
           setIsPro(result.data.isPro || false);
           setDailyLimit(result.data.dailyLimit ?? 100);
-          setTodayUsage(result.data.todayUsage ?? 0);
+          setTodayUsage(result.data.currentUsage ?? 0);
           setPlanType(result.data.type ?? 'free');
         }
       } catch (error) {
@@ -82,7 +82,7 @@ export default function Dashboard() {
       }
     };
     fetchSubscription();
-  }, [token]);
+  }, [token, selectedDate]);
 
   // 서버 빌드 날짜 조회
   useEffect(() => {
@@ -264,10 +264,10 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* 일일 사용량 표시 */}
+              {/* 선택된 날짜의 사용량 표시 */}
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">오늘</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">등록</span>
                   <span className="text-sm font-semibold text-gray-900 dark:text-white">
                     {dailyLimit === -1 ? (
                       <>{todayUsage} / ∞</>
