@@ -23,8 +23,7 @@ app.use('/api/*', async (c, next) => {
     origin: [
       'http://localhost:8081',
       'http://localhost:3000',
-      c.env.WORKER_BASE_URL,
-      'https://deliver-mgmt-worker.coreanq.workers.dev',
+      c.env.WORKER_BASE_URL
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],

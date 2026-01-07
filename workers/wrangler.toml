@@ -18,7 +18,7 @@ BUILD_DATE = "26/01/06 21:30"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"
 
 # Worker 베이스 URL (Magic Link, R2 등 공용)
-WORKER_BASE_URL = "https://deliver-mgmt-worker.coreanq.workers.dev"
+WORKER_BASE_URL = "https://delivermgmt.try-dabble.com"
 
 # 테스트 이메일 (프로덕션에서 비활성화: Cloudflare Dashboard에서 ""로 설정)
 TEST_EMAILS = "dev@test.com,dev@example.com"

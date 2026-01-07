@@ -13,12 +13,12 @@ const getApiBase = (): string => {
   if (extra?.apiUrl) {
     return extra.apiUrl;
   }
-  
+
   if (__DEV__) {
     return 'http://localhost:8787';
   }
-  
-  return 'https://deliver-mgmt-worker.coreanq.workers.dev';
+
+  return 'https://delivermgmt.try-dabble.com';
 };
 
 const API_BASE = getApiBase();
@@ -28,7 +28,7 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const url = `${API_BASE}${endpoint}`;
-  
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -88,7 +88,7 @@ export const deliveryApi = {
   getList: (token: string, date: string, staffName?: string) => {
     const params = new URLSearchParams({ date });
     if (staffName) params.append('staffName', staffName);
-    
+
     return request<DeliveryListResponse>(`/api/delivery/list?${params}`, {
       headers: withAuth(token),
     });
