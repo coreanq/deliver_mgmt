@@ -22,16 +22,18 @@ subscription.get('/status', async (c) => {
   }
 
   try {
-    // 관리자 이메일 조회
     const admin = await c.env.DB.prepare(
       'SELECT email FROM admins WHERE id = ?'
     )
       .bind(payload.sub)
       .first<{ email: string }>();
 
-    // 테스트 계정 여부 확인
+    if (!admin) {
+      return c.json({ success: false, error: 'Unauthorized' }, 401);
+    }
+
     const testEmails = (c.env.TEST_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-    const isTestAccount = admin?.email ? testEmails.includes(admin.email.toLowerCase()) : false;
+    const isTestAccount = testEmails.includes(admin.email.toLowerCase());
 
     let sub = await c.env.DB.prepare(
       'SELECT * FROM subscriptions WHERE admin_id = ?'

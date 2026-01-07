@@ -70,6 +70,11 @@ export default function Dashboard() {
         const response = await fetch(`${API_BASE}/api/subscription/status?date=${selectedDate}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (response.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
         const result = await response.json();
         if (result.success) {
           setIsPro(result.data.isPro || false);
@@ -108,6 +113,12 @@ export default function Dashboard() {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (response.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
 
       const result = await response.json();
       if (result.success) {
