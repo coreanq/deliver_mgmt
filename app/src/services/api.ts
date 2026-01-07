@@ -82,6 +82,12 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token: qrToken, name }),
     }),
+
+  deleteAccount: (token: string) =>
+    request<{ message: string }>('/api/auth/account', {
+      method: 'DELETE',
+      headers: withAuth(token),
+    }),
 };
 
 export const deliveryApi = {

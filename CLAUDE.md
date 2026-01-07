@@ -79,6 +79,13 @@
 # doamin
 - try-dabble.com
 
+# 계정 삭제 기능 (Account Deletion)
+ - 계정 생성을 지원하는 앱은 앱 내에서 계정 삭제(탈퇴) 기능을 반드시 제공해야 합니다.
+
+# 개인정보 처리방침 및 이용약관 
+  - 앱 내에서 사용자가 언제든지 개인정보 처리방침을 확인할 수 있어야 합니다.
+  - https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2 연결 
+
 # 이미지 변경
 jpg -> png 변경시 ImageMgick 사용 
 

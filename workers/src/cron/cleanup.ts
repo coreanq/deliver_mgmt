@@ -25,11 +25,13 @@ export async function cleanupExpiredData(env: Env): Promise<void> {
 
       for (const row of oldPhotos.results || []) {
         if (row.photo_url) {
-          const key = row.photo_url.split('/').slice(3).join('/');
-          try {
-            await env.STORAGE.delete(key);
-          } catch (e) {
-            console.error(`Failed to delete photo: ${key}`, e);
+          const key = row.photo_url.split('/r2/deliver-mgmt/')[1];
+          if (key) {
+            try {
+              await env.STORAGE.delete(key);
+            } catch (e) {
+              console.error(`Failed to delete photo: ${key}`, e);
+            }
           }
         }
       }

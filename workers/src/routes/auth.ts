@@ -372,4 +372,69 @@ auth.post('/staff/login', async (c) => {
   }
 });
 
+auth.delete('/account', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const jwtToken = authHeader.slice(7);
+  const payload = await verifyToken(jwtToken, c.env.JWT_SECRET);
+
+  if (!payload || payload.role !== 'admin') {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const adminId = payload.sub;
+
+  try {
+    const deliveriesWithPhotos = await c.env.DB.prepare(
+      'SELECT photo_url FROM deliveries WHERE admin_id = ? AND photo_url IS NOT NULL'
+    )
+      .bind(adminId)
+      .all<{ photo_url: string }>();
+
+    for (const row of deliveriesWithPhotos.results) {
+      if (row.photo_url) {
+        try {
+          const key = row.photo_url.split('/r2/deliver-mgmt/')[1];
+          if (key) {
+            await c.env.STORAGE.delete(key);
+          }
+        } catch (e) {
+          console.error('Failed to delete R2 photo:', e);
+        }
+      }
+    }
+
+    await c.env.DB.prepare('DELETE FROM deliveries WHERE admin_id = ?')
+      .bind(adminId)
+      .run();
+
+    await c.env.DB.prepare('DELETE FROM sms_templates WHERE admin_id = ?')
+      .bind(adminId)
+      .run();
+
+    await c.env.DB.prepare('DELETE FROM subscriptions WHERE admin_id = ?')
+      .bind(adminId)
+      .run();
+
+    await c.env.DB.prepare('DELETE FROM column_mappings WHERE admin_id = ?')
+      .bind(adminId)
+      .run();
+
+    await c.env.DB.prepare('DELETE FROM admins WHERE id = ?')
+      .bind(adminId)
+      .run();
+
+    return c.json({
+      success: true,
+      data: { message: '계정이 성공적으로 삭제되었습니다.' },
+    });
+  } catch (error) {
+    console.error('Account deletion error:', error);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
 export default auth;

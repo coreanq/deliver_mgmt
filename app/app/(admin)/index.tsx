@@ -7,6 +7,9 @@ import {
   Pressable,
   RefreshControl,
   Image,
+  Linking,
+  Alert,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -30,7 +33,7 @@ import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
 import { StatusBadge, Loading, Button, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
-import { subscriptionApi } from '../../src/services/api';
+import { subscriptionApi, authApi } from '../../src/services/api';
 import type { Delivery } from '../../src/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -263,6 +266,8 @@ export default function AdminDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState<{
     type: string;
     dailyLimit: number;
@@ -338,6 +343,49 @@ export default function AdminDashboardScreen() {
     );
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      '회원 탈퇴',
+      '정말로 탈퇴하시겠습니까?\n\n모든 배송 데이터, 사진, 설정이 즉시 삭제되며 복구할 수 없습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '탈퇴하기',
+          style: 'destructive',
+          onPress: async () => {
+            if (!token) return;
+            setIsDeletingAccount(true);
+            try {
+              const result = await authApi.deleteAccount(token);
+              if (result.success) {
+                Alert.alert('완료', '계정이 삭제되었습니다.', [
+                  {
+                    text: '확인',
+                    onPress: () => {
+                      logout();
+                      rootNavigation?.dispatch(
+                        CommonActions.reset({
+                          index: 0,
+                          routes: [{ name: 'index' }],
+                        })
+                      );
+                    },
+                  },
+                ]);
+              } else {
+                Alert.alert('오류', result.error ?? '계정 삭제에 실패했습니다.');
+              }
+            } catch {
+              Alert.alert('오류', '네트워크 오류가 발생했습니다.');
+            } finally {
+              setIsDeletingAccount(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleGenerateQR = () => {
     router.push(`/(admin)/qr-generate?date=${selectedDate}`);
   };
@@ -399,16 +447,15 @@ export default function AdminDashboardScreen() {
             )}
             <Pressable
               style={[
-                styles.logoutBtn,
+                styles.settingsBtn,
                 {
-                  backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)',
-                  borderColor: isDark ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.2)',
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                   borderRadius: radius.lg,
                 },
               ]}
-              onPress={handleLogout}
+              onPress={() => setShowSettings(true)}
             >
-              <Text style={[typography.caption, { color: colors.error, fontWeight: '600' }]}>로그아웃</Text>
+              <Text style={styles.settingsIcon}>⚙️</Text>
             </Pressable>
           </View>
         </View>
@@ -596,6 +643,109 @@ export default function AdminDashboardScreen() {
         imageUrl={fullScreenPhoto}
         onClose={() => setFullScreenPhoto(null)}
       />
+
+      <Modal
+        visible={showSettings}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSettings(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[typography.h3, { color: colors.text }]}>설정</Text>
+            <Pressable onPress={() => setShowSettings(false)}>
+              <Text style={[typography.body, { color: colors.primary }]}>닫기</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.settingsSection}>
+              <Text style={[typography.overline, { color: colors.textMuted, marginBottom: 12 }]}>
+                계정
+              </Text>
+              <View
+                style={[
+                  styles.settingsCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.8)',
+                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: radius.xl,
+                  },
+                ]}
+              >
+                <View style={styles.settingsItem}>
+                  <Text style={[typography.body, { color: colors.textSecondary }]}>이메일</Text>
+                  <Text style={[typography.body, { color: colors.text }]}>{admin?.email}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.settingsSection}>
+              <Text style={[typography.overline, { color: colors.textMuted, marginBottom: 12 }]}>
+                법적 고지
+              </Text>
+              <View
+                style={[
+                  styles.settingsCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.8)',
+                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: radius.xl,
+                  },
+                ]}
+              >
+                <Pressable
+                  style={styles.settingsItem}
+                  onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}
+                >
+                  <Text style={[typography.body, { color: colors.text }]}>개인정보 처리방침</Text>
+                  <Text style={[typography.body, { color: colors.textMuted }]}>→</Text>
+                </Pressable>
+                <View style={[styles.settingsDivider, { backgroundColor: colors.border }]} />
+                <Pressable
+                  style={styles.settingsItem}
+                  onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}
+                >
+                  <Text style={[typography.body, { color: colors.text }]}>고객 지원</Text>
+                  <Text style={[typography.body, { color: colors.textMuted }]}>→</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.settingsSection}>
+              <Text style={[typography.overline, { color: colors.textMuted, marginBottom: 12 }]}>
+                계정 관리
+              </Text>
+              <View
+                style={[
+                  styles.settingsCard,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.8)',
+                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                    borderRadius: radius.xl,
+                  },
+                ]}
+              >
+                <Pressable style={styles.settingsItem} onPress={handleLogout}>
+                  <Text style={[typography.body, { color: colors.text }]}>로그아웃</Text>
+                  <Text style={[typography.body, { color: colors.textMuted }]}>→</Text>
+                </Pressable>
+                <View style={[styles.settingsDivider, { backgroundColor: colors.border }]} />
+                <Pressable
+                  style={styles.settingsItem}
+                  onPress={handleDeleteAccount}
+                  disabled={isDeletingAccount}
+                >
+                  <Text style={[typography.body, { color: colors.error }]}>
+                    {isDeletingAccount ? '처리 중...' : '회원 탈퇴'}
+                  </Text>
+                  <Text style={[typography.body, { color: colors.error }]}>→</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -734,5 +884,47 @@ const styles = StyleSheet.create({
   thumbnailImage: {
     width: 48,
     height: 48,
+  },
+  settingsBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsIcon: {
+    fontSize: 18,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  settingsSection: {
+    marginBottom: 24,
+  },
+  settingsCard: {
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  settingsDivider: {
+    height: 1,
+    marginLeft: 16,
   },
 });

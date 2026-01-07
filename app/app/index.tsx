@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Linking } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -369,6 +369,21 @@ export default function RoleSelectionScreen() {
               PC에서 엑셀 업로드는 웹에서 진행하세요
             </Text>
           </View>
+          
+          <View style={styles.legalLinks}>
+            <Pressable onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                개인정보 처리방침
+              </Text>
+            </Pressable>
+            <Text style={[typography.caption, { color: colors.textMuted }]}>•</Text>
+            <Pressable onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                고객 지원
+              </Text>
+            </Pressable>
+          </View>
+
           <View style={{ marginTop: 16 }}>
             <VersionInfo />
           </View>
@@ -488,5 +503,11 @@ const styles = StyleSheet.create({
   footerPill: {
     paddingHorizontal: 20,
     paddingVertical: 12,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
   },
 });
