@@ -300,60 +300,72 @@ export default function Mapping() {
         )}
 
         {/* Delivery Date & Usage */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <DeliveryDatePicker
-              value={deliveryDate}
-              onChange={setDeliveryDate}
-              description="이 날짜로 모든 배송 데이터가 저장됩니다"
-            />
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-stretch gap-4">
+          <div className="flex-1 flex">
+            <div className="w-full">
+              <DeliveryDatePicker
+                value={deliveryDate}
+                onChange={setDeliveryDate}
+                description="이 날짜로 모든 배송 데이터가 저장됩니다"
+              />
+            </div>
           </div>
           
           {usage && (
-            <div className="sm:w-72 card p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 dark:from-emerald-900/20 dark:to-teal-900/20 dark:border-emerald-700">
+            <div className={`sm:w-72 card p-6 flex flex-col justify-center bg-gradient-to-r ${
+              usage.current > 0 
+                ? 'from-amber-50 to-orange-50 border-2 border-amber-200 dark:from-amber-900/20 dark:to-orange-900/20 dark:border-amber-700'
+                : 'from-emerald-50 to-teal-50 border-2 border-emerald-200 dark:from-emerald-900/20 dark:to-teal-900/20 dark:border-emerald-700'
+            }`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  usage.current > 0 
+                    ? 'bg-amber-100 dark:bg-amber-900/50' 
+                    : 'bg-emerald-100 dark:bg-emerald-900/50'
+                }`}>
+                  <svg className={`w-5 h-5 ${usage.current > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {usage.current > 0 ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    )}
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">기존 등록</p>
-                    <p className="text-xs text-emerald-500 dark:text-emerald-500">
-                      한도 {usage.limit === -1 ? '무제한' : `${usage.limit}건`}
-                    </p>
-                  </div>
-                  <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
-                    {usage.current}<span className="text-sm font-normal text-emerald-600 dark:text-emerald-400 ml-1">건</span>
-                  </p>
+                  {usage.current > 0 ? (
+                    <>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">기존 데이터 있음</p>
+                      <p className="text-xl font-bold text-amber-900 dark:text-amber-100">
+                        {usage.current}<span className="text-sm font-normal text-amber-600 dark:text-amber-400 ml-1">건 삭제 예정</span>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">기존 데이터 없음</p>
+                      <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">신규 등록</p>
+                    </>
+                  )}
                 </div>
               </div>
               
-              {usage.limit !== -1 && (
-                <>
-                  <div className="h-2 bg-emerald-200 dark:bg-emerald-800 rounded-full overflow-hidden mb-2">
-                    <div 
-                      className="h-full bg-emerald-500 dark:bg-emerald-400 rounded-full transition-all"
-                      style={{ width: `${Math.min(100, (usage.current / usage.limit) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      + 신규 <span className="font-bold">{rows.length}건</span>
-                    </span>
-                    {usage.remaining >= rows.length ? (
-                      <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-full font-medium">
-                        → {usage.current + rows.length}/{usage.limit} 가능
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full font-medium">
-                        한도 초과 +{rows.length - usage.remaining}
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-200 dark:border-gray-600">
+                <span className="text-gray-600 dark:text-gray-400">
+                  신규 <span className="font-bold">{rows.length}건</span>
+                </span>
+                {usage.limit === -1 ? (
+                  <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-full font-medium">
+                    한도 무제한
+                  </span>
+                ) : rows.length <= usage.limit ? (
+                  <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-full font-medium">
+                    한도 {usage.limit}건 이내
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full font-medium">
+                    한도 초과 (+{rows.length - usage.limit})
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -479,8 +491,8 @@ export default function Mapping() {
 
             <p className="text-gray-600 dark:text-gray-300 mb-6">
               해당 날짜에 <span className="font-bold text-amber-600 dark:text-amber-400">{confirmOverwrite.existingCount}건</span>의 기존 배송 데이터가 있습니다.
-              <br />
-              기존 데이터를 삭제하고 새 데이터로 덮어쓰시겠습니까?
+              <br /><br />
+              기존 데이터를 <span className="font-bold text-red-500">삭제</span>하고 <span className="font-bold text-emerald-600">{rows.length}건</span>을 새로 등록하시겠습니까?
             </p>
 
             <div className="flex gap-3">

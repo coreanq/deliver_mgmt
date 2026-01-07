@@ -148,10 +148,10 @@ export default function QRScanScreen() {
           params: { token: data.token, date: data.date },
         });
       } else {
-        Alert.alert('오류', '유효하지 않은 QR 코드입니다.');
+        Alert.alert('오류', '배매니저 QR 코드가 아닙니다.\n관리자에게 새 QR 코드를 요청하세요.');
       }
-    } catch (error) {
-      Alert.alert('오류', 'QR 코드를 인식할 수 없습니다.');
+    } catch {
+      Alert.alert('오류', '배매니저 QR 코드가 아닙니다.\n관리자에게 QR 코드를 요청하세요.');
     }
   };
 

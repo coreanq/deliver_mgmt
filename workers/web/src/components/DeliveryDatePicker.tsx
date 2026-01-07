@@ -12,8 +12,8 @@ export default function DeliveryDatePicker({
   description,
 }: DeliveryDatePickerProps) {
   return (
-    <div className="card p-6 bg-gradient-to-r from-primary-50 to-blue-50 border-2 border-primary-200 dark:from-primary-900/20 dark:to-blue-900/20 dark:border-primary-700">
-      <div className="flex items-center gap-4">
+    <div className="card p-6 h-full bg-gradient-to-r from-primary-50 to-blue-50 border-2 border-primary-200 dark:from-primary-900/20 dark:to-blue-900/20 dark:border-primary-700">
+      <div className="flex items-center gap-4 h-full">
         <div className="w-14 h-14 bg-primary-100 dark:bg-primary-900/50 rounded-xl flex items-center justify-center">
           <svg
             className="w-7 h-7 text-primary-600 dark:text-primary-400"

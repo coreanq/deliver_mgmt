@@ -75,12 +75,10 @@ app.get('/auth/verify', (c) => {
   const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 
   if (isMobile) {
-    // 모바일: 앱 딥링크로 리다이렉트
     const deepLink = `deliver-mgmt://auth/verify?token=${token}`;
     return c.redirect(deepLink, 302);
   } else {
-    // PC: 웹 로그인 페이지로 리다이렉트 (토큰 포함)
-    return c.redirect(`/?token=${token}`, 302);
+    return c.redirect(`/login?token=${token}`, 302);
   }
 });
 
