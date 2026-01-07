@@ -5,6 +5,6 @@ ios, android 선택 가능
 
 빌드 , 업로드:
 ```bash
-cd /Users/charles/1git/nownwoori/app && eas build --platform ios --profile production 
-cd /Users/charles/1git/nownwoori/app && eas submit --platform ios --profile production --latest
+cd app && eas build --platform ios --profile production 
+cd app && eas submit --platform ios --profile production --latest
 ```

@@ -25,7 +25,7 @@ export default {
       backgroundColor: '#ffffff',
     },
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       bundleIdentifier: 'com.trydabble.delivermgmt',
       infoPlist: {
         NSCameraUsageDescription: '배송 완료 사진 촬영을 위해 카메라 접근이 필요합니다.',
