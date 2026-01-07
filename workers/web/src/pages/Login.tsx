@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
@@ -247,6 +247,14 @@ export default function Login() {
               Server {serverBuildDate}
             </p>
           )}
+          <div className="pt-2">
+            <Link
+              to="/support"
+              className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium"
+            >
+              고객 지원 (Support)
+            </Link>
+          </div>
         </div>
       </div>
     </div>
