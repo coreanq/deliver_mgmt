@@ -419,10 +419,6 @@ auth.delete('/account', async (c) => {
       .bind(adminId)
       .run();
 
-    await c.env.DB.prepare('DELETE FROM column_mappings WHERE admin_id = ?')
-      .bind(adminId)
-      .run();
-
     await c.env.DB.prepare('DELETE FROM admins WHERE id = ?')
       .bind(adminId)
       .run();

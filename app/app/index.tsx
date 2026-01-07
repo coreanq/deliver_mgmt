@@ -377,7 +377,7 @@ export default function RoleSelectionScreen() {
               </Text>
             </Pressable>
             <Text style={[typography.caption, { color: colors.textMuted }]}>•</Text>
-            <Pressable onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}>
+            <Pressable onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f35480c3a5a8c6e4bb1c27fc')}>
               <Text style={[typography.caption, { color: colors.textMuted }]}>
                 고객 지원
               </Text>

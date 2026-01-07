@@ -704,7 +704,7 @@ export default function AdminDashboardScreen() {
                 <View style={[styles.settingsDivider, { backgroundColor: colors.border }]} />
                 <Pressable
                   style={styles.settingsItem}
-                  onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}
+                  onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f35480c3a5a8c6e4bb1c27fc')}
                 >
                   <Text style={[typography.body, { color: colors.text }]}>고객 지원</Text>
                   <Text style={[typography.body, { color: colors.textMuted }]}>→</Text>
