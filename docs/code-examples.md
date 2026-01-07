@@ -404,12 +404,11 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { api } from '@/services/api';
 import { DeliveryCard } from '@/components/DeliveryCard';
-import { BannerAd } from '@/components/BannerAd';
+
 import { DatePicker } from '@/components/DatePicker';
 import type { Delivery } from '@/types';
 
 const PC_WEB_URL = 'https://yourapp.com';
-const AD_INTERVAL = 5; // 5개마다 광고
 
 export default function AdminDashboard() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -428,18 +427,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // 배송 리스트 + 광고 배너 데이터 생성
-  const listData = deliveries.flatMap((item, index) => {
-    const result: Array<{ type: 'delivery'; data: Delivery } | { type: 'ad'; key: string }> = [
-      { type: 'delivery', data: item },
-    ];
-    // 5개마다 광고 삽입
-    if ((index + 1) % AD_INTERVAL === 0 && index < deliveries.length - 1) {
-      result.push({ type: 'ad', key: `ad-${index}` });
-    }
-    return result;
-  });
 
   const completedCount = deliveries.filter((d) => d.status === '배송 완료').length;
 
@@ -463,18 +450,13 @@ export default function AdminDashboard() {
       </View>
 
       <FlatList
-        data={listData}
-        keyExtractor={(item) => item.type === 'delivery' ? item.data.id : item.key}
-        renderItem={({ item }) => {
-          if (item.type === 'ad') {
-            return <BannerAd />;
-          }
-          return (
-            <Animated.View entering={FadeIn}>
-              <DeliveryCard delivery={item.data} variant="admin" />
-            </Animated.View>
-          );
-        }}
+        data={deliveries}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Animated.View entering={FadeIn}>
+            <DeliveryCard delivery={item} variant="admin" />
+          </Animated.View>
+        )}
         contentContainerStyle={styles.list}
         ListEmptyComponent={<Text style={styles.empty}>배송 데이터가 없습니다</Text>}
       />
@@ -665,63 +647,6 @@ const styles = StyleSheet.create({
   info: { textAlign: 'center', marginTop: 12, fontSize: 14, color: '#6B7280', lineHeight: 20 },
 });
 ```
-
-## 6. 배너 광고 컴포넌트 (`src/components/BannerAd.tsx`)
-
-```typescript
-import { View, Text, StyleSheet } from 'react-native';
-import Constants from 'expo-constants';
-import { BannerAd as GABannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
-
-const isExpoGo = Constants.appOwnership === 'expo';
-const AD_UNIT_ID = process.env.EXPO_PUBLIC_ADMOB_BANNER_ID ?? TestIds.BANNER;
-
-export function BannerAd() {
-  // Expo Go에서는 플레이스홀더 표시
-  if (isExpoGo) {
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>광고 영역 (Expo Go)</Text>
-      </View>
-    );
-  }
-
-  // Production: 실제 AdMob 배너
-  return (
-    <View style={styles.container}>
-      <GABannerAd
-        unitId={AD_UNIT_ID}
-        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  placeholder: {
-    height: 60,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-  },
-  placeholderText: {
-    color: '#9CA3AF',
-    fontSize: 12,
-  },
-});
-```
-
----
 
 # Part 3: Backend (Cloudflare Workers)
 
