@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, Pressable, Image, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Linking, Alert } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -20,6 +21,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from '../src/stores/auth';
 import { VersionInfo } from '../src/components';
 import { useTheme } from '../src/theme';
+import { WEB_URL } from '../src/services/api';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -356,7 +358,7 @@ export default function RoleSelectionScreen() {
           entering={FadeInUp.delay(700).duration(500)}
           style={styles.footer}
         >
-          <View
+          <Pressable
             style={[
               styles.footerPill,
               {
@@ -364,11 +366,15 @@ export default function RoleSelectionScreen() {
                 borderRadius: radius.full,
               },
             ]}
+            onPress={async () => {
+              await Clipboard.setStringAsync(WEB_URL);
+              Alert.alert('링크 복사됨', 'PC 브라우저에서 접속하세요');
+            }}
           >
             <Text style={[typography.caption, { color: colors.textMuted }]}>
-              PC에서 엑셀 업로드는 웹에서 진행하세요
+              엑셀 업로드는 PC의 브라우저에서 진행하세요
             </Text>
-          </View>
+          </Pressable>
           
           <View style={styles.legalLinks}>
             <Pressable onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}>

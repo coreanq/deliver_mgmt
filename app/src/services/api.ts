@@ -8,6 +8,8 @@ import type {
   Delivery,
 } from '../types';
 
+export const WEB_URL = 'https://delivermgmt.try-dabble.com';
+
 const getApiBase = (): string => {
   const extra = Constants.expoConfig?.extra;
   if (extra?.apiUrl) {
@@ -18,7 +20,7 @@ const getApiBase = (): string => {
     return 'http://localhost:8787';
   }
 
-  return 'https://delivermgmt.try-dabble.com';
+  return WEB_URL;
 };
 
 const API_BASE = getApiBase();

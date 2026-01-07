@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import Animated, {
   FadeInDown,
   FadeInUp,
@@ -33,7 +34,7 @@ import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
 import { StatusBadge, Loading, Button, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
-import { subscriptionApi, authApi } from '../../src/services/api';
+import { subscriptionApi, authApi, WEB_URL } from '../../src/services/api';
 import type { Delivery } from '../../src/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -578,9 +579,16 @@ export default function AdminDashboardScreen() {
             <Text style={[typography.h4, { color: colors.text, marginTop: 20 }]}>
               배송 데이터가 없습니다
             </Text>
-            <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8 }]}>
-              PC에서 엑셀을 업로드하세요
-            </Text>
+            <Pressable
+              onPress={async () => {
+                await Clipboard.setStringAsync(WEB_URL);
+                Alert.alert('링크 복사됨', 'PC 브라우저에서 접속하세요');
+              }}
+            >
+              <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8, textDecorationLine: 'underline' }]}>
+                엑셀 업로드는 PC의 브라우저에서 진행하세요
+              </Text>
+            </Pressable>
           </Animated.View>
         ) : filteredDeliveries.length === 0 ? (
           <Animated.View entering={FadeIn.duration(400)} style={styles.emptyBox}>
