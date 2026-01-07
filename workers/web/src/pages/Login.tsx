@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
-const WEB_VERSION = '1.0.0';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -43,9 +42,9 @@ export default function Login() {
     const fetchServerBuildDate = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/health`);
-        const data = await res.json();
-        if (data.buildDate) {
-          setServerBuildDate(data.buildDate);
+        const result = await res.json();
+        if (result.data?.buildDate) {
+          setServerBuildDate(result.data.buildDate);
         }
       } catch {
         // 서버 연결 실패 시 무시
@@ -240,21 +239,13 @@ export default function Login() {
         {/* 버전 정보 */}
         <div className="mt-8 text-center space-y-1">
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            Web v{WEB_VERSION}
+            Web v{__WEB_VERSION__} ({__WEB_BUILD_DATE__})
           </p>
           {serverBuildDate && (
             <p className="text-xs text-gray-400 dark:text-gray-600">
               Server {serverBuildDate}
             </p>
           )}
-          <div className="pt-2">
-            <Link
-              to="/support"
-              className="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium"
-            >
-              고객 지원 (Support)
-            </Link>
-          </div>
         </div>
       </div>
     </div>

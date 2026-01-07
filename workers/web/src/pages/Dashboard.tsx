@@ -89,9 +89,9 @@ export default function Dashboard() {
     const fetchServerBuildDate = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/health`);
-        const data = await res.json();
-        if (data.buildDate) {
-          setServerBuildDate(data.buildDate);
+        const result = await res.json();
+        if (result.data?.buildDate) {
+          setServerBuildDate(result.data.buildDate);
         }
       } catch {
         // 서버 연결 실패 시 무시
@@ -687,7 +687,7 @@ export default function Dashboard() {
       {/* 버전 정보 */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-center space-y-0.5">
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          Web v1.0.0
+          Web v{__WEB_VERSION__} ({__WEB_BUILD_DATE__})
         </p>
         {serverBuildDate && (
           <p className="text-xs text-gray-400 dark:text-gray-600">

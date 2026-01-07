@@ -9,7 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import Mapping from './pages/Mapping';
 import SmsTemplate from './pages/SmsTemplate';
-import Support from './pages/Support';
+
 
 // Auth Guard
 import { useAuthStore } from './stores/auth';
@@ -38,7 +38,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/auth/verify" element={<Login />} />
-        <Route path="/support" element={<Support />} />
+
         <Route
           path="/"
           element={
