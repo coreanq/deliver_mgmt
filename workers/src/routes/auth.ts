@@ -219,7 +219,6 @@ auth.post('/qr/generate', async (c) => {
     const qrData = {
       adminId: payload.sub,
       date,
-      failCount: 0
     };
 
     // KV에 저장 (expiresIn 초 후 자동 삭제)
@@ -295,15 +294,7 @@ auth.post('/staff/login', async (c) => {
       }, 401);
     }
 
-    const qrData = JSON.parse(rawData) as { adminId: string; date: string; failCount: number };
-
-    // 실패 횟수 체크 (5회 이상이면 차단)
-    if (qrData.failCount >= 5) {
-      return c.json({
-        success: false,
-        error: 'QR 코드가 비활성화되었습니다. 새 QR 코드를 요청하세요.',
-      }, 401);
-    }
+    const qrData = JSON.parse(rawData) as { adminId: string; date: string };
 
     // 해당 관리자의 해당 날짜에 담당자 이름으로 배송이 있는지 확인 (D1 조회 유지)
     // admin_id는 KV에서 가져온 값 사용
@@ -314,31 +305,18 @@ auth.post('/staff/login', async (c) => {
       .first<{ id: string }>();
 
     if (!delivery) {
-      // 실패 횟수 증가 (KV 업데이트)
-      qrData.failCount += 1;
-
-      // TTL은 남은 시간으로 유지해야 하지만, KV API로는 '현재 남은 TTL'을 알기 어렵습니다.
-      // 단순화를 위해 24시간(86400)이나 넉넉한 시간으로 다시 설정하거나, 
-      // 만료시간을 데이터에 포함시켜 계산할 수 있습니다.
-      // 편의상 기본값 24시간으로 갱신합니다.
-      await c.env['KV-DELIVER-MGMT'].put(`qr:${token}`, JSON.stringify(qrData), {
-        expirationTtl: 86400,
-      });
-
-      const remainingAttempts = 5 - qrData.failCount;
       return c.json({
         success: false,
-        error: remainingAttempts > 0
-          ? `이름이 일치하지 않습니다. (${remainingAttempts}회 남음)`
-          : 'QR 코드가 비활성화되었습니다. 새 QR 코드를 요청하세요.',
+        error: '이름이 일치하지 않습니다.',
       }, 401);
     }
 
-    // 로그인 성공 시 KV 데이터 유지? 삭제?
-    // 기사님이 여러 번 로그인해야 할 수도 있으므로 유지합니다.
-    // 하지만 재사용을 막으려면 삭제할 수도 있습니다. 정책에 따라 다릅니다.
-    // 기존 로직(DB)은 used 필드가 있었지만 실제로 막지는 않았습니다(fail_count만 체크).
-    // 여기서는 유지합니다.
+    const admin = await c.env.DB.prepare('SELECT email FROM admins WHERE id = ?')
+      .bind(qrData.adminId)
+      .first<{ email: string }>();
+
+    const isTestAccount = admin && isTestEmail(admin.email, c.env.TEST_EMAILS);
+    const tokenExpiry = isTestAccount ? '1y' : '24h';
 
     // JWT 토큰 생성 (staff 역할)
     const staffId = generateId();
@@ -351,7 +329,7 @@ auth.post('/staff/login', async (c) => {
         date: qrData.date,
       },
       c.env.JWT_SECRET,
-      '24h'
+      tokenExpiry
     );
 
     return c.json({
