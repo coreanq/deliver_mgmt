@@ -438,10 +438,7 @@ export default function AdminDashboardScreen() {
                   },
                 ]}
               >
-                <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                  {subscriptionInfo.type.toUpperCase()}
-                </Text>
-                <Text style={[typography.caption, { color: colors.primary, fontWeight: '600', marginLeft: 6 }]}>
+                  <Text style={[typography.caption, { color: colors.primary, fontWeight: '600' }]}>
                   {subscriptionInfo.currentUsage}/{subscriptionInfo.dailyLimit}
                 </Text>
               </View>
