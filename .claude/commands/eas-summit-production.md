@@ -10,14 +10,14 @@ app/credential.json 파일에서 인증 정보 사용
 # App Store Upload
 fastlane run upload_to_app_store \
     ipa:"./builds/app.ipa" \
-    api_key_path:"./fastlane/api_key.json" \
+    api_key_path:"./api_key.json" \
     skip_screenshots:true \
     skip_metadata:true \
     force:true
 ## Play Store Upload
 fastlane run upload_to_play_store \
     package_name="com.your.package.id" \
-    json_key="./fastlane/google-key.json" \
+    json_key="./google-key.json" \
     aab="./builds/app.aab" \
     track="internal" \
     skip_upload_screenshots:true \
