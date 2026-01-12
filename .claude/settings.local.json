@@ -74,7 +74,8 @@
       "Bash(eas update:*)",
       "Bash(CI=1 npx eas-cli:*)",
       "Bash(CI=1 eas update:*)",
-      "WebFetch(domain:docs.expo.dev)"
+      "WebFetch(domain:docs.expo.dev)",
+      "Bash(eas build:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
