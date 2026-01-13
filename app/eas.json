@@ -12,11 +12,17 @@
     "preview": {
       "distribution": "internal",
       "autoIncrement": true,
-      "channel": "preview"
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EAS_BUILD_DISABLE_MAVEN_CACHE": "1"
+      }
     }
   },
   "submit": {
