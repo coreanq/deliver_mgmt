@@ -34,11 +34,23 @@ async function getAdminFromToken(c: { req: { header: (name: string) => string | 
   return payload;
 }
 
-async function isPaidUser(db: D1Database, adminId: string): Promise<boolean> {
-  const sub = await db.prepare('SELECT type FROM subscriptions WHERE admin_id = ?')
+async function isPaidUser(env: Env, adminId: string): Promise<boolean> {
+  const sub = await env.DB.prepare('SELECT type FROM subscriptions WHERE admin_id = ?')
     .bind(adminId)
     .first<Pick<Subscription, 'type'>>();
-  return sub?.type !== 'free' && sub?.type !== undefined;
+
+  if (sub?.type !== 'free' && sub?.type !== undefined) return true;
+
+  const admin = await env.DB.prepare('SELECT email FROM admins WHERE id = ?')
+    .bind(adminId)
+    .first<{ email: string }>();
+
+  if (admin && env.TEST_EMAILS) {
+    const testEmails = env.TEST_EMAILS.split(',').map(e => e.trim().toLowerCase());
+    return testEmails.includes(admin.email.toLowerCase());
+  }
+
+  return false;
 }
 
 smsTemplate.get('/', async (c) => {
@@ -96,7 +108,7 @@ smsTemplate.get('/default', async (c) => {
       });
     }
 
-    const userIsPaid = await isPaidUser(c.env.DB, adminId);
+    const userIsPaid = await isPaidUser(c.env, adminId);
 
     return c.json({
       success: true,
@@ -133,9 +145,9 @@ smsTemplate.post('/', async (c) => {
       .first<{ count: number }>();
 
     if ((existingCount?.count || 0) >= planConfig.smsTemplateLimit) {
-      return c.json({ 
-        success: false, 
-        error: `템플릿은 ${planConfig.smsTemplateLimit}개만 저장할 수 있습니다. 기존 템플릿을 수정해주세요.` 
+      return c.json({
+        success: false,
+        error: `템플릿은 ${planConfig.smsTemplateLimit}개만 저장할 수 있습니다. 기존 템플릿을 수정해주세요.`
       }, 400);
     }
 
@@ -149,7 +161,7 @@ smsTemplate.post('/', async (c) => {
       return c.json({ success: false, error: 'Name and content are required' }, 400);
     }
 
-    const userIsPaid = await isPaidUser(c.env.DB, admin.sub);
+    const userIsPaid = await isPaidUser(c.env, admin.sub);
     const finalUseAi = userIsPaid && useAi ? 1 : 0;
 
     const id = generateId();
@@ -198,7 +210,7 @@ smsTemplate.put('/:id', async (c) => {
       isDefault?: boolean;
     }>();
 
-    const userIsPaid = await isPaidUser(c.env.DB, admin.sub);
+    const userIsPaid = await isPaidUser(c.env, admin.sub);
 
     if (isDefault) {
       await c.env.DB.prepare(
@@ -289,7 +301,7 @@ smsTemplate.post('/generate', async (c) => {
     return c.json({ success: false, error: 'Admin ID not found' }, 400);
   }
 
-  const userIsPaid = await isPaidUser(c.env.DB, adminId);
+  const userIsPaid = await isPaidUser(c.env, adminId);
   if (!userIsPaid) {
     return c.json({ success: false, error: 'Paid subscription required' }, 403);
   }

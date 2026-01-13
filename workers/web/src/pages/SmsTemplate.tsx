@@ -18,10 +18,7 @@ const VARIABLES = [
   { label: '연락처', placeholder: '${연락처}' },
   { label: '주소', placeholder: '${주소}' },
   { label: '상품명', placeholder: '${상품명}' },
-  { label: '수량', placeholder: '${수량}' },
   { label: '배송담당자', placeholder: '${배송담당자}' },
-  { label: '배송일', placeholder: '${배송일}' },
-  { label: '메모', placeholder: '${메모}' },
 ];
 
 const SAMPLE_DATA: Record<string, string> = {
