@@ -313,14 +313,13 @@ export default function Dashboard() {
                 </div>
                 {dailyLimit !== -1 && (
                   <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all ${
-                        todayUsage / dailyLimit >= 0.9 
-                          ? 'bg-red-500' 
-                          : todayUsage / dailyLimit >= 0.7 
-                            ? 'bg-amber-500' 
-                            : 'bg-emerald-500'
-                      }`}
+                    <div
+                      className={`h-full rounded-full transition-all ${todayUsage / dailyLimit >= 0.9
+                        ? 'bg-red-500'
+                        : todayUsage / dailyLimit >= 0.7
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                        }`}
                       style={{ width: `${Math.min(100, (todayUsage / dailyLimit) * 100)}%` }}
                     />
                   </div>
@@ -369,6 +368,18 @@ export default function Dashboard() {
                 )}
               </button>
 
+              {/* 엑셀 샘플 다운로드 버튼 */}
+              <a
+                href="/sample.xlsx"
+                download
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white rounded-xl font-semibold shadow-lg shadow-gray-500/25 transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                엑셀 샘플 다운
+              </a>
+
               <Link to="/upload" className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl font-semibold shadow-lg shadow-primary-500/25 transition-all">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -408,9 +419,8 @@ export default function Dashboard() {
           <div className="flex gap-3">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
-                statusFilter === 'all' ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : ''
-              }`}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${statusFilter === 'all' ? 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+                }`}
             >
               <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-gray-900 dark:text-white">{stats.total}</span>
@@ -419,9 +429,8 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setStatusFilter('pending')}
-              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
-                statusFilter === 'pending' ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-gray-900' : ''
-              }`}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${statusFilter === 'pending' ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+                }`}
             >
               <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-amber-700 dark:text-amber-400">{stats.pending}</span>
@@ -430,9 +439,8 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setStatusFilter('in_transit')}
-              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
-                statusFilter === 'in_transit' ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900' : ''
-              }`}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${statusFilter === 'in_transit' ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+                }`}
             >
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-blue-700 dark:text-blue-400">{stats.in_transit}</span>
@@ -441,9 +449,8 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setStatusFilter('completed')}
-              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${
-                statusFilter === 'completed' ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900' : ''
-              }`}
+              className={`card px-4 py-3 flex items-center gap-3 transition-all cursor-pointer hover:shadow-md ${statusFilter === 'completed' ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900' : ''
+                }`}
             >
               <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                 <span className="font-bold text-green-700 dark:text-green-400">{stats.completed}</span>
