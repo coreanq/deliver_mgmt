@@ -438,7 +438,7 @@ export default function AdminDashboardScreen() {
                   },
                 ]}
               >
-                  <Text style={[typography.caption, { color: colors.primary, fontWeight: '600' }]}>
+                <Text style={[typography.caption, { color: colors.primary, fontWeight: '600' }]}>
                   {subscriptionInfo.currentUsage}/{subscriptionInfo.dailyLimit}
                 </Text>
               </View>
@@ -584,6 +584,9 @@ export default function AdminDashboardScreen() {
             >
               <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8, textDecorationLine: 'underline' }]}>
                 엑셀 업로드는 PC의 브라우저에서 진행하세요
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted, marginTop: 4, textAlign: 'center' }]}>
+                {WEB_URL}
               </Text>
             </Pressable>
           </Animated.View>

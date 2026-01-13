@@ -371,11 +371,14 @@ export default function RoleSelectionScreen() {
               Alert.alert('링크 복사됨', 'PC 브라우저에서 접속하세요');
             }}
           >
-            <Text style={[typography.caption, { color: colors.textMuted }]}>
+            <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center' }]}>
               엑셀 업로드는 PC의 브라우저에서 진행하세요
             </Text>
+            <Text style={[typography.caption, { color: colors.textMuted, marginTop: 4, textAlign: 'center', fontSize: 11 }]}>
+              {WEB_URL}
+            </Text>
           </Pressable>
-          
+
           <View style={styles.legalLinks}>
             <Pressable onPress={() => Linking.openURL('https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2')}>
               <Text style={[typography.caption, { color: colors.textMuted }]}>
