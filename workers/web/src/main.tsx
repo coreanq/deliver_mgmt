@@ -6,8 +6,6 @@ import './index.css';
 // Pages
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Upload from './pages/Upload';
-import Mapping from './pages/Mapping';
 import SmsTemplate from './pages/SmsTemplate';
 import CustomFieldSettings from './pages/CustomFieldSettings';
 
@@ -45,22 +43,6 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/upload"
-          element={
-            <ProtectedRoute>
-              <Upload />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/mapping"
-          element={
-            <ProtectedRoute>
-              <Mapping />
             </ProtectedRoute>
           }
         />
