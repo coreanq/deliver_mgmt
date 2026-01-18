@@ -30,6 +30,14 @@ export interface Delivery {
   photoUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  customFields: Record<string, string> | null;
+}
+
+export interface CustomFieldDefinition {
+  id: string;
+  fieldName: string;
+  fieldOrder: number;
+  isEditableByStaff: boolean;
 }
 
 export type PlanType = 'free' | 'basic' | 'pro';

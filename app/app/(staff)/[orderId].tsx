@@ -8,6 +8,7 @@ import {
   Linking,
   Alert,
   Image,
+  TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +30,8 @@ import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
 import { StatusBadge, Loading, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
-import type { DeliveryStatus } from '../../src/types';
+import type { DeliveryStatus, CustomFieldDefinition } from '../../src/types';
+import { customFieldApi, deliveryApi } from '../../src/services/api';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -116,6 +118,11 @@ export default function DeliveryDetailScreen() {
   const [updating, setUpdating] = useState(false);
   const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
 
+  // 커스텀 필드 상태
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
+  const [editableValues, setEditableValues] = useState<Record<string, string>>({});
+  const [savingCustomFields, setSavingCustomFields] = useState(false);
+
   const backScale = useSharedValue(1);
   const fabScale = useSharedValue(1);
 
@@ -125,6 +132,27 @@ export default function DeliveryDetailScreen() {
       selectDelivery(delivery);
     }
   }, [params.orderId, deliveries, selectDelivery]);
+
+  // 커스텀 필드 정의 조회
+  useEffect(() => {
+    const fetchCustomFields = async () => {
+      if (!token) return;
+      const result = await customFieldApi.getStaffFields(token);
+      if (result.success && result.data) {
+        setCustomFieldDefs(result.data.fields);
+      }
+    };
+    fetchCustomFields();
+  }, [token]);
+
+  // 커스텀 필드 편집 초기화
+  useEffect(() => {
+    if (selectedDelivery?.customFields) {
+      setEditableValues(selectedDelivery.customFields);
+    } else {
+      setEditableValues({});
+    }
+  }, [selectedDelivery?.id]);
 
   const handleBack = () => {
     selectDelivery(null);
@@ -145,7 +173,27 @@ export default function DeliveryDetailScreen() {
     const nextStatus = getNextStatus(selectedDelivery.status);
     if (!nextStatus) return;
 
+    setUpdating(true);
+
+    // 편집 가능한 커스텀 필드 변경사항이 있으면 먼저 저장
+    if (hasCustomFieldChanges()) {
+      const fieldsToSave = getEditableFieldsOnly();
+      if (Object.keys(fieldsToSave).length > 0) {
+        const customFieldResult = await deliveryApi.updateCustomFields(
+          token,
+          selectedDelivery.id,
+          fieldsToSave
+        );
+        if (!customFieldResult.success) {
+          setUpdating(false);
+          Alert.alert('오류', customFieldResult.error || '정보 저장에 실패했습니다.');
+          return;
+        }
+      }
+    }
+
     if (nextStatus === 'completed') {
+      setUpdating(false);
       router.push({
         pathname: '/(staff)/complete',
         params: { orderId: selectedDelivery.id },
@@ -153,13 +201,54 @@ export default function DeliveryDetailScreen() {
       return;
     }
 
-    setUpdating(true);
     const success = await updateDeliveryStatus(token, selectedDelivery.id, nextStatus);
     setUpdating(false);
 
     if (success) {
       Alert.alert('완료', '배송 상태가 변경되었습니다.');
     }
+  };
+
+  // 편집 가능한 필드만 필터링
+  const getEditableFieldsOnly = () => {
+    const editableFieldIds = customFieldDefs
+      .filter(f => f.isEditableByStaff)
+      .map(f => f.id);
+
+    const filtered: Record<string, string> = {};
+    for (const fieldId of editableFieldIds) {
+      if (editableValues[fieldId] !== undefined) {
+        filtered[fieldId] = editableValues[fieldId];
+      }
+    }
+    return filtered;
+  };
+
+  // 커스텀 필드 저장
+  const handleSaveCustomFields = async () => {
+    if (!token || !selectedDelivery) return;
+
+    setSavingCustomFields(true);
+    const fieldsToSave = getEditableFieldsOnly();
+    const result = await deliveryApi.updateCustomFields(token, selectedDelivery.id, fieldsToSave);
+    setSavingCustomFields(false);
+
+    if (result.success) {
+      Alert.alert('저장 완료', '정보가 저장되었습니다.');
+    } else {
+      Alert.alert('오류', result.error || '저장에 실패했습니다.');
+    }
+  };
+
+  // 커스텀 필드 값이 변경되었는지 확인
+  const hasCustomFieldChanges = () => {
+    const originalFields = selectedDelivery?.customFields || {};
+    for (const key of Object.keys(editableValues)) {
+      if (editableValues[key] !== (originalFields[key] || '')) {
+        return true;
+      }
+    }
+    return false;
   };
 
   const backAnimatedStyle = useAnimatedStyle(() => ({
@@ -318,6 +407,75 @@ export default function DeliveryDetailScreen() {
                 </View>
               </View>
             )}
+
+            {/* Custom Fields - 기존 정보 섹션과 동일한 스타일로 표시 */}
+            {customFieldDefs.map((field) => {
+              const value = editableValues[field.id] || selectedDelivery.customFields?.[field.id] || '';
+              const isEditable = field.isEditableByStaff;
+
+              return (
+                <View key={field.id} style={styles.infoSection}>
+                  <View style={styles.customFieldHeader}>
+                    <Text style={[typography.overline, { color: colors.textMuted }]}>
+                      {field.fieldName}
+                    </Text>
+                    {isEditable && hasCustomFieldChanges() && (
+                      <Pressable
+                        style={[
+                          styles.saveButton,
+                          {
+                            backgroundColor: colors.primary,
+                            borderRadius: radius.md,
+                          },
+                        ]}
+                        onPress={handleSaveCustomFields}
+                        disabled={savingCustomFields}
+                      >
+                        {savingCustomFields ? (
+                          <Loading size="sm" />
+                        ) : (
+                          <Text style={[typography.caption, { color: '#FFFFFF', fontWeight: '600' }]}>저장</Text>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+                  {isEditable ? (
+                    <TextInput
+                      style={[
+                        styles.customFieldInput,
+                        {
+                          color: colors.text,
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                          borderRadius: radius.md,
+                          marginTop: 10,
+                        },
+                      ]}
+                      value={editableValues[field.id] || ''}
+                      onChangeText={(text) =>
+                        setEditableValues((prev) => ({ ...prev, [field.id]: text }))
+                      }
+                      placeholder="값 입력..."
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.memoCard,
+                        {
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
+                          borderRadius: radius.lg,
+                          marginTop: 10,
+                        },
+                      ]}
+                    >
+                      <Text style={[typography.body, { color: colors.text }]}>
+                        {value || '-'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
         </Animated.View>
 
@@ -510,5 +668,18 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     fontSize: 20,
+  },
+  customFieldHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  saveButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  customFieldInput: {
+    padding: 12,
+    fontSize: 15,
   },
 });

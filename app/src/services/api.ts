@@ -6,6 +6,7 @@ import type {
   StaffLoginResponse,
   DeliveryListResponse,
   Delivery,
+  CustomFieldDefinition,
 } from '../types';
 
 export const WEB_URL = 'https://delivermgmt.try-dabble.com';
@@ -125,6 +126,13 @@ export const deliveryApi = {
       headers: withAuth(token),
       body: JSON.stringify({ photoBase64 }),
     }),
+
+  updateCustomFields: (token: string, deliveryId: string, customFields: Record<string, string>) =>
+    request<Delivery>(`/api/delivery/${deliveryId}/custom-fields`, {
+      method: 'PUT',
+      headers: withAuth(token),
+      body: JSON.stringify({ customFields }),
+    }),
 };
 
 export const subscriptionApi = {
@@ -165,6 +173,13 @@ export const smsTemplateApi = {
       method: 'POST',
       headers: withAuth(token),
       body: JSON.stringify({ templateContent, variables }),
+    }),
+};
+
+export const customFieldApi = {
+  getStaffFields: (token: string) =>
+    request<{ fields: CustomFieldDefinition[] }>('/api/custom-field/staff', {
+      headers: withAuth(token),
     }),
 };
 
