@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import Mapping from './pages/Mapping';
 import SmsTemplate from './pages/SmsTemplate';
+import CustomFieldSettings from './pages/CustomFieldSettings';
 
 
 // Auth Guard
@@ -68,6 +69,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SmsTemplate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/custom-fields"
+          element={
+            <ProtectedRoute>
+              <CustomFieldSettings />
             </ProtectedRoute>
           }
         />

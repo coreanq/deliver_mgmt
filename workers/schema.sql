@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS deliveries (
   delivery_date TEXT NOT NULL,
   completed_at TEXT,
   photo_url TEXT,
+  custom_fields TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
@@ -74,3 +75,20 @@ CREATE TABLE IF NOT EXISTS sms_templates (
 
 -- SMS 템플릿 인덱스
 CREATE INDEX IF NOT EXISTS idx_sms_templates_admin_id ON sms_templates(admin_id);
+
+-- 커스텀 필드 정의 테이블
+CREATE TABLE IF NOT EXISTS custom_field_definitions (
+  id TEXT PRIMARY KEY,
+  admin_id TEXT NOT NULL,
+  field_key TEXT NOT NULL,
+  field_name TEXT NOT NULL,
+  field_order INTEGER DEFAULT 0,
+  is_editable_by_staff INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE,
+  UNIQUE(admin_id, field_key)
+);
+
+-- 커스텀 필드 정의 인덱스
+CREATE INDEX IF NOT EXISTS idx_custom_field_definitions_admin_id ON custom_field_definitions(admin_id);

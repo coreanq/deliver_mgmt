@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUploadStore } from '../stores/upload';
 import { useAuthStore } from '../stores/auth';
@@ -6,44 +6,78 @@ import DeliveryDatePicker from '../components/DeliveryDatePicker';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
 
-const getMappingCacheKey = (headers: string[]) => {
-  // 헤더 정렬하여 순서 무관하게 동일한 키 생성
-  return `mapping_cache_${headers.slice().sort().join('|')}`;
+interface CustomFieldDef {
+  id: string;
+  field_key: string;
+  field_name: string;
+  field_order: number;
+  is_editable_by_staff: number;
+}
+
+interface CachedMappingData {
+  mapping: Record<string, string>;
+  customFieldMapping: Record<string, string>;
+}
+
+const getMappingCacheKey = (headers: string[], customFieldKeys: string[]) => {
+  // 헤더 + 커스텀 필드 키를 기준으로 캐시 키 생성
+  const headerPart = headers.slice().sort().join('|');
+  const customPart = customFieldKeys.slice().sort().join('|');
+  return `mapping_cache_v2_${headerPart}_cf_${customPart}`;
 };
 
-const getCachedMapping = (headers: string[]): Record<string, string> | null => {
+const getCachedMapping = (headers: string[], customFieldKeys: string[]): CachedMappingData | null => {
   try {
-    const cached = localStorage.getItem(getMappingCacheKey(headers));
+    const cached = localStorage.getItem(getMappingCacheKey(headers, customFieldKeys));
     if (!cached) return null;
 
-    const parsed = JSON.parse(cached);
+    const parsed = JSON.parse(cached) as CachedMappingData;
+
+    // 기본 필드 매핑 검증
     const validMapping: Record<string, string> = {};
-    for (const [targetField, sourceColumn] of Object.entries(parsed)) {
+    for (const [targetField, sourceColumn] of Object.entries(parsed.mapping || {})) {
       if (headers.includes(sourceColumn as string)) {
         validMapping[targetField] = sourceColumn as string;
       }
     }
-    return Object.keys(validMapping).length > 0 ? validMapping : null;
+
+    // 커스텀 필드 매핑 검증
+    const validCustomFieldMapping: Record<string, string> = {};
+    for (const [fieldKey, sourceColumn] of Object.entries(parsed.customFieldMapping || {})) {
+      if (headers.includes(sourceColumn as string) && customFieldKeys.includes(fieldKey)) {
+        validCustomFieldMapping[fieldKey] = sourceColumn as string;
+      }
+    }
+
+    if (Object.keys(validMapping).length === 0 && Object.keys(validCustomFieldMapping).length === 0) {
+      return null;
+    }
+
+    return { mapping: validMapping, customFieldMapping: validCustomFieldMapping };
   } catch {
     return null;
   }
 };
 
-const saveMappingToCache = (headers: string[], mapping: Record<string, string>) => {
+const saveMappingToCache = (
+  headers: string[],
+  customFieldKeys: string[],
+  mapping: Record<string, string>,
+  customFieldMapping: Record<string, string>
+) => {
   try {
-    localStorage.setItem(getMappingCacheKey(headers), JSON.stringify(mapping));
+    const data: CachedMappingData = { mapping, customFieldMapping };
+    localStorage.setItem(getMappingCacheKey(headers, customFieldKeys), JSON.stringify(data));
   } catch {}
 };
 
-const TARGET_FIELDS = [
+const STANDARD_FIELDS = [
   { key: 'recipientName', label: '수령인 이름', required: true },
   { key: 'recipientPhone', label: '연락처', required: true },
   { key: 'recipientAddress', label: '주소', required: true },
   { key: 'productName', label: '상품명', required: true },
   { key: 'staffName', label: '배송담당자', required: true },
-  { key: 'quantity', label: '수량', required: false },
   { key: 'memo', label: '메모', required: false },
-  { key: 'deliveryDate', label: '배송일', required: false },
 ];
 
 export default function Mapping() {
@@ -62,6 +96,23 @@ export default function Mapping() {
   });
   const [usage, setUsage] = useState<{ current: number; limit: number; remaining: number } | null>(null);
 
+  // 커스텀 필드 정의
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDef[]>([]);
+  const [customFieldMapping, setCustomFieldMapping] = useState<Record<string, string>>({});
+  const [customFieldsLoaded, setCustomFieldsLoaded] = useState(false);
+
+  // 전체 타겟 필드 (기본 + 커스텀)
+  const TARGET_FIELDS = useMemo(() => {
+    const customFields = customFieldDefs.map(f => ({
+      key: `custom_${f.field_key}`,
+      label: f.field_name,
+      required: false,
+      isCustom: true,
+      fieldKey: f.field_key,
+    }));
+    return [...STANDARD_FIELDS.map(f => ({ ...f, isCustom: false, fieldKey: f.key })), ...customFields];
+  }, [customFieldDefs]);
+
   // 데이터가 없으면 업로드 페이지로 리다이렉트
   useEffect(() => {
     if (headers.length === 0) {
@@ -69,17 +120,44 @@ export default function Mapping() {
     }
   }, [headers, navigate]);
 
+  // 커스텀 필드 정의 조회
   useEffect(() => {
-    if (headers.length === 0 || Object.keys(mapping).length > 0) return;
+    const fetchCustomFields = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/custom-field`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await response.json();
+        if (result.success) {
+          setCustomFieldDefs(result.data.fields || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch custom fields:', err);
+      } finally {
+        setCustomFieldsLoaded(true);
+      }
+    };
+    if (token) {
+      fetchCustomFields();
+    } else {
+      setCustomFieldsLoaded(true);
+    }
+  }, [token]);
 
-    const cached = getCachedMapping(headers);
+  // 커스텀 필드 정의 로드 후 캐시 확인 및 AI 매핑 요청
+  useEffect(() => {
+    if (headers.length === 0 || Object.keys(mapping).length > 0 || !customFieldsLoaded) return;
+
+    const customFieldKeys = customFieldDefs.map((f) => f.field_key);
+    const cached = getCachedMapping(headers, customFieldKeys);
     if (cached) {
-      setMapping(cached);
+      setMapping(cached.mapping);
+      setCustomFieldMapping(cached.customFieldMapping);
       return;
     }
 
     fetchMappingSuggestion();
-  }, [headers]);
+  }, [headers, customFieldsLoaded]);
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -134,13 +212,25 @@ export default function Mapping() {
       const result = await response.json();
       if (result.success && result.data.suggestions) {
         const newMapping: Record<string, string> = {};
+        const newCustomFieldMapping: Record<string, string> = {};
+        const customFieldKeys = customFieldDefs.map((f) => f.field_key);
+
         for (const suggestion of result.data.suggestions) {
           if (suggestion.confidence >= 0.5) {
-            newMapping[suggestion.targetField] = suggestion.sourceColumn;
+            // 커스텀 필드인지 확인 (custom_fieldKey 형태)
+            if (suggestion.targetField.startsWith('custom_')) {
+              const fieldKey = suggestion.targetField.replace('custom_', '');
+              if (customFieldKeys.includes(fieldKey)) {
+                newCustomFieldMapping[fieldKey] = suggestion.sourceColumn;
+              }
+            } else {
+              newMapping[suggestion.targetField] = suggestion.sourceColumn;
+            }
           }
         }
         setMapping(newMapping);
-        saveMappingToCache(headers, newMapping);
+        setCustomFieldMapping(newCustomFieldMapping);
+        saveMappingToCache(headers, customFieldKeys, newMapping, newCustomFieldMapping);
         setAiError({ show: false, canRetry: false });
       } else {
         throw new Error(result.error || 'AI 매핑 추천 실패');
@@ -167,8 +257,8 @@ export default function Mapping() {
   };
 
   const handleSave = async (overwrite = false) => {
-    // 필수 필드 확인
-    const missingFields = TARGET_FIELDS.filter(
+    // 필수 필드 확인 (기본 필드만)
+    const missingFields = STANDARD_FIELDS.filter(
       (field) => field.required && !mapping[field.key]
     ).map((field) => field.label);
 
@@ -181,6 +271,20 @@ export default function Mapping() {
     setError('');
     setConfirmOverwrite({ show: false, existingCount: 0 });
 
+    // 커스텀 필드 매핑 추출
+    const customFieldsMapping: Record<string, string> = {};
+    for (const [key, value] of Object.entries(customFieldMapping)) {
+      if (value) {
+        customFieldsMapping[key] = value;
+      }
+    }
+
+    // 최종 매핑 객체 구성
+    const finalMapping = {
+      ...mapping,
+      customFields: Object.keys(customFieldsMapping).length > 0 ? customFieldsMapping : undefined,
+    };
+
     try {
       const response = await fetch(`${API_BASE}/api/upload/save`, {
         method: 'POST',
@@ -191,7 +295,7 @@ export default function Mapping() {
         body: JSON.stringify({
           headers,
           rows,
-          mapping,
+          mapping: finalMapping,
           deliveryDate,
           overwrite,
         }),
@@ -199,11 +303,13 @@ export default function Mapping() {
 
       const result = await response.json();
       if (result.success) {
-        saveMappingToCache(headers, mapping);
+        const customFieldKeys = customFieldDefs.map((f) => f.field_key);
+        saveMappingToCache(headers, customFieldKeys, mapping, customFieldMapping);
         reset();
         navigate('/', {
           state: {
             message: `${result.data.insertedCount}건의 배송 데이터를 저장했습니다.`,
+            deliveryDate: deliveryDate,
           },
         });
       } else if (result.needsConfirmation) {
@@ -370,9 +476,9 @@ export default function Mapping() {
           )}
         </div>
 
-        {/* Mapping Grid */}
+        {/* Mapping Grid - 기본 필드 */}
         <div className="grid gap-4">
-          {TARGET_FIELDS.map((field) => (
+          {STANDARD_FIELDS.map((field) => (
             <div key={field.key} className="card p-4 flex items-center gap-4">
               <div className="flex-1">
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -402,6 +508,54 @@ export default function Mapping() {
             </div>
           ))}
         </div>
+
+        {/* 사용자 정의 컬럼 Mapping */}
+        {customFieldDefs.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              사용자 정의 컬럼
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(선택사항)</span>
+            </h2>
+            <div className="grid gap-4">
+              {customFieldDefs.map((field) => (
+                <div key={field.id} className="card p-4 flex items-center gap-4 border-l-4 border-cyan-400">
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {field.field_name}
+                    </span>
+                    {field.is_editable_by_staff === 1 && (
+                      <span className="ml-2 text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 rounded-full">
+                        편집 가능
+                      </span>
+                    )}
+                  </div>
+
+                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+
+                  <div className="flex-1">
+                    <select
+                      value={customFieldMapping[field.field_key] || ''}
+                      onChange={(e) => setCustomFieldMapping(prev => ({ ...prev, [field.field_key]: e.target.value }))}
+                      className="input-field"
+                    >
+                      <option value="">선택 안 함</option>
+                      {headers.map((header) => (
+                        <option key={header} value={header}>
+                          {header}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Preview */}
         {rows.length > 0 && (

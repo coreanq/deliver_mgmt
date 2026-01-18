@@ -79,6 +79,7 @@ export interface Delivery {
   delivery_date: string;
   completed_at: string | null;
   photo_url: string | null;
+  custom_fields: string | null; // JSON 형식: {"fieldKey": "value"}
   created_at: string;
   updated_at: string;
 }
@@ -100,6 +101,18 @@ export interface SmsTemplate {
   content: string;
   use_ai: number;
   is_default: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 커스텀 필드 정의
+export interface CustomFieldDefinition {
+  id: string;
+  admin_id: string;
+  field_key: string;
+  field_name: string;
+  field_order: number;
+  is_editable_by_staff: number; // 0 | 1
   created_at: string;
   updated_at: string;
 }
@@ -127,4 +140,5 @@ export interface FieldMapping {
   memo?: string;
   staffName?: string;
   deliveryDate?: string;
+  customFields?: Record<string, string>; // { fieldKey: sourceColumn }
 }

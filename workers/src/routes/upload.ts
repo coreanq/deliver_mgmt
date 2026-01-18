@@ -1,10 +1,20 @@
 import { Hono } from 'hono';
-import type { Env, FieldMapping, Subscription } from '../types';
+import type { Env, FieldMapping, Subscription, CustomFieldDefinition } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId, getTodayKST } from '../lib/utils';
 import { callAI } from '../services/ai';
 import { getUsageForDate } from '../lib/usage';
 import { getPlanConfig } from '../lib/plans';
+
+// 관리자의 커스텀 필드 정의 조회
+async function getCustomFieldDefinitions(db: D1Database, adminId: string): Promise<CustomFieldDefinition[]> {
+  const result = await db.prepare(
+    'SELECT * FROM custom_field_definitions WHERE admin_id = ? ORDER BY field_order ASC'
+  )
+    .bind(adminId)
+    .all<CustomFieldDefinition>();
+  return result.results || [];
+}
 
 const upload = new Hono<{ Bindings: Env }>();
 
@@ -65,8 +75,13 @@ upload.post('/mapping/suggest', async (c) => {
   }
 
   try {
-    // DB 기반 패턴 추천 제거 (로컬 스토리지 사용 권장)
-    // 바로 AI 추천으로 넘어갑니다.
+    // 관리자의 커스텀 필드 정의 조회
+    const customFields = await getCustomFieldDefinitions(c.env.DB, payload.sub);
+
+    // 사용자 정의 컬럼 프롬프트 생성
+    const customFieldsPrompt = customFields.length > 0
+      ? `\n\nUser-defined columns (optional):\n${customFields.map(f => `- custom_${f.field_key}: ${f.field_name}`).join('\n')}`
+      : '';
 
     // AI 매핑 추천 요청 (Grok 4.1 Fast Reasoning 사용)
     const systemPrompt = `You are a data mapping assistant for a delivery management system.
@@ -79,19 +94,15 @@ Target fields:
 - recipientAddress: 배송 주소 (required)
 - productName: 상품명 (required)
 - staffName: 배송담당자 이름 (required)
-- quantity: 수량 (optional, default 1)
-- memo: 메모 (optional)
-- deliveryDate: 배송 날짜 (optional, YYYY-MM-DD format)
+- memo: 메모 (optional)${customFieldsPrompt}
 
 Consider Korean variations:
 - 이름, 성명, 수령인 → recipientName
 - 연락처, 전화, 휴대폰, 핸드폰 → recipientPhone
 - 주소, 배송지 → recipientAddress
 - 상품, 품목, 제품 → productName
-- 수량, 개수 → quantity
 - 비고, 메모, 요청사항 → memo
-- 담당자, 배송자 → staffName
-- 날짜, 배송일 → deliveryDate`;
+- 담당자, 배송자 → staffName`;
 
     const userMessage = `Excel headers: ${JSON.stringify(headers)}
 Sample data: ${JSON.stringify(sampleRows?.slice(0, 3) || [])}
@@ -215,6 +226,9 @@ upload.post('/save', async (c) => {
     // 매핑 패턴 저장은 로컬(브라우저)에서 처리하므로 서버 로직 제거
     // 클라이언트가 직접 로컬 스토리지에 저장해야 함
 
+    // 커스텀 필드 정의 조회 (커스텀 필드 값 저장용)
+    const customFieldDefs = await getCustomFieldDefinitions(c.env.DB, payload.sub);
+
     // 배송 데이터 준비 (배치 저장용)
     const statements: ReturnType<typeof c.env.DB.prepare>[] = [];
     let validRowCount = 0;
@@ -231,14 +245,29 @@ upload.post('/save', async (c) => {
         continue;
       }
 
-      const quantity = mapping.quantity ? parseInt(row[mapping.quantity], 10) || 1 : 1;
+      const quantity = 1; // 수량은 항상 1
       const memo = mapping.memo ? row[mapping.memo] || null : null;
-      const rowDate = mapping.deliveryDate ? row[mapping.deliveryDate] || targetDate : targetDate;
+      const rowDate = targetDate; // 배송일은 매핑 페이지에서 선택한 날짜 사용
+
+      // 커스텀 필드 값 추출
+      let customFieldsJson: string | null = null;
+      if (mapping.customFields && customFieldDefs.length > 0) {
+        const customFieldValues: Record<string, string> = {};
+        for (const fieldDef of customFieldDefs) {
+          const sourceColumn = mapping.customFields[fieldDef.field_key];
+          if (sourceColumn && row[sourceColumn]) {
+            customFieldValues[fieldDef.field_key] = row[sourceColumn];
+          }
+        }
+        if (Object.keys(customFieldValues).length > 0) {
+          customFieldsJson = JSON.stringify(customFieldValues);
+        }
+      }
 
       statements.push(
         c.env.DB.prepare(
-          `INSERT INTO deliveries (id, admin_id, staff_name, recipient_name, recipient_phone, recipient_address, product_name, quantity, memo, delivery_date)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO deliveries (id, admin_id, staff_name, recipient_name, recipient_phone, recipient_address, product_name, quantity, memo, delivery_date, custom_fields)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           generateId(),
           payload.sub,
@@ -249,7 +278,8 @@ upload.post('/save', async (c) => {
           productName,
           quantity,
           memo,
-          rowDate
+          rowDate,
+          customFieldsJson
         )
       );
       validRowCount++;

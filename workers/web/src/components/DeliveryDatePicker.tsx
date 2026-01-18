@@ -1,8 +1,12 @@
+import React from 'react';
+
 interface DeliveryDatePickerProps {
   value: string;
   onChange: (value: string) => void;
   label?: string;
   description?: string;
+  leftAction?: React.ReactNode;
+  rightAction?: React.ReactNode;
 }
 
 export default function DeliveryDatePicker({
@@ -10,11 +14,13 @@ export default function DeliveryDatePicker({
   onChange,
   label = '배송일',
   description,
+  leftAction,
+  rightAction,
 }: DeliveryDatePickerProps) {
   return (
     <div className="card p-6 h-full bg-gradient-to-r from-primary-50 to-blue-50 border-2 border-primary-200 dark:from-primary-900/20 dark:to-blue-900/20 dark:border-primary-700">
       <div className="flex items-center gap-4 h-full">
-        <div className="w-14 h-14 bg-primary-100 dark:bg-primary-900/50 rounded-xl flex items-center justify-center">
+        <div className="w-14 h-14 bg-primary-100 dark:bg-primary-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
           <svg
             className="w-7 h-7 text-primary-600 dark:text-primary-400"
             fill="none"
@@ -29,7 +35,7 @@ export default function DeliveryDatePicker({
             />
           </svg>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <label className="block text-lg font-bold text-primary-900 dark:text-primary-100 mb-1">
             {label}
           </label>
@@ -37,12 +43,16 @@ export default function DeliveryDatePicker({
             <p className="text-sm text-primary-600 dark:text-primary-400">{description}</p>
           )}
         </div>
-        <input
-          type="date"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="input-field w-auto text-lg font-semibold px-4 py-3"
-        />
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {leftAction}
+          <input
+            type="date"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="input-field w-auto text-lg font-semibold px-4 py-3"
+          />
+          {rightAction}
+        </div>
       </div>
     </div>
   );

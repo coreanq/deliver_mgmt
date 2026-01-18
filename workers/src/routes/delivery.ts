@@ -1,7 +1,27 @@
 import { Hono } from 'hono';
-import type { Env, Delivery, JWTPayload } from '../types';
+import type { Env, Delivery, JWTPayload, CustomFieldDefinition } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId, getTodayKST, getISOString, transformKeys, transformArray } from '../lib/utils';
+
+// 배송 데이터 변환 (custom_fields JSON 파싱 포함)
+function transformDelivery(delivery: Delivery): Record<string, unknown> {
+  const transformed = transformKeys(delivery);
+  if (delivery.custom_fields) {
+    try {
+      transformed.customFields = JSON.parse(delivery.custom_fields);
+    } catch {
+      transformed.customFields = null;
+    }
+  } else {
+    transformed.customFields = null;
+  }
+  return transformed;
+}
+
+// 배송 배열 변환
+function transformDeliveries(deliveries: Delivery[]): Record<string, unknown>[] {
+  return deliveries.map(transformDelivery);
+}
 
 const delivery = new Hono<{ Bindings: Env }>();
 
@@ -66,7 +86,7 @@ delivery.get('/list', async (c) => {
     return c.json({
       success: true,
       data: {
-        deliveries: transformArray(result.results || []),
+        deliveries: transformDeliveries(result.results || []),
         total: result.results?.length || 0,
       },
     });
@@ -143,7 +163,7 @@ delivery.get('/staff/:name', async (c) => {
     return c.json({
       success: true,
       data: {
-        deliveries: transformArray(result.results || []),
+        deliveries: transformDeliveries(result.results || []),
         total: result.results?.length || 0,
       },
     });
@@ -275,6 +295,106 @@ delivery.post('/:id/complete', async (c) => {
     });
   } catch (error) {
     console.error('Complete delivery error:', error);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
+// 커스텀 필드 값 수정 (배송담당자용)
+delivery.put('/:id/custom-fields', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const token = authHeader.slice(7);
+  const payload = await verifyToken(token, c.env.JWT_SECRET);
+
+  if (!payload) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const deliveryId = c.req.param('id');
+  const { customFields } = await c.req.json<{ customFields: Record<string, string> }>();
+
+  if (!customFields || typeof customFields !== 'object') {
+    return c.json({ success: false, error: 'customFields is required' }, 400);
+  }
+
+  try {
+    // 권한 확인
+    const adminId = payload.role === 'admin' ? payload.sub : payload.adminId;
+
+    // 배송 정보 조회
+    const existing = await c.env.DB.prepare(
+      'SELECT * FROM deliveries WHERE id = ? AND admin_id = ?'
+    )
+      .bind(deliveryId, adminId)
+      .first<Delivery>();
+
+    if (!existing) {
+      return c.json({ success: false, error: 'Delivery not found' }, 404);
+    }
+
+    // 배송담당자인 경우 본인 배송만 수정 가능
+    if (payload.role === 'staff' && existing.staff_name !== payload.name) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    // 커스텀 필드 정의 조회
+    const fieldDefs = await c.env.DB.prepare(
+      'SELECT * FROM custom_field_definitions WHERE admin_id = ?'
+    )
+      .bind(adminId)
+      .all<CustomFieldDefinition>();
+
+    const allowedFields = fieldDefs.results || [];
+
+    // 배송담당자인 경우 is_editable_by_staff=1인 필드만 수정 가능
+    if (payload.role === 'staff') {
+      const editableFieldKeys = allowedFields
+        .filter(f => f.is_editable_by_staff === 1)
+        .map(f => f.field_key);
+
+      for (const key of Object.keys(customFields)) {
+        if (!editableFieldKeys.includes(key)) {
+          return c.json({
+            success: false,
+            error: `'${key}' 필드는 수정할 수 없습니다.`,
+          }, 403);
+        }
+      }
+    }
+
+    // 기존 커스텀 필드 값과 병합
+    let existingCustomFields: Record<string, string> = {};
+    if (existing.custom_fields) {
+      try {
+        existingCustomFields = JSON.parse(existing.custom_fields);
+      } catch {
+        existingCustomFields = {};
+      }
+    }
+
+    const mergedFields = { ...existingCustomFields, ...customFields };
+    const customFieldsJson = JSON.stringify(mergedFields);
+
+    // 업데이트
+    const updatedAt = getISOString();
+    await c.env.DB.prepare(
+      'UPDATE deliveries SET custom_fields = ?, updated_at = ? WHERE id = ?'
+    )
+      .bind(customFieldsJson, updatedAt, deliveryId)
+      .run();
+
+    return c.json({
+      success: true,
+      data: {
+        customFields: mergedFields,
+        updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Custom fields update error:', error);
     return c.json({ success: false, error: 'Internal server error' }, 500);
   }
 });

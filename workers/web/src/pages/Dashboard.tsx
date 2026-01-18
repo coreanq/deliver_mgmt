@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 import DeliveryDatePicker from '../components/DeliveryDatePicker';
 import QRCode from 'qrcode';
@@ -32,11 +32,17 @@ const STATUS_COLORS = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { admin, token, logout } = useAuthStore();
 
+  // location.state에서 deliveryDate가 있으면 해당 날짜로 설정
+  const locationState = location.state as { deliveryDate?: string; message?: string } | null;
+  const initialDate = locationState?.deliveryDate || new Date().toISOString().split('T')[0];
+
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [isLoading, setIsLoading] = useState(true);
+  const [successMessage, setSuccessMessage] = useState<string | null>(locationState?.message || null);
 
   // 필터 상태
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_transit' | 'completed'>('all');
@@ -62,6 +68,19 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDeliveries();
   }, [selectedDate]);
+
+  // 성공 메시지 표시 후 자동 숨김 및 location state 초기화
+  useEffect(() => {
+    if (successMessage) {
+      // location state 초기화 (새로고침 시 메시지 재표시 방지)
+      window.history.replaceState({}, document.title);
+
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   // 구독 상태 조회 (선택된 날짜 기준)
   useEffect(() => {
@@ -339,18 +358,15 @@ export default function Dashboard() {
                 SMS 템플릿
               </Link>
 
-              <button
-                onClick={generateQR}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/25 transition-all"
+              <Link
+                to="/custom-fields"
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="2" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="2" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="2" />
-                  <rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                 </svg>
-                QR 코드
-              </button>
+                사용자 정의 컬럼
+              </Link>
 
               {/* 엑셀 다운로드 버튼 */}
               <button
@@ -380,13 +396,6 @@ export default function Dashboard() {
                 엑셀 샘플 다운
               </a>
 
-              <Link to="/upload" className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl font-semibold shadow-lg shadow-primary-500/25 transition-all">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                엑셀 업로드
-              </Link>
-
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">{admin?.email}</span>
                 <button
@@ -403,14 +412,56 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Success Message Toast */}
+      {successMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+          <div className="flex items-center gap-3 px-5 py-3 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/30">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="font-medium">{successMessage}</span>
+            <button onClick={() => setSuccessMessage(null)} className="ml-2 p-1 hover:bg-white/20 rounded-lg transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Date Picker */}
+        {/* Date Picker with QR & Upload Buttons */}
         <div className="mb-6">
           <DeliveryDatePicker
             value={selectedDate}
             onChange={setSelectedDate}
             description="해당 날짜의 배송 현황을 조회합니다"
+            leftAction={
+              <button
+                onClick={generateQR}
+                className="flex items-center gap-2 px-5 py-3 bg-white dark:bg-gray-800 hover:bg-violet-50 dark:hover:bg-violet-900/30 text-violet-600 dark:text-violet-400 border-2 border-violet-300 dark:border-violet-600 rounded-xl font-semibold transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <rect x="3" y="3" width="7" height="7" rx="1" strokeWidth="2" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" strokeWidth="2" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" strokeWidth="2" />
+                </svg>
+                QR
+              </button>
+            }
+            rightAction={
+              <Link
+                to="/upload"
+                className="flex items-center gap-2 px-5 py-3 bg-white dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-primary-600 dark:text-primary-400 border-2 border-primary-300 dark:border-primary-600 rounded-xl font-semibold transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                업로드
+              </Link>
+            }
           />
         </div>
 
@@ -525,16 +576,12 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                {activeFilterCount > 0 ? '필터 조건에 맞는 배송이 없습니다.' : '배송 데이터가 없습니다.'}
+                {activeFilterCount > 0 ? '필터 조건에 맞는 배송이 없습니다.' : '배송 데이터가 없습니다. 위의 엑셀 업로드 버튼을 이용해주세요.'}
               </p>
-              {activeFilterCount > 0 ? (
+              {activeFilterCount > 0 && (
                 <button onClick={clearFilters} className="btn-primary">
                   필터 초기화
                 </button>
-              ) : (
-                <Link to="/upload" className="btn-primary">
-                  엑셀 업로드하기
-                </Link>
               )}
             </div>
           ) : (
