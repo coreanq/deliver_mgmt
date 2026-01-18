@@ -355,14 +355,25 @@ delivery.put('/:id/custom-fields', async (c) => {
         .filter(f => f.is_editable_by_staff === 1)
         .map(f => f.id);
 
+      // 편집 불가능한 필드는 제거하고 진행 (앱 업데이트 전 호환성)
+      const filteredCustomFields: Record<string, string> = {};
       for (const key of Object.keys(customFields)) {
-        if (!editableFieldIds.includes(key)) {
-          return c.json({
-            success: false,
-            error: `해당 필드는 수정할 수 없습니다.`,
-          }, 403);
+        if (editableFieldIds.includes(key)) {
+          filteredCustomFields[key] = customFields[key];
         }
       }
+
+      // 편집 가능한 필드가 없으면 에러
+      if (Object.keys(filteredCustomFields).length === 0) {
+        return c.json({
+          success: false,
+          error: '수정 가능한 필드가 없습니다.',
+        }, 400);
+      }
+
+      // 필터링된 필드로 교체
+      Object.keys(customFields).forEach(key => delete customFields[key]);
+      Object.assign(customFields, filteredCustomFields);
     }
 
     // 기존 커스텀 필드 값과 병합

@@ -184,14 +184,15 @@ export default function CompleteDeliveryScreen() {
 
     setUploading(true);
 
-    const success = await completeDelivery(token, params.orderId, photo);
+    // 사진 업로드와 SMS 메시지 준비를 병렬로 처리
+    const [success, isSmsAvailable, message] = await Promise.all([
+      completeDelivery(token, params.orderId, photo),
+      SMS.isAvailableAsync(),
+      buildSmsMessage(),
+    ]);
 
     if (success) {
-      const isSmsAvailable = await SMS.isAvailableAsync();
-
       if (isSmsAvailable) {
-        const message = await buildSmsMessage();
-
         try {
           const smsOptions: SMS.SMSOptions = photoUri
             ? {

@@ -1,7 +1,16 @@
 import { Hono } from 'hono';
 import type { Env, CustomFieldDefinition } from '../types';
 import { verifyToken } from '../lib/jwt';
-import { generateId } from '../lib/utils';
+import { generateId, transformKeys } from '../lib/utils';
+
+// 커스텀 필드 데이터 변환 (snake_case → camelCase)
+function transformCustomField(field: CustomFieldDefinition): Record<string, unknown> {
+  return transformKeys(field);
+}
+
+function transformCustomFields(fields: CustomFieldDefinition[]): Record<string, unknown>[] {
+  return fields.map(transformCustomField);
+}
 
 const customField = new Hono<{ Bindings: Env }>();
 
@@ -41,7 +50,7 @@ customField.get('/', async (c) => {
 
     return c.json({
       success: true,
-      data: { fields: fields.results || [] },
+      data: { fields: transformCustomFields(fields.results || []) },
     });
   } catch (error) {
     console.error('Custom field list error:', error);
@@ -78,7 +87,7 @@ customField.get('/staff', async (c) => {
 
     return c.json({
       success: true,
-      data: { fields: fields.results || [] },
+      data: { fields: transformCustomFields(fields.results || []) },
     });
   } catch (error) {
     console.error('Custom field staff list error:', error);

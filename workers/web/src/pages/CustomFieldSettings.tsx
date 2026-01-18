@@ -7,10 +7,10 @@ const MAX_CUSTOM_FIELDS = 5;
 
 interface CustomField {
   id: string;
-  field_name: string;
-  field_order: number;
-  is_editable_by_staff: number;
-  created_at: string;
+  fieldName: string;
+  fieldOrder: number;
+  isEditableByStaff: boolean;
+  createdAt: string;
 }
 
 export default function CustomFieldSettings() {
@@ -146,8 +146,8 @@ export default function CustomFieldSettings() {
 
   const startEdit = (field: CustomField) => {
     setEditingId(field.id);
-    setEditFieldName(field.field_name);
-    setEditIsEditable(field.is_editable_by_staff === 1);
+    setEditFieldName(field.fieldName);
+    setEditIsEditable(field.isEditableByStaff);
   };
 
   const cancelEdit = () => {
@@ -268,9 +268,9 @@ export default function CustomFieldSettings() {
                         </span>
                         <div>
                           <span className="font-medium text-gray-900 dark:text-white">
-                            {field.field_name}
+                            {field.fieldName}
                           </span>
-                          {field.is_editable_by_staff === 1 && (
+                          {field.isEditableByStaff && (
                             <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">
                               편집 가능
                             </span>

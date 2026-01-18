@@ -15,7 +15,7 @@ not_found_handling = "single-page-application"
 run_worker_first = ["/api/*", "/r2/*", "/auth/*"]
 
 [vars]
-BUILD_DATE = "26/01/18 14:48"
+BUILD_DATE = "26/01/18 16:06"
 RESEND_FROM_EMAIL = "noreply@try-dabble.com"
 
 # Worker 베이스 URL (Magic Link, R2 등 공용)

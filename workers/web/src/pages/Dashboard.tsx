@@ -14,13 +14,16 @@ interface Delivery {
   quantity: number;
   status: 'pending' | 'in_transit' | 'completed';
   deliveryDate: string;
+  memo: string | null;
+  photoUrl: string | null;
+  customFields: Record<string, string> | null;
 }
 
 interface CustomFieldDef {
   id: string;
-  field_name: string;
-  field_order: number;
-  is_editable_by_staff: number;
+  fieldName: string;
+  fieldOrder: number;
+  isEditableByStaff: boolean;
 }
 
 interface CachedMappingData {
@@ -133,6 +136,9 @@ export default function Dashboard() {
 
   const [serverBuildDate, setServerBuildDate] = useState('');
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  // 사진 확대 모달 상태
+  const [photoModalUrl, setPhotoModalUrl] = useState<string | null>(null);
 
   // 드래그 앤 드롭 상태
   const [isDragging, setIsDragging] = useState(false);
@@ -876,43 +882,98 @@ export default function Dashboard() {
               {activeFilterCount > 0 && <button onClick={clearFilters} className="btn-primary">필터 초기화</button>}
             </div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-900/50">
-                <tr>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">수령인</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">연락처</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주소</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">담당자</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {filteredDeliveries.map((delivery, index) => (
-                  <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-4 py-4 text-center text-sm font-medium text-gray-500 dark:text-gray-400">{index + 1}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{delivery.recipientName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{delivery.recipientPhone}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">{delivery.recipientAddress}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{delivery.productName} x {delivery.quantity}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{delivery.staffName || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={delivery.status}
-                        onChange={(e) => handleStatusChange(delivery.id, e.target.value as 'pending' | 'in_transit' | 'completed')}
-                        disabled={updatingStatusId === delivery.id}
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 cursor-pointer focus:ring-2 focus:ring-offset-1 ${STATUS_COLORS[delivery.status]} ${updatingStatusId === delivery.id ? 'opacity-50' : ''}`}
-                      >
-                        <option value="pending">배송 준비</option>
-                        <option value="in_transit">배송 중</option>
-                        <option value="completed">완료</option>
-                      </select>
-                    </td>
+            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+              <table className="w-full min-w-max">
+                <thead className="bg-gray-50 dark:bg-gray-900/50">
+                  <tr>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12 sticky left-0 bg-gray-50 dark:bg-gray-900/50 z-10">No</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-12 bg-gray-50 dark:bg-gray-900/50 z-10 min-w-[100px]">수령인</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">연락처</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">주소</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">상품</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">메모</th>
+                    {customFieldDefs.map((field) => (
+                      <th key={field.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
+                        {field.fieldName}
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[60px]">사진</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 dark:bg-gray-900/50 z-10 min-w-[100px]">상태</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {filteredDeliveries.map((delivery, index) => (
+                    <tr key={delivery.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 group/row">
+                      <td className="px-4 py-4 text-center text-sm font-medium text-gray-500 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 group-hover/row:bg-gray-50 dark:group-hover/row:bg-gray-800/50 z-10">{index + 1}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white sticky left-12 bg-white dark:bg-gray-800 group-hover/row:bg-gray-50 dark:group-hover/row:bg-gray-800/50 z-10">{delivery.recipientName}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{delivery.recipientPhone}</td>
+                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] group relative">
+                        <span className="block truncate">{delivery.recipientAddress}</span>
+                        <div className="absolute z-50 left-0 bottom-full mb-2 hidden group-hover:block w-max max-w-md p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg whitespace-pre-wrap">
+                          {delivery.recipientAddress}
+                          <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{delivery.productName} x {delivery.quantity}</td>
+                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] group relative">
+                        {delivery.memo ? (
+                          <>
+                            <span className="block truncate">{delivery.memo}</span>
+                            <div className="absolute z-50 left-0 bottom-full mb-2 hidden group-hover:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg whitespace-pre-wrap">
+                              {delivery.memo}
+                              <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      {customFieldDefs.map((field) => {
+                        const value = delivery.customFields?.[field.id] || '-';
+                        return (
+                          <td key={field.id} className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] group relative">
+                            <span className="block truncate">{value}</span>
+                            {value !== '-' && value.length > 15 && (
+                              <div className="absolute z-50 left-0 bottom-full mb-2 hidden group-hover:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg whitespace-pre-wrap">
+                                {value}
+                                <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-4 text-center">
+                        {delivery.photoUrl ? (
+                          <button
+                            onClick={() => setPhotoModalUrl(delivery.photoUrl)}
+                            className="inline-flex items-center justify-center w-8 h-8 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/50 transition-colors"
+                            title="사진 보기"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-600">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap sticky right-0 bg-white dark:bg-gray-800 group-hover/row:bg-gray-50 dark:group-hover/row:bg-gray-800/50 z-10">
+                        <select
+                          value={delivery.status}
+                          onChange={(e) => handleStatusChange(delivery.id, e.target.value as 'pending' | 'in_transit' | 'completed')}
+                          disabled={updatingStatusId === delivery.id}
+                          className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 cursor-pointer focus:ring-2 focus:ring-offset-1 ${STATUS_COLORS[delivery.status]} ${updatingStatusId === delivery.id ? 'opacity-50' : ''}`}
+                        >
+                          <option value="pending">배송 준비</option>
+                          <option value="in_transit">배송 중</option>
+                          <option value="completed">완료</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </main>
@@ -999,8 +1060,8 @@ export default function Dashboard() {
                     {customFieldDefs.map((field) => (
                       <div key={field.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border-l-4 border-cyan-400">
                         <div className="w-32 flex-shrink-0">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{field.field_name}</span>
-                          {field.is_editable_by_staff === 1 && (
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{field.fieldName}</span>
+                          {field.isEditableByStaff && (
                             <span className="ml-2 text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 rounded">편집</span>
                           )}
                         </div>
@@ -1212,6 +1273,30 @@ export default function Dashboard() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 사진 확대 모달 */}
+      {photoModalUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setPhotoModalUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPhotoModalUrl(null)}
+              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white transition-colors"
+            >
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={photoModalUrl}
+              alt="배송 완료 사진"
+              className="w-full h-full object-contain rounded-lg"
+            />
           </div>
         </div>
       )}
