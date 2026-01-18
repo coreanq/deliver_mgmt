@@ -9,10 +9,13 @@ import {
   Alert,
   Image,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SMS from 'expo-sms';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -31,7 +34,7 @@ import { useDeliveryStore } from '../../src/stores/delivery';
 import { StatusBadge, Loading, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
 import type { DeliveryStatus, CustomFieldDefinition } from '../../src/types';
-import { customFieldApi, deliveryApi } from '../../src/services/api';
+import { customFieldApi, deliveryApi, smsTemplateApi } from '../../src/services/api';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -145,14 +148,15 @@ export default function DeliveryDetailScreen() {
     fetchCustomFields();
   }, [token]);
 
-  // 커스텀 필드 편집 초기화
+  // 커스텀 필드 편집 초기화 (배송 선택 시 또는 customFields 로드 시)
   useEffect(() => {
-    if (selectedDelivery?.customFields) {
-      setEditableValues(selectedDelivery.customFields);
+    if (selectedDelivery) {
+      // customFields가 있으면 그 값으로 초기화, 없으면 빈 객체
+      setEditableValues(selectedDelivery.customFields ? { ...selectedDelivery.customFields } : {});
     } else {
       setEditableValues({});
     }
-  }, [selectedDelivery?.id]);
+  }, [selectedDelivery?.id, selectedDelivery?.customFields]);
 
   const handleBack = () => {
     selectDelivery(null);
@@ -251,6 +255,130 @@ export default function DeliveryDetailScreen() {
     return false;
   };
 
+  // SMS 메시지 생성
+  const buildSmsMessage = async (): Promise<string> => {
+    const fallbackMessage = `[배송완료] ${selectedDelivery?.recipientName}님, ${selectedDelivery?.productName} 배송이 완료되었습니다. 좋은 하루 되세요!`;
+
+    if (!token || !selectedDelivery) return fallbackMessage;
+
+    try {
+      const result = await smsTemplateApi.getDefault(token);
+      if (!result.success || !result.data?.template) {
+        return fallbackMessage;
+      }
+
+      const { template, isPro } = result.data;
+      const variables: Record<string, string> = {
+        recipientName: selectedDelivery.recipientName,
+        recipientPhone: selectedDelivery.recipientPhone,
+        recipientAddress: selectedDelivery.recipientAddress,
+        productName: selectedDelivery.productName,
+        quantity: String(selectedDelivery.quantity),
+        staffName: selectedDelivery.staffName || '',
+        deliveryDate: selectedDelivery.deliveryDate,
+        memo: selectedDelivery.memo || '',
+      };
+
+      if (template.use_ai && isPro) {
+        const aiResult = await smsTemplateApi.generate(token, template.content, variables);
+        if (aiResult.success && aiResult.data?.message) {
+          return aiResult.data.message;
+        }
+      }
+
+      let message = template.content;
+      message = message.replace(/\$\{수령인\}/g, variables.recipientName);
+      message = message.replace(/\$\{연락처\}/g, variables.recipientPhone);
+      message = message.replace(/\$\{주소\}/g, variables.recipientAddress);
+      message = message.replace(/\$\{상품명\}/g, variables.productName);
+      message = message.replace(/\$\{수량\}/g, variables.quantity);
+      message = message.replace(/\$\{배송담당자\}/g, variables.staffName);
+      message = message.replace(/\$\{배송일\}/g, variables.deliveryDate);
+      message = message.replace(/\$\{메모\}/g, variables.memo);
+
+      return message;
+    } catch (error) {
+      console.log('SMS template error:', error);
+      return fallbackMessage;
+    }
+  };
+
+  // SMS만 보내고 완료 처리 (사진 없이)
+  const handleCompleteSmsOnly = async () => {
+    if (!token || !selectedDelivery) return;
+
+    setUpdating(true);
+
+    // 편집 가능한 커스텀 필드 변경사항이 있으면 먼저 저장
+    if (hasCustomFieldChanges()) {
+      const fieldsToSave = getEditableFieldsOnly();
+      if (Object.keys(fieldsToSave).length > 0) {
+        const customFieldResult = await deliveryApi.updateCustomFields(
+          token,
+          selectedDelivery.id,
+          fieldsToSave
+        );
+        if (!customFieldResult.success) {
+          setUpdating(false);
+          Alert.alert('오류', customFieldResult.error || '정보 저장에 실패했습니다.');
+          return;
+        }
+      }
+    }
+
+    // 상태를 완료로 변경 + SMS 준비 병렬 처리
+    const [success, isSmsAvailable, message] = await Promise.all([
+      updateDeliveryStatus(token, selectedDelivery.id, 'completed'),
+      SMS.isAvailableAsync(),
+      buildSmsMessage(),
+    ]);
+
+    if (success) {
+      if (isSmsAvailable) {
+        try {
+          await SMS.sendSMSAsync([selectedDelivery.recipientPhone], message);
+        } catch (error) {
+          console.log('SMS open error:', error);
+        }
+      }
+      Alert.alert('완료', '배송이 완료되었습니다.');
+    } else {
+      Alert.alert('오류', '배송 완료 처리에 실패했습니다.');
+    }
+
+    setUpdating(false);
+  };
+
+  // 사진+SMS로 완료 처리
+  const handleCompleteWithPhoto = async () => {
+    if (!token || !selectedDelivery) return;
+
+    setUpdating(true);
+
+    // 편집 가능한 커스텀 필드 변경사항이 있으면 먼저 저장
+    if (hasCustomFieldChanges()) {
+      const fieldsToSave = getEditableFieldsOnly();
+      if (Object.keys(fieldsToSave).length > 0) {
+        const customFieldResult = await deliveryApi.updateCustomFields(
+          token,
+          selectedDelivery.id,
+          fieldsToSave
+        );
+        if (!customFieldResult.success) {
+          setUpdating(false);
+          Alert.alert('오류', customFieldResult.error || '정보 저장에 실패했습니다.');
+          return;
+        }
+      }
+    }
+
+    setUpdating(false);
+    router.push({
+      pathname: '/(staff)/complete',
+      params: { orderId: selectedDelivery.id },
+    });
+  };
+
   const backAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: backScale.value }],
   }));
@@ -311,10 +439,16 @@ export default function DeliveryDetailScreen() {
       </Animated.View>
 
       {/* Content */}
-      <ScrollView
+      <KeyboardAvoidingView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Main Card */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
           <View
@@ -516,7 +650,8 @@ export default function DeliveryDetailScreen() {
             </View>
           </Animated.View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Bottom Action */}
       {buttonConfig && (
@@ -531,31 +666,98 @@ export default function DeliveryDetailScreen() {
             },
           ]}
         >
-          <AnimatedPressable
-            style={[styles.actionButtonWrapper, fabAnimatedStyle]}
-            onPress={handleUpdateStatus}
-            onPressIn={() => { fabScale.value = withSpring(0.95, springs.snappy); }}
-            onPressOut={() => { fabScale.value = withSpring(1, springs.snappy); }}
-            disabled={updating || isLoading}
-          >
-            <LinearGradient
-              colors={nextStatus === 'completed' ? [colors.accent, colors.primary] : [colors.primary, colors.accent]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.actionButton, { borderRadius: radius.xl }]}
+          {nextStatus === 'completed' ? (
+            // 배송 완료: 2개 버튼 (사진+SMS, SMS만)
+            <View>
+              <Text style={[typography.overline, { color: colors.textMuted, textAlign: 'center', marginBottom: 12 }]}>
+                배송 완료
+              </Text>
+              <View style={styles.twoButtonContainer}>
+              <AnimatedPressable
+                style={[styles.halfButtonWrapper, fabAnimatedStyle]}
+                onPress={handleCompleteWithPhoto}
+                onPressIn={() => { fabScale.value = withSpring(0.95, springs.snappy); }}
+                onPressOut={() => { fabScale.value = withSpring(1, springs.snappy); }}
+                disabled={updating || isLoading}
+              >
+                <LinearGradient
+                  colors={[colors.accent, colors.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.actionButton, { borderRadius: radius.xl }]}
+                >
+                  {updating || isLoading ? (
+                    <Loading size="sm" />
+                  ) : (
+                    <>
+                      <Text style={styles.actionIcon}>📷</Text>
+                      <Text style={[typography.button, { color: '#FFFFFF', fontSize: 15 }]}>
+                        사진+SMS
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </AnimatedPressable>
+              <AnimatedPressable
+                style={[styles.halfButtonWrapper, fabAnimatedStyle]}
+                onPress={handleCompleteSmsOnly}
+                onPressIn={() => { fabScale.value = withSpring(0.95, springs.snappy); }}
+                onPressOut={() => { fabScale.value = withSpring(1, springs.snappy); }}
+                disabled={updating || isLoading}
+              >
+                <View
+                  style={[
+                    styles.actionButton,
+                    {
+                      borderRadius: radius.xl,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
+                    },
+                  ]}
+                >
+                  {updating || isLoading ? (
+                    <Loading size="sm" />
+                  ) : (
+                    <>
+                      <Text style={styles.actionIcon}>💬</Text>
+                      <Text style={[typography.button, { color: colors.text, fontSize: 15 }]}>
+                        SMS만
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </AnimatedPressable>
+              </View>
+            </View>
+          ) : (
+            // 배송 출발: 기존 1개 버튼
+            <AnimatedPressable
+              style={[styles.actionButtonWrapper, fabAnimatedStyle]}
+              onPress={handleUpdateStatus}
+              onPressIn={() => { fabScale.value = withSpring(0.95, springs.snappy); }}
+              onPressOut={() => { fabScale.value = withSpring(1, springs.snappy); }}
+              disabled={updating || isLoading}
             >
-              {updating || isLoading ? (
-                <Loading size="sm" />
-              ) : (
-                <>
-                  <Text style={styles.actionIcon}>{buttonConfig.icon}</Text>
-                  <Text style={[typography.button, { color: '#FFFFFF', fontSize: 17 }]}>
-                    {buttonConfig.label}
-                  </Text>
-                </>
-              )}
-            </LinearGradient>
-          </AnimatedPressable>
+              <LinearGradient
+                colors={[colors.primary, colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.actionButton, { borderRadius: radius.xl }]}
+              >
+                {updating || isLoading ? (
+                  <Loading size="sm" />
+                ) : (
+                  <>
+                    <Text style={styles.actionIcon}>{buttonConfig.icon}</Text>
+                    <Text style={[typography.button, { color: '#FFFFFF', fontSize: 17 }]}>
+                      {buttonConfig.label}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </AnimatedPressable>
+          )}
         </Animated.View>
       )}
 
@@ -681,5 +883,13 @@ const styles = StyleSheet.create({
   customFieldInput: {
     padding: 12,
     fontSize: 15,
+  },
+  twoButtonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfButtonWrapper: {
+    flex: 1,
+    overflow: 'hidden',
   },
 });

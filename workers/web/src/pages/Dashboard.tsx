@@ -866,7 +866,7 @@ export default function Dashboard() {
         </div>
 
         {/* Deliveries Table */}
-        <div className="card overflow-hidden">
+        <div className="card overflow-visible">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
@@ -882,23 +882,23 @@ export default function Dashboard() {
               {activeFilterCount > 0 && <button onClick={clearFilters} className="btn-primary">필터 초기화</button>}
             </div>
           ) : (
-            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent pt-2">
               <table className="w-full min-w-max">
-                <thead className="bg-gray-50 dark:bg-gray-900/50">
+                <thead className="bg-gray-100 dark:bg-gray-900/70">
                   <tr>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12 sticky left-0 bg-gray-50 dark:bg-gray-900/50 z-10">No</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-12 bg-gray-50 dark:bg-gray-900/50 z-10 min-w-[100px]">수령인</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">연락처</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">주소</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">상품</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">메모</th>
+                    <th className="px-4 py-5 text-center text-sm font-semibold text-gray-700 dark:text-gray-300 w-12 sticky left-0 bg-gray-100 dark:bg-gray-900/70 z-10">No</th>
+                    <th className="px-4 py-5 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 sticky left-12 bg-gray-100 dark:bg-gray-900/70 z-10 min-w-[100px]">수령인</th>
+                    <th className="px-4 py-5 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[120px]">연락처</th>
+                    <th className="px-3 py-5 text-center text-sm font-semibold text-gray-700 dark:text-gray-300 w-12">주소</th>
+                    <th className="px-3 py-5 text-center text-sm font-semibold text-gray-700 dark:text-gray-300 w-12">상품</th>
+                    <th className="px-4 py-5 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[120px]">메모</th>
                     {customFieldDefs.map((field) => (
-                      <th key={field.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-[100px]">
+                      <th key={field.id} className="px-4 py-5 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap min-w-[100px]">
                         {field.fieldName}
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[60px]">사진</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 dark:bg-gray-900/50 z-10 min-w-[100px]">상태</th>
+                    <th className="px-4 py-5 text-center text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[60px]">사진</th>
+                    <th className="px-4 py-5 text-left text-sm font-semibold text-gray-700 dark:text-gray-300 sticky right-0 bg-gray-100 dark:bg-gray-900/70 z-10 min-w-[100px]">상태</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -907,19 +907,34 @@ export default function Dashboard() {
                       <td className="px-4 py-4 text-center text-sm font-medium text-gray-500 dark:text-gray-400 sticky left-0 bg-white dark:bg-gray-800 group-hover/row:bg-gray-50 dark:group-hover/row:bg-gray-800/50 z-10">{index + 1}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white sticky left-12 bg-white dark:bg-gray-800 group-hover/row:bg-gray-50 dark:group-hover/row:bg-gray-800/50 z-10">{delivery.recipientName}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{delivery.recipientPhone}</td>
-                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[200px] group relative">
-                        <span className="block truncate">{delivery.recipientAddress}</span>
-                        <div className="absolute z-50 left-0 bottom-full mb-2 hidden group-hover:block w-max max-w-md p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg whitespace-pre-wrap">
+                      <td className="px-3 py-4 text-center group/addr relative">
+                        <button className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
+                        <div className="absolute z-[100] left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/addr:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-xl whitespace-pre-wrap text-left">
                           {delivery.recipientAddress}
-                          <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{delivery.productName} x {delivery.quantity}</td>
-                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] group relative">
+                      <td className="px-3 py-4 text-center group/prod relative">
+                        <button className="inline-flex items-center justify-center w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                        </button>
+                        <div className="absolute z-[100] left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/prod:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-xl whitespace-pre-wrap text-left">
+                          {delivery.productName} × {delivery.quantity}
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] group/memo relative">
                         {delivery.memo ? (
                           <>
                             <span className="block truncate">{delivery.memo}</span>
-                            <div className="absolute z-50 left-0 bottom-full mb-2 hidden group-hover:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg whitespace-pre-wrap">
+                            <div className="absolute z-[100] left-0 bottom-full mb-2 hidden group-hover/memo:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-xl whitespace-pre-wrap">
                               {delivery.memo}
                               <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
                             </div>
@@ -931,10 +946,10 @@ export default function Dashboard() {
                       {customFieldDefs.map((field) => {
                         const value = delivery.customFields?.[field.id] || '-';
                         return (
-                          <td key={field.id} className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] group relative">
+                          <td key={field.id} className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] group/cf relative">
                             <span className="block truncate">{value}</span>
                             {value !== '-' && value.length > 15 && (
-                              <div className="absolute z-50 left-0 bottom-full mb-2 hidden group-hover:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg whitespace-pre-wrap">
+                              <div className="absolute z-[100] left-0 bottom-full mb-2 hidden group-hover/cf:block w-max max-w-sm p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-xl whitespace-pre-wrap">
                                 {value}
                                 <div className="absolute left-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900 dark:border-t-gray-700" />
                               </div>
