@@ -7,7 +7,6 @@ const MAX_CUSTOM_FIELDS = 5;
 
 interface CustomField {
   id: string;
-  field_key: string;
   field_name: string;
   field_order: number;
   is_editable_by_staff: number;
@@ -52,9 +51,6 @@ export default function CustomFieldSettings() {
     }
   };
 
-  // 자동 생성되는 field_key
-  const generateFieldKey = () => `col_${Date.now()}`;
-
   const handleAdd = async () => {
     if (!newFieldName.trim()) {
       setError('컬럼명을 입력하세요.');
@@ -73,7 +69,6 @@ export default function CustomFieldSettings() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          fieldKey: generateFieldKey(),
           fieldName: newFieldName.trim(),
           isEditableByStaff: newIsEditable,
         }),

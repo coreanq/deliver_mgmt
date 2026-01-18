@@ -18,7 +18,6 @@ interface Delivery {
 
 interface CustomFieldDef {
   id: string;
-  field_key: string;
   field_name: string;
   field_order: number;
   is_editable_by_staff: number;
@@ -289,9 +288,9 @@ export default function Dashboard() {
       setMappingError('');
       setShowMappingModal(true);
 
-      // AI 매핑 추천 요청
-      const customFieldKeys = customFieldDefs.map((f) => f.field_key);
-      const cached = getCachedMapping(headers, customFieldKeys);
+      // AI 매핑 추천 요청 (id를 키로 사용)
+      const customFieldIds = customFieldDefs.map((f) => f.id);
+      const cached = getCachedMapping(headers, customFieldIds);
       if (cached) {
         setMapping(cached.mapping);
         setCustomFieldMapping(cached.customFieldMapping);
@@ -333,14 +332,14 @@ export default function Dashboard() {
       if (result.success && result.data.suggestions) {
         const newMapping: Record<string, string> = {};
         const newCustomFieldMapping: Record<string, string> = {};
-        const customFieldKeys = customFieldDefs.map((f) => f.field_key);
+        const customFieldIds = customFieldDefs.map((f) => f.id);
 
         for (const suggestion of result.data.suggestions) {
           if (suggestion.confidence >= 0.5) {
             if (suggestion.targetField.startsWith('custom_')) {
-              const fieldKey = suggestion.targetField.replace('custom_', '');
-              if (customFieldKeys.includes(fieldKey)) {
-                newCustomFieldMapping[fieldKey] = suggestion.sourceColumn;
+              const fieldId = suggestion.targetField.replace('custom_', '');
+              if (customFieldIds.includes(fieldId)) {
+                newCustomFieldMapping[fieldId] = suggestion.sourceColumn;
               }
             } else {
               newMapping[suggestion.targetField] = suggestion.sourceColumn;
@@ -349,7 +348,7 @@ export default function Dashboard() {
         }
         setMapping(newMapping);
         setCustomFieldMapping(newCustomFieldMapping);
-        saveMappingToCache(headers, customFieldKeys, newMapping, newCustomFieldMapping);
+        saveMappingToCache(headers, customFieldIds, newMapping, newCustomFieldMapping);
         setAiError({ show: false, canRetry: false });
       } else {
         throw new Error(result.error || 'AI 매핑 추천 실패');
@@ -417,8 +416,8 @@ export default function Dashboard() {
 
       const result = await response.json();
       if (result.success) {
-        const customFieldKeys = customFieldDefs.map((f) => f.field_key);
-        saveMappingToCache(uploadedHeaders, customFieldKeys, mapping, customFieldMapping);
+        const customFieldIds = customFieldDefs.map((f) => f.id);
+        saveMappingToCache(uploadedHeaders, customFieldIds, mapping, customFieldMapping);
         setShowMappingModal(false);
         setUploadedHeaders([]);
         setUploadedRows([]);
@@ -1009,8 +1008,8 @@ export default function Dashboard() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
                         <select
-                          value={customFieldMapping[field.field_key] || ''}
-                          onChange={(e) => setCustomFieldMapping((prev) => ({ ...prev, [field.field_key]: e.target.value }))}
+                          value={customFieldMapping[field.id] || ''}
+                          onChange={(e) => setCustomFieldMapping((prev) => ({ ...prev, [field.id]: e.target.value }))}
                           className="flex-1 input-field py-2"
                         >
                           <option value="">선택 안 함</option>

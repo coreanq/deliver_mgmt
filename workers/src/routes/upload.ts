@@ -80,7 +80,7 @@ upload.post('/mapping/suggest', async (c) => {
 
     // 사용자 정의 컬럼 프롬프트 생성
     const customFieldsPrompt = customFields.length > 0
-      ? `\n\nUser-defined columns (optional):\n${customFields.map(f => `- custom_${f.field_key}: ${f.field_name}`).join('\n')}`
+      ? `\n\nUser-defined columns (optional):\n${customFields.map(f => `- custom_${f.id}: ${f.field_name}`).join('\n')}`
       : '';
 
     // AI 매핑 추천 요청 (Grok 4.1 Fast Reasoning 사용)
@@ -249,14 +249,14 @@ upload.post('/save', async (c) => {
       const memo = mapping.memo ? row[mapping.memo] || null : null;
       const rowDate = targetDate; // 배송일은 매핑 페이지에서 선택한 날짜 사용
 
-      // 커스텀 필드 값 추출
+      // 커스텀 필드 값 추출 (id를 키로 사용)
       let customFieldsJson: string | null = null;
       if (mapping.customFields && customFieldDefs.length > 0) {
         const customFieldValues: Record<string, string> = {};
         for (const fieldDef of customFieldDefs) {
-          const sourceColumn = mapping.customFields[fieldDef.field_key];
+          const sourceColumn = mapping.customFields[fieldDef.id];
           if (sourceColumn && row[sourceColumn]) {
-            customFieldValues[fieldDef.field_key] = row[sourceColumn];
+            customFieldValues[fieldDef.id] = row[sourceColumn];
           }
         }
         if (Object.keys(customFieldValues).length > 0) {

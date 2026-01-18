@@ -80,14 +80,12 @@ CREATE INDEX IF NOT EXISTS idx_sms_templates_admin_id ON sms_templates(admin_id)
 CREATE TABLE IF NOT EXISTS custom_field_definitions (
   id TEXT PRIMARY KEY,
   admin_id TEXT NOT NULL,
-  field_key TEXT NOT NULL,
   field_name TEXT NOT NULL,
   field_order INTEGER DEFAULT 0,
   is_editable_by_staff INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE,
-  UNIQUE(admin_id, field_key)
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
 );
 
 -- 커스텀 필드 정의 인덱스

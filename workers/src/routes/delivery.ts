@@ -79,7 +79,7 @@ delivery.get('/list', async (c) => {
       params.push(staffName);
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY created_at ASC';
 
     const result = await c.env.DB.prepare(query).bind(...params).all<Delivery>();
 
@@ -351,15 +351,15 @@ delivery.put('/:id/custom-fields', async (c) => {
 
     // 배송담당자인 경우 is_editable_by_staff=1인 필드만 수정 가능
     if (payload.role === 'staff') {
-      const editableFieldKeys = allowedFields
+      const editableFieldIds = allowedFields
         .filter(f => f.is_editable_by_staff === 1)
-        .map(f => f.field_key);
+        .map(f => f.id);
 
       for (const key of Object.keys(customFields)) {
-        if (!editableFieldKeys.includes(key)) {
+        if (!editableFieldIds.includes(key)) {
           return c.json({
             success: false,
-            error: `'${key}' 필드는 수정할 수 없습니다.`,
+            error: `해당 필드는 수정할 수 없습니다.`,
           }, 403);
         }
       }

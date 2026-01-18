@@ -108,36 +108,13 @@ customField.post('/', async (c) => {
       }, 400);
     }
 
-    const { fieldKey, fieldName, isEditableByStaff } = await c.req.json<{
-      fieldKey: string;
+    const { fieldName, isEditableByStaff } = await c.req.json<{
       fieldName: string;
       isEditableByStaff?: boolean;
     }>();
 
-    if (!fieldKey || !fieldName) {
-      return c.json({ success: false, error: '필드키와 필드명은 필수입니다.' }, 400);
-    }
-
-    // fieldKey 유효성 검사 (영문, 숫자, 언더스코어만 허용)
-    if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(fieldKey)) {
-      return c.json({
-        success: false,
-        error: '필드키는 영문으로 시작하고, 영문/숫자/언더스코어만 사용할 수 있습니다.',
-      }, 400);
-    }
-
-    // 중복 확인
-    const existing = await c.env.DB.prepare(
-      'SELECT id FROM custom_field_definitions WHERE admin_id = ? AND field_key = ?'
-    )
-      .bind(admin.sub, fieldKey)
-      .first();
-
-    if (existing) {
-      return c.json({
-        success: false,
-        error: '이미 동일한 필드키가 존재합니다.',
-      }, 400);
+    if (!fieldName) {
+      return c.json({ success: false, error: '필드명은 필수입니다.' }, 400);
     }
 
     const id = generateId();
@@ -145,15 +122,15 @@ customField.post('/', async (c) => {
     const fieldOrder = (existingCount?.count || 0) + 1;
 
     await c.env.DB.prepare(
-      `INSERT INTO custom_field_definitions (id, admin_id, field_key, field_name, field_order, is_editable_by_staff, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO custom_field_definitions (id, admin_id, field_name, field_order, is_editable_by_staff, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(id, admin.sub, fieldKey, fieldName, fieldOrder, isEditableByStaff ? 1 : 0, now, now)
+      .bind(id, admin.sub, fieldName, fieldOrder, isEditableByStaff ? 1 : 0, now, now)
       .run();
 
     return c.json({
       success: true,
-      data: { id, fieldKey, fieldName, fieldOrder, isEditableByStaff: isEditableByStaff || false },
+      data: { id, fieldName, fieldOrder, isEditableByStaff: isEditableByStaff || false },
     });
   } catch (error) {
     console.error('Custom field create error:', error);
