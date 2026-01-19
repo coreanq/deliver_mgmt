@@ -270,7 +270,7 @@ export default function CustomFieldSettings() {
                           <span className="font-medium text-gray-900 dark:text-white">
                             {field.fieldName}
                           </span>
-                          {field.isEditableByStaff && (
+                          {!!field.isEditableByStaff && (
                             <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">
                               편집 가능
                             </span>
@@ -323,6 +323,7 @@ export default function CustomFieldSettings() {
                     onChange={(e) => setNewFieldName(e.target.value)}
                     placeholder="예: 배송시간, 주문번호, Order ID..."
                     className="input-field"
+                    autoComplete="off"
                   />
                   <p className="text-xs text-gray-400 mt-1">
                     엑셀 헤더와 유사한 이름을 입력하면 AI가 자동 매핑합니다 (한글/영어 모두 가능)
