@@ -19,13 +19,13 @@ export const PLANS: Record<PlanType, PlanConfig> = {
   basic: {
     dailyLimit: 500,
     retentionDays: 30,
-    priceKRW: 1900,
+    priceKRW: 4900,
     smsTemplateLimit: 1,
   },
   pro: {
     dailyLimit: 1000,
     retentionDays: 90,
-    priceKRW: 9900,
+    priceKRW: 24900,
     smsTemplateLimit: 1,
   },
 } as const;
