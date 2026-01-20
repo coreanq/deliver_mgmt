@@ -226,6 +226,51 @@ delivery.put('/:id/status', async (c) => {
   }
 });
 
+// 배송담당자 수정 (관리자 전용)
+delivery.put('/:id/staff', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const token = authHeader.slice(7);
+  const payload = await verifyToken(token, c.env.JWT_SECRET);
+
+  if (!payload || payload.role !== 'admin') {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const deliveryId = c.req.param('id');
+  const { staffName } = await c.req.json<{ staffName: string }>();
+
+  try {
+    const existing = await c.env.DB.prepare(
+      'SELECT * FROM deliveries WHERE id = ? AND admin_id = ?'
+    )
+      .bind(deliveryId, payload.sub)
+      .first<Delivery>();
+
+    if (!existing) {
+      return c.json({ success: false, error: 'Delivery not found' }, 404);
+    }
+
+    const updatedAt = getISOString();
+    await c.env.DB.prepare(
+      'UPDATE deliveries SET staff_name = ?, updated_at = ? WHERE id = ?'
+    )
+      .bind(staffName || null, updatedAt, deliveryId)
+      .run();
+
+    return c.json({
+      success: true,
+      data: { staffName, updatedAt },
+    });
+  } catch (error) {
+    console.error('Staff update error:', error);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
 // 배송 완료 + 사진 업로드
 delivery.post('/:id/complete', async (c) => {
   const authHeader = c.req.header('Authorization');
