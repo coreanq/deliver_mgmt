@@ -46,7 +46,7 @@ async function request<T>(
     const data = await response.json();
     return data as ApiResponse<T>;
   } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error);
+    remoteLog.error(`API Error [${endpoint}]`, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
@@ -185,10 +185,27 @@ export const customFieldApi = {
 
 export const logApi = {
   send: (data: Record<string, unknown>) =>
-    request('/api/log', {
+    fetch(`${API_BASE}/api/log`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
-    }),
+    }).catch(() => {}), // 로그 실패는 무시
+};
+
+// 원격 로깅 유틸리티 (console.log/error 대체용)
+export const remoteLog = {
+  info: (message: string, data?: Record<string, unknown>) => {
+    logApi.send({ level: 'info', message, ...data, timestamp: new Date().toISOString() });
+  },
+  error: (message: string, error?: unknown, data?: Record<string, unknown>) => {
+    const errorInfo = error instanceof Error 
+      ? { errorMessage: error.message, errorStack: error.stack }
+      : { errorMessage: String(error) };
+    logApi.send({ level: 'error', message, ...errorInfo, ...data, timestamp: new Date().toISOString() });
+  },
+  warn: (message: string, data?: Record<string, unknown>) => {
+    logApi.send({ level: 'warn', message, ...data, timestamp: new Date().toISOString() });
+  },
 };
 
 export const healthCheck = () =>

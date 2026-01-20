@@ -34,7 +34,7 @@ import { useDeliveryStore } from '../../src/stores/delivery';
 import { StatusBadge, Loading, ImageViewer } from '../../src/components';
 import { useTheme } from '../../src/theme';
 import type { DeliveryStatus, CustomFieldDefinition } from '../../src/types';
-import { customFieldApi, deliveryApi, smsTemplateApi } from '../../src/services/api';
+import { customFieldApi, deliveryApi, smsTemplateApi, remoteLog } from '../../src/services/api';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -298,7 +298,7 @@ export default function DeliveryDetailScreen() {
 
       return message;
     } catch (error) {
-      console.log('SMS template error:', error);
+      remoteLog.error('SMS template error', error);
       return fallbackMessage;
     }
   };
@@ -338,7 +338,7 @@ export default function DeliveryDetailScreen() {
         try {
           await SMS.sendSMSAsync([selectedDelivery.recipientPhone], message);
         } catch (error) {
-          console.log('SMS open error:', error);
+          remoteLog.error('SMS open error', error);
         }
       }
       Alert.alert('완료', '배송이 완료되었습니다.');

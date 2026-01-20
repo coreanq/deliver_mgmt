@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import * as SecureStore from 'expo-secure-store';
 import type { Admin, Staff, UserRole } from '../types';
-import { authApi } from '../services/api';
+import { authApi, remoteLog } from '../services/api';
 
 const secureStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -16,14 +16,14 @@ const secureStorage = {
     try {
       await SecureStore.setItemAsync(name, value);
     } catch (error) {
-      console.error('SecureStore setItem error:', error);
+      remoteLog.error('SecureStore setItem error', error);
     }
   },
   removeItem: async (name: string): Promise<void> => {
     try {
       await SecureStore.deleteItemAsync(name);
     } catch (error) {
-      console.error('SecureStore removeItem error:', error);
+      remoteLog.error('SecureStore removeItem error', error);
     }
   },
 };

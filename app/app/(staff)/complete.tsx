@@ -23,7 +23,7 @@ import { useAuthStore } from '../../src/stores/auth';
 import { useDeliveryStore } from '../../src/stores/delivery';
 import { Button, Loading, LoadingOverlay } from '../../src/components';
 import { useTheme } from '../../src/theme';
-import { smsTemplateApi } from '../../src/services/api';
+import { smsTemplateApi, remoteLog } from '../../src/services/api';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -122,7 +122,7 @@ export default function CompleteDeliveryScreen() {
         }
       }
     } catch (error) {
-      console.error('Camera error:', error);
+      remoteLog.error('Camera error', error);
       Alert.alert('오류', '사진 촬영에 실패했습니다.');
     }
   };
@@ -174,7 +174,7 @@ export default function CompleteDeliveryScreen() {
       
       return message;
     } catch (error) {
-      console.log('SMS template error:', error);
+      remoteLog.error('SMS template error', error);
       return fallbackMessage;
     }
   };
@@ -206,7 +206,7 @@ export default function CompleteDeliveryScreen() {
 
           await SMS.sendSMSAsync([delivery.recipientPhone], message, smsOptions);
         } catch (error) {
-          console.log('SMS open error:', error);
+          remoteLog.error('SMS open error', error);
         }
       }
 

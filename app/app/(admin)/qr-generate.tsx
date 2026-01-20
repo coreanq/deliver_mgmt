@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuthStore } from '../../src/stores/auth';
-import { authApi } from '../../src/services/api';
+import { authApi, remoteLog } from '../../src/services/api';
 import { Loading, Button } from '../../src/components';
 import { useTheme } from '../../src/theme';
 
@@ -146,7 +146,7 @@ export default function QRGenerateScreen() {
         message: `배송담당자 인증 코드: ${qrToken}\n날짜: ${formatDate(selectedDate)}`,
       });
     } catch (err) {
-      console.error('Share error:', err);
+      remoteLog.error('Share error', err);
     }
   };
 
