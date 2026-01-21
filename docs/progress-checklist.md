@@ -1,16 +1,17 @@
 # 배송 관리 시스템 - 진척도 체크리스트
 
-> 마지막 업데이트: 2025-01-06
+> 마지막 업데이트: 2026-01-21
 
 ## 진척률 요약
 
 | 구분 | 완료 | 전체 | 진척률 |
 |------|------|------|--------|
 | Phase 1: 핵심 기능 | 5 | 5 | 100% |
-| Phase 2: 배송완료 플로우 | 3 | 3 | 100% |
-| Phase 3: 관리자 기능 | 3 | 3 | 100% |
+| Phase 2: 배송완료 플로우 | 4 | 4 | 100% |
+| Phase 3: 관리자 기능 | 4 | 4 | 100% |
 | Phase 4: 구독 시스템 | 8 | 24 | 33% |
-| **전체** | **19** | **35** | **54%** |
+| UI/UX 고도화 | 8 | 8 | 100% |
+| **전체** | **29** | **45** | **64%** |
 
 > **Note**: RevenueCat SDK가 바이너리에 포함됨. 나머지 기능은 OTA로 활성화 예정
 
@@ -63,8 +64,9 @@
 - [x] R2 사진 업로드 API
 
 ### SMS 발송
-- [x] SMS 앱 열기 (Linking API)
+- [x] SMS 앱 열기 (expo-sms)
 - [x] 완료 메시지 자동 채움
+- [x] 두 가지 완료 옵션 (사진+SMS / SMS만)
 
 ---
 
@@ -72,8 +74,17 @@
 
 ### 관리자 앱 기능
 - [x] 날짜별 배송정보 카드뷰
-- [x] 배송담당자 QR 생성
+- [x] 배송담당자 QR 생성 (24시간 유효)
+- [x] 통계 필터 카드 (전체/대기/배송중/완료)
+- [x] 설정 모달 (계정정보, 법적링크, 로그아웃, 계정삭제)
+- [x] 이미지 뷰어 (배송완료 사진 전체화면)
+- [x] 일일 사용량 뱃지
 - [x] Workers Assets로 PC 웹 통합 서빙
+
+### 배송담당자 앱 기능
+- [x] 배송 상세 화면 (커스텀 필드 지원)
+- [x] 커스텀 필드 수정 기능 (editable 설정 시)
+- [x] 순번 뱃지 (그라디언트 스타일)
 
 ### PC 웹 기능
 - [x] 로그인 페이지
@@ -85,6 +96,30 @@
 - [x] Cron Trigger 설정 (매일 00:00)
 - [x] 만료 데이터 삭제 로직
 - [x] API 응답 camelCase 변환
+
+---
+
+## UI/UX 고도화
+
+### 디자인 시스템
+- [x] 테마 시스템 (라이트/다크 모드)
+- [x] Glassmorphism 디자인 컨셉
+- [x] Floating Orbs 배경 애니메이션
+- [x] Gradient 요소 (버튼, 카드 테두리)
+
+### 컴포넌트 라이브러리
+- [x] Button 컴포넌트 (6 variants, 3 sizes, loading state)
+- [x] Card 컴포넌트 (4 variants, GradientCard, StatCard)
+- [x] StatusBadge 컴포넌트 (상태별 스타일, 펄스 효과)
+- [x] Loading 컴포넌트 (LoadingDots, PulsingRing, LoadingOverlay, Skeleton)
+- [x] ImageViewer 컴포넌트 (전체화면 모달)
+- [x] VersionInfo 컴포넌트 (앱 버전 표시)
+
+### 애니메이션 (Reanimated 4.x)
+- [x] 스프링 물리 기반 마이크로 인터랙션
+- [x] Staggered entry 애니메이션
+- [x] 배송중 상태 펄스 애니메이션
+- [x] QR 스캔 라인 애니메이션
 
 ---
 
@@ -167,9 +202,11 @@
 ## 기술 부채
 
 - [ ] API 에러 핸들링 통일
-- [ ] 로딩 상태 개선 (스켈레톤 UI)
+- [x] 로딩 상태 개선 (LoadingOverlay, Skeleton 구현 완료)
 - [ ] 오프라인 지원 (캐싱)
 - [ ] 푸시 알림 연동
+- [ ] Android 15 deprecated API 대응 (statusBar/navigationBar color APIs)
+- [ ] Android 16 대형 화면 orientation 제한 대응
 
 ---
 
@@ -180,3 +217,4 @@
 | 2025-12-31 | 초기 체크리스트 생성 |
 | 2025-12-31 | Workers Assets 통합, camelCase 변환, PC 웹 빌드 완료 |
 | 2025-01-06 | RevenueCat 구독 시스템 기본 구조 추가 (SDK 설치, Store 생성) |
+| 2026-01-21 | UI/UX 고도화 섹션 추가, 컴포넌트 라이브러리 문서화, 실제 구현 반영 |

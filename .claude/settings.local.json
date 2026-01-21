@@ -81,7 +81,9 @@
       "Bash(magick:*)",
       "Bash(identify:*)",
       "Bash(# Check available Korean fonts fc-list :lang=ko family | head -10 || magick -list font)",
-      "Bash(# Find the actual font file path find /System/Library/Fonts /Library/Fonts ~/Library/Fonts -name \"\"*AppleSDGothicNeo*\"\" -o -name \"\"*Gothic*Bold*\"\")"
+      "Bash(# Find the actual font file path find /System/Library/Fonts /Library/Fonts ~/Library/Fonts -name \"\"*AppleSDGothicNeo*\"\" -o -name \"\"*Gothic*Bold*\"\")",
+      "Bash(tree:*)",
+      "Bash(find:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

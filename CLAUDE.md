@@ -106,14 +106,14 @@ jpg -> png 변경시 ImageMgick 사용
 
 > **Claude는 새 대화 시작 시 반드시 아래 문서를 확인하세요.**
 
-- **[진척도 체크리스트](./progress-checklist.md)** - 현재 개발 진행 상태
+- **[진척도 체크리스트](./docs/progress-checklist.md)** - 현재 개발 진행 상태
 - 워크플로우: `/check-progress` 명령으로 상세 진척도 리포트 생성
 
 ### 작업 시 규칙
 - 새 기능 구현 완료 시 체크리스트 업데이트 (`[ ]` → `[x]`)
 - 진행 중인 작업은 `[/]`로 표시
 - 진척률 테이블 갱신
-- Test 나 mockup 구조로 된 구현 경우 실제 구현을 해야된다고 리스트업 
+- Test 나 mockup 구조로 된 구현 경우 실제 구현을 해야된다고 리스트업
 
 ### ⚠️ PRD 수정 시 필수 동기화
 > **prd.md가 수정되면 반드시 progress-checklist.md도 동기화해야 합니다.**
@@ -127,8 +127,9 @@ jpg -> png 변경시 ImageMgick 사용
 
 ## 참고 문서
 
-- [PRD](./prd.md) - 전체 제품 요구사항
-- [진척도 체크리스트](./progress-checklist.md) - 개발 진행 상태
+- [PRD](./docs/prd.md) - 전체 제품 요구사항
+- [진척도 체크리스트](./docs/progress-checklist.md) - 개발 진행 상태
+- [UI 스펙](./docs/ui-spec.md) - 화면 설계 및 컴포넌트
 - [버전 관리 가이드](./docs/app-version-guide.md) - Worker/앱 빌드 버전 관리
 - [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
 - [Claude API Docs](https://docs.anthropic.com/claude/reference/)

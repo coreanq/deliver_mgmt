@@ -6,17 +6,24 @@
 
 앱은 중앙집중식 테마 시스템을 사용합니다. 모든 스타일은 `app/src/theme/` 폴더에서 관리됩니다.
 
+### 디자인 컨셉
+
+- **Glassmorphism**: 반투명 카드와 블러 효과를 사용한 현대적 UI
+- **Floating Orbs**: 배경에 애니메이션되는 장식용 원형 요소
+- **Gradient Elements**: LinearGradient를 활용한 버튼, 카드 테두리
+- **Dark Mode First**: 다크모드 기본, 라이트모드 지원
+
 ### 테마 사용법
 
 ```typescript
 import { useTheme } from '../src/theme';
 
 function MyComponent() {
-  const { colors, radius, shadows, isDark } = useTheme();
-  
+  const { colors, radius, shadows, spacing, typography, springs, isDark } = useTheme();
+
   return (
     <View style={{ backgroundColor: colors.background }}>
-      <Text style={{ color: colors.text }}>Hello</Text>
+      <Text style={[typography.h1, { color: colors.text }]}>Hello</Text>
     </View>
   );
 }
@@ -27,87 +34,247 @@ function MyComponent() {
 라이트/다크 모드를 지원합니다.
 
 ```typescript
-// app/src/theme/colors.ts
-export const lightColors = {
-  // Primary
-  primary: '#4F46E5',        // Indigo
-  primaryLight: '#6366F1',
-  primaryDark: '#4338CA',
-  
-  // Secondary
-  secondary: '#0EA5E9',      // Sky blue
-  secondaryLight: '#38BDF8',
-  secondaryDark: '#0284C7',
-  
+// 다크 모드 (기본)
+export const darkColors = {
+  // Primary - Indigo
+  primary: '#6366F1',
+  primaryLight: '#818CF8',
+  primaryDark: '#4F46E5',
+
+  // Accent - Orange
+  accent: '#F97316',
+  accentLight: '#FB923C',
+  accentDark: '#EA580C',
+
   // Background & Surface
-  background: '#F8FAFC',
-  surface: '#FFFFFF',
-  surfaceSecondary: '#F1F5F9',
-  
+  background: '#0F172A',      // Slate 900
+  surface: '#1E293B',         // Slate 800
+  surfaceSecondary: '#334155', // Slate 700
+
   // Text
-  text: '#0F172A',
-  textSecondary: '#64748B',
-  textTertiary: '#94A3B8',
-  textInverse: '#FFFFFF',
-  
+  text: '#F8FAFC',
+  textSecondary: '#94A3B8',
+  textTertiary: '#64748B',
+  textInverse: '#0F172A',
+
   // Border
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
-  
+  border: '#334155',
+  borderLight: '#475569',
+
   // Semantic
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
   info: '#3B82F6',
-  
+
   // Status (배송 상태)
-  statusPending: '#F59E0B',      // 배송 준비
-  statusPendingBg: '#FEF3C7',
-  statusInTransit: '#3B82F6',    // 배송 중
-  statusInTransitBg: '#DBEAFE',
-  statusCompleted: '#10B981',    // 완료
-  statusCompletedBg: '#D1FAE5',
+  statusPending: '#F59E0B',       // Amber - 배송 준비
+  statusPendingBg: '#78350F',
+  statusInTransit: '#3B82F6',     // Blue - 배송 중
+  statusInTransitBg: '#1E3A5F',
+  statusCompleted: '#10B981',     // Green - 완료
+  statusCompletedBg: '#064E3B',
+
+  // Gradients
+  gradientPrimary: ['#6366F1', '#8B5CF6'],
+  gradientAccent: ['#F97316', '#FB923C'],
+  gradientSurface: ['rgba(30,41,59,0.8)', 'rgba(30,41,59,0.6)'],
+};
+
+// 라이트 모드
+export const lightColors = {
+  primary: '#4F46E5',
+  primaryLight: '#6366F1',
+  primaryDark: '#4338CA',
+  accent: '#EA580C',
+  background: '#F8FAFC',
+  surface: '#FFFFFF',
+  // ... (기타 라이트모드 색상)
 };
 ```
 
 ### 스페이싱 & 라디우스
 
 ```typescript
-// app/src/theme/spacing.ts
+// 8px 기반 스케일
 export const spacing = {
-  0: 0,
-  1: 4,
-  2: 8,
-  3: 12,
-  4: 16,
-  5: 20,
-  6: 24,
-  8: 32,
-  10: 40,
-  12: 48,
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  '2xl': 48,
 };
 
 export const radius = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  '2xl': 20,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  '2xl': 32,
   full: 9999,
 };
 ```
 
-### 그림자
+### 타이포그래피
 
 ```typescript
-// app/src/theme/shadows.ts
-export const shadows = {
-  sm: { shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  md: { shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  lg: { shadowOpacity: 0.10, shadowRadius: 8, elevation: 4 },
-  xl: { shadowOpacity: 0.12, shadowRadius: 16, elevation: 8 },
+export const typography = {
+  h1: { fontSize: 32, fontWeight: '700', lineHeight: 40 },
+  h2: { fontSize: 24, fontWeight: '600', lineHeight: 32 },
+  h3: { fontSize: 20, fontWeight: '600', lineHeight: 28 },
+  h4: { fontSize: 18, fontWeight: '600', lineHeight: 24 },
+  body: { fontSize: 16, fontWeight: '400', lineHeight: 24 },
+  bodySmall: { fontSize: 14, fontWeight: '400', lineHeight: 20 },
+  caption: { fontSize: 12, fontWeight: '400', lineHeight: 16 },
+  button: { fontSize: 16, fontWeight: '600' },
+  buttonSmall: { fontSize: 14, fontWeight: '600' },
 };
 ```
+
+### 그림자 (라이트/다크 분리)
+
+```typescript
+export const shadows = {
+  light: {
+    sm: { shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+    md: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+    lg: { shadowColor: '#000', shadowOpacity: 0.10, shadowRadius: 8, elevation: 4 },
+  },
+  dark: {
+    sm: { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 2 },
+    md: { shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
+    lg: { shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, elevation: 8 },
+  },
+};
+```
+
+### 애니메이션 스프링 설정
+
+```typescript
+export const springs = {
+  snappy: { damping: 20, stiffness: 300 },
+  gentle: { damping: 15, stiffness: 150 },
+  bouncy: { damping: 10, stiffness: 200 },
+};
+```
+
+---
+
+## 컴포넌트 라이브러리
+
+### Button (`src/components/Button.tsx`)
+
+유연한 버튼 컴포넌트입니다.
+
+```typescript
+interface ButtonProps {
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
+  disabled?: boolean;
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
+  fullWidth?: boolean;
+  children: React.ReactNode;
+  onPress: () => void;
+}
+```
+
+**특징:**
+- Primary variant: Gradient 배경 (Indigo → Purple)
+- 스프링 애니메이션 터치 효과
+- 로딩 상태 시 스피너 표시
+- Disabled 상태 처리
+
+### Card (`src/components/Card.tsx`)
+
+다양한 스타일의 카드 컴포넌트입니다.
+
+```typescript
+interface CardProps {
+  variant?: 'default' | 'elevated' | 'outlined' | 'glass';
+  onPress?: () => void;
+  animateEntry?: boolean;
+  entryDirection?: 'up' | 'down';
+  delay?: number;
+  children: React.ReactNode;
+}
+
+// Composition 컴포넌트
+<Card>
+  <CardHeader />
+  <CardContent />
+  <CardFooter />
+</Card>
+
+// 그라디언트 카드
+<GradientCard gradient={['#color1', '#color2']}>...</GradientCard>
+
+// 통계 카드
+<StatCard label="완료" value={18} icon={<CheckIcon />} />
+```
+
+### StatusBadge (`src/components/StatusBadge.tsx`)
+
+배송 상태 표시 뱃지입니다.
+
+```typescript
+interface StatusBadgeProps {
+  status: 'pending' | 'in_transit' | 'completed';
+  size?: 'sm' | 'md' | 'lg';
+  showPulse?: boolean;  // in_transit 상태에서 펄스 효과
+}
+
+// 컴팩트 버전
+<StatusDot status="in_transit" pulse={true} />
+```
+
+**상태별 스타일:**
+| 상태 | 아이콘 | 컬러 | 애니메이션 |
+|------|-------|------|-----------|
+| pending | ⏳ | Amber | 없음 |
+| in_transit | 🚚 | Blue | Pulse (선택) |
+| completed | ✓ | Green | 없음 |
+
+### Loading (`src/components/Loading.tsx`)
+
+로딩 상태 표시 컴포넌트입니다.
+
+```typescript
+// 바운싱 점들
+<LoadingDots />
+
+// 펄싱 링
+<PulsingRing size={40} color="#6366F1" />
+
+// 메시지와 함께
+<Loading message="불러오는 중..." size="lg" />
+
+// 전체화면 오버레이
+<LoadingOverlay visible={isLoading} message="저장 중..." />
+
+// 스켈레톤 플레이스홀더
+<Skeleton width={100} height={20} />
+```
+
+### ImageViewer (`src/components/ImageViewer.tsx`)
+
+전체화면 이미지 뷰어입니다.
+
+```typescript
+interface ImageViewerProps {
+  visible: boolean;
+  imageUri: string;
+  onClose: () => void;
+}
+```
+
+**특징:**
+- 모달 오버레이 형태
+- 닫기 버튼
+- 배경 블러/딤 처리
 
 ---
 
@@ -173,146 +340,107 @@ export const shadows = {
 
 ### 2.2 대시보드 - 날짜별 카드뷰 (`/(admin)/index`)
 
+**주요 기능:**
+- 날짜 네비게이션 (이전/다음)
+- 통계 필터 카드 (클릭 시 해당 상태만 필터링)
+- Pull-to-refresh
+- 설정 모달 (계정정보, 법적링크, 로그아웃, 계정삭제)
+- FAB 버튼으로 QR 생성
+- 일일 사용량 뱃지
+
 ```
 ┌─────────────────────────────┐
-│  배송 현황                   │  ⚙️
+│  배송 현황              [⚙️] │  ← 설정 모달 열기
 ├─────────────────────────────┤
 │                             │
-│  < 2025년 12월 31일 >       │
+│  [<] 2025년 12월 31일 [>]   │  ← 날짜 네비게이션
 │                             │
-│  ┌───────────────────────┐  │
-│  │ 총 24건 │ 완료 18건    │  │
-│  │ ████████████░░░ 75%   │  │
-│  └───────────────────────┘  │
+│  ┌─────┐┌─────┐┌─────┐┌─────┐
+│  │전체 ││대기 ││배송중││완료 │  ← 필터 카드 (클릭 시 필터)
+│  │ 24  ││  3  ││  3  ││ 18  │
+│  └─────┘└─────┘└─────┘└─────┘
 │                             │
-│  ┌───────────────────────┐  │
-│  │  📱 배송담당자 QR 생성  │  │
-│  └───────────────────────┘  │
+│  [일일 사용량: 24/100건]    │  ← 구독 정보 뱃지
 │                             │
 ├─────────────────────────────┤
 │                             │
 │  ┌───────────────────────┐  │
 │  │ 🟢 배송 완료            │  │
-│  │ 김철수 → 홍길동         │  │
-│  │ 서울시 강남구 역삼동     │  │
-│  │ 📞 010-1234-5678       │  │
+│  │ 김철수 (수령인)         │  │
+│  │ 서울시 강남구 역삼동     │  │  ← 2줄 truncate
+│  │ 📦 상품명 x 1           │  │
+│  │ 👤 홍길동 (담당자)       │  │
+│  │ [📷]                   │  │  ← 사진 썸네일 (클릭 시 전체화면)
 │  └───────────────────────┘  │
 │                             │
 │  ┌───────────────────────┐  │
-│  │ 🔵 배송 출발            │  │
-│  │ 이영희 → 홍길동         │  │
+│  │ 🔵 배송 출발 (펄스)     │  │  ← in_transit 펄스 애니메이션
+│  │ 이영희                  │  │
 │  │ 서울시 서초구 방배동     │  │
-│  │ 📞 010-5678-9012       │  │
+│  │ 📦 상품명 x 2           │  │
+│  │ 👤 홍길동               │  │
 │  └───────────────────────┘  │
 │                             │
+│                    [QR 📱]  │  ← FAB 버튼 (그라디언트)
+└─────────────────────────────┘
 
-│                             │
-│  ┌───────────────────────┐  │
-│  │ 🟣 배송 준비중          │  │
-│  │ 박민수 → 김영수         │  │
-│  │ 서울시 송파구 잠실동     │  │
-│  │ 📞 010-9012-3456       │  │
-│  └───────────────────────┘  │
-│                             │
-
-│                             │
+─── 설정 모달 ───
+┌─────────────────────────────┐
+│  설정                   [X] │
 ├─────────────────────────────┤
+│  📧 admin@example.com       │
 │                             │
 │  ┌───────────────────────┐  │
-│  │  💻 PC에서 엑셀 작업   │  │
-│  │     하러 가기 →        │  │
+│  │ 📋 개인정보 처리방침    │  │
+│  └───────────────────────┘  │
+│  ┌───────────────────────┐  │
+│  │ 📞 고객 지원            │  │
 │  └───────────────────────┘  │
 │                             │
+│  ┌───────────────────────┐  │
+│  │ 🚪 로그아웃             │  │
+│  └───────────────────────┘  │
+│  ┌───────────────────────┐  │
+│  │ 🗑️ 계정 삭제 (danger)   │  │
+│  └───────────────────────┘  │
+│                             │
+│  v1.0.0 (빌드: 26/01/21)   │  ← VersionInfo 컴포넌트
 └─────────────────────────────┘
 ```
 
 ### 2.3 배송담당자 QR 생성 (`/(admin)/qr-generate`)
 
+**변경사항:** 담당자 선택 없이 단일 QR 생성 (모달 형태)
+
 ```
 ┌─────────────────────────────┐
-│  ←  배송담당자 QR 생성       │
-├─────────────────────────────┤
 │                             │
-│  날짜: 2025년 12월 31일      │
+│  ○ ○ ○                     │  ← Floating orbs 배경
 │                             │
-│  배송담당자 선택             │
-│  ┌───────────────────────┐  │
-│  │  ○ 홍길동 (8건)        │  │
-│  │  ○ 김영수 (6건)        │  │
-│  │  ○ 이민정 (4건)        │  │
-│  └───────────────────────┘  │
+│     배송담당자용 QR 코드     │
 │                             │
 │  ┌───────────────────────┐  │
-│  │     QR 코드 생성       │  │
+│  │  📅 2025년 12월 31일    │  │  ← 날짜 뱃지
 │  └───────────────────────┘  │
-│                             │
-└─────────────────────────────┘
-
-        ↓ 생성 후 ↓
-
-┌─────────────────────────────┐
-│  ←  배송담당자 QR 생성       │
-├─────────────────────────────┤
-│                             │
-│       홍길동님 전용 QR       │
-│       2025-12-31            │
 │                             │
 │  ┌───────────────────────┐  │
 │  │                       │  │
 │  │     ██████████████    │  │
-│  │     ██          ██    │  │
+│  │     ██          ██    │  │  ← QR 코드 (react-native-qrcode-svg)
 │  │     ██  ██████  ██    │  │
 │  │     ██  ██████  ██    │  │
-│  │     ██  ██████  ██    │  │
-│  │     ██          ██    │  │
 │  │     ██████████████    │  │
 │  │                       │  │
 │  └───────────────────────┘  │
 │                             │
-│  ⏱️ 유효시간: 오늘 자정까지   │
+│  ⏱️ 24시간 유효              │  ← 만료 시간 안내
 │                             │
-│  ℹ️ 배송담당자가 이 QR을     │
-│     스캔하면 오늘의 배송      │
+│  ℹ️ 배송담당자가 이 QR을 스캔 │
+│     하면 이름 입력 후 배송    │
 │     목록을 확인할 수 있습니다 │
 │                             │
 │  ┌───────────────────────┐  │
-│  │    다른 담당자 선택     │  │
-│  └───────────────────────┘  │
-│                             │
-└─────────────────────────────┘
-```
-
-### 2.4 설정 (`/(admin)/settings`)
-
-```
-┌─────────────────────────────┐
-│  ←  설정                     │
-├─────────────────────────────┤
-│                             │
-│  계정                        │
-│  ┌───────────────────────┐  │
-│  │ 📧 admin@example.com  │  │
-│  └───────────────────────┘  │
-│                             │
-│  구독 상태                   │
-│  ┌───────────────────────┐  │
-│  │ 📦 무료 플랜           │  │
-│  │ 데이터 보관: 7일       │  │
-│  │                        │  │
-│  │ ┌──────────────────┐  │  │
-│  │ │  구독 업그레이드   │  │  │
-│  │ └──────────────────┘  │  │
-│  └───────────────────────┘  │
-│                             │
-│  PC 웹 접속                  │
-│  ┌───────────────────────┐  │
-│  │ 💻 엑셀 업로드는 PC에서 │  │
-│  │    yourapp.com        │  │
-│  │           복사하기 📋  │  │
-│  └───────────────────────┘  │
-│                             │
-│  ┌───────────────────────┐  │
-│  │       로그아웃         │  │
+│  │     📤 공유하기         │  │  ← 공유 기능
 │  └───────────────────────┘  │
 │                             │
 └─────────────────────────────┘
@@ -374,77 +502,75 @@ export const shadows = {
 
 ### 3.3 배송 목록 (`/(staff)/index`)
 
+**주요 기능:**
+- 오늘 날짜만 표시 (날짜 이동 없음)
+- 순번 뱃지 (그라디언트 스타일)
+- 배송중 상태 펄스 애니메이션
+- 카드 클릭 시 상세화면 이동
+- 로그아웃 버튼
+
 ```
 ┌─────────────────────────────┐
-│  홍길동님의 배송              │
+│  홍길동님의 배송      [로그아웃]│  ← danger 스타일 버튼
 ├─────────────────────────────┤
 │  2025년 12월 31일            │
-│  ┌───────────────────────┐  │
-│  │ ████████░░░░  5/8 완료 │  │
-│  └───────────────────────┘  │
+│                             │
 ├─────────────────────────────┤
 │                             │
 │  ┌───────────────────────┐  │
-│  │ 🟢 배송 완료            │  │
-│  │ 김철수                  │  │
-│  │ 서울시 강남구 역삼동     │  │
-│  │ ✓ 완료 (10:30)         │  │
+│  │[1] 🟢 완료              │  │  ← 순번 뱃지 (그라디언트)
+│  │    김철수               │  │
+│  │    서울시 강남구 역삼동  │  │
 │  └───────────────────────┘  │
 │                             │
 │  ┌───────────────────────┐  │
-│  │ 🔵 배송 출발            │  │
-│  │ 이영희                  │  │
-│  │ 서울시 서초구 방배동     │  │
-│  │                         │  │
-│  │ ┌─────────────────┐   │  │
-│  │ │  📸 배송 완료    │   │  │
-│  │ └─────────────────┘   │  │
+│  │[2] 🔵 배송중 ●          │  │  ← 펄싱 상태 표시
+│  │    이영희               │  │
+│  │    서울시 서초구 방배동  │  │
 │  └───────────────────────┘  │
-│                             │
-
 │                             │
 │  ┌───────────────────────┐  │
-│  │ 🟣 배송 준비중          │  │
-│  │ 박민수                  │  │
-│  │ 서울시 송파구 잠실동     │  │
-│  │                         │  │
-│  │ ┌─────────────────┐   │  │
-│  │ │  🚗 배송 출발    │   │  │
-│  │ └─────────────────┘   │  │
+│  │[3] 🟡 대기              │  │
+│  │    박민수               │  │
+│  │    서울시 송파구 잠실동  │  │
 │  └───────────────────────┘  │
-│                             │
-
 │                             │
 └─────────────────────────────┘
 ```
 
 ### 3.4 배송 상세 (`/(staff)/[orderId]`)
 
+**주요 기능:**
+- 고객정보, 주소, 메모, 커스텀 필드 표시
+- 전화걸기 (연락처 클릭)
+- 커스텀 필드: 읽기전용 또는 수정가능 (관리자 설정)
+- 상태에 따른 액션 버튼 변경
+- 배송완료 시 두 가지 옵션 제공
+
 ```
 ┌─────────────────────────────┐
 │  ←  배송 상세                │
 ├─────────────────────────────┤
 │                             │
-│  🔵 배송 출발                │
+│  [🔵 배송 출발]              │  ← StatusBadge
 │                             │
 │  ─────────────────────────  │
 │                             │
 │  👤 고객 정보                │
 │  ┌───────────────────────┐  │
 │  │ 이름: 이영희            │  │
-│  │ 연락처: 010-5678-9012  │  │
-│  │ ┌─────────────────┐   │  │
-│  │ │  📞 전화걸기     │   │  │
-│  │ └─────────────────┘   │  │
+│  │ 연락처: 010-5678-9012 📞│  │  ← 클릭 시 전화
 │  └───────────────────────┘  │
 │                             │
 │  📍 배송지                   │
 │  ┌───────────────────────┐  │
 │  │ 서울시 서초구 방배동    │  │
 │  │ 123-45 A아파트 101동   │  │
-│  │ ┌─────────────────┐   │  │
-│  │ │  🗺️ 지도 보기    │   │  │
-│  │ └─────────────────┘   │  │
+│  └───────────────────────┘  │
+│                             │
+│  📦 상품                     │
+│  ┌───────────────────────┐  │
+│  │ 과일 선물세트 x 2      │  │
 │  └───────────────────────┘  │
 │                             │
 │  📝 메모                     │
@@ -452,11 +578,31 @@ export const shadows = {
 │  │ 문 앞에 놓아주세요      │  │
 │  └───────────────────────┘  │
 │                             │
+│  📋 추가 정보 (커스텀 필드)   │
+│  ┌───────────────────────┐  │
+│  │ 배송시간: [10:00~12:00]│  │  ← 수정가능 필드 (입력창)
+│  │ 결제방식: 선결제 (읽기) │  │  ← 읽기전용 필드
+│  │        [💾 저장]       │  │  ← 변경시 저장버튼 표시
+│  └───────────────────────┘  │
+│                             │
+│  📷 배송완료 사진             │  ← 완료 시에만 표시
+│  ┌───────────────────────┐  │
+│  │     [사진 썸네일]       │  │  ← 클릭 시 전체화면
+│  └───────────────────────┘  │
+│                             │
 │  ─────────────────────────  │
 │                             │
+│  ─── pending 상태 ───       │
 │  ┌───────────────────────┐  │
-│  │    📸 배송 완료        │  │
-│  │    (사진 촬영 필요)     │  │
+│  │    🚗 배송 출발         │  │  ← primary 버튼
+│  └───────────────────────┘  │
+│                             │
+│  ─── in_transit 상태 ───    │
+│  ┌───────────────────────┐  │
+│  │   📸+💬 사진+SMS       │  │  ← primary 버튼
+│  └───────────────────────┘  │
+│  ┌───────────────────────┐  │
+│  │   💬 SMS만             │  │  ← secondary 버튼
 │  └───────────────────────┘  │
 │                             │
 └─────────────────────────────┘
@@ -645,30 +791,38 @@ export const shadows = {
 
 ---
 
-## 공통 컴포넌트
+## 공통 패턴
 
-### DeliveryCard (모바일)
+### 상태별 액션 (배송담당자 모드)
 
-```typescript
-interface DeliveryCardProps {
-  delivery: Delivery;
-  showAction?: boolean;
-  onActionPress?: () => void;
-  variant: 'admin' | 'staff';  // 관리자용 / 배송담당자용
-}
-```
+| 현재 상태 | 표시 버튼 | 액션 |
+|-----------|-----------|------|
+| pending (대기) | "🚗 배송 출발" | 상태를 in_transit로 변경 |
+| in_transit (배송중) | "📸+💬 사진+SMS" | 카메라 → 업로드 → SMS |
+| in_transit (배송중) | "💬 SMS만" | 사진 없이 SMS만 발송 |
+| completed (완료) | 없음 | 상태 변경 불가 |
 
-### 상태별 버튼 (배송담당자 모드)
+### 애니메이션 패턴
 
-| 현재 상태 | 버튼 표시 | 버튼 텍스트 | 사진 촬영 |
-|-----------|-----------|-------------|----------|
-| 주문 완료 | ❌ | - | - |
-| 상품 준비중 | ❌ | - | - |
-| 배송 준비중 | ✅ | "🚗 배송 출발" | ❌ |
-| 배송 출발 | ✅ | "📸 배송 완료" | ✅ |
-| 배송 완료 | ❌ | - | - |
+| 패턴 | 사용처 | 구현 |
+|------|--------|------|
+| Floating Orbs | 역할선택, 로그인, QR생성 화면 | 연속 Y축 이동 + 페이드 |
+| Entry Animation | 카드, 목록 아이템 | FadeInUp with stagger delay |
+| Pulse | 배송중 상태 아이콘 | Opacity + Scale 반복 |
+| Press Scale | 버튼, 카드 | withSpring scale interpolation |
+| Scan Line | QR 스캔 화면 | 수직 반복 이동 |
+
+### 네비게이션 트랜지션
+
+| 화면 전환 | 애니메이션 |
+|----------|-----------|
+| 일반 화면 | slide_from_right |
+| 로그인 → 대시보드 | fade |
+| QR 생성 | modal (iOS) / fade (Android) |
+| 배송 상세 | card |
+| 사진 촬영 | fullScreenModal |
 
 ---
 
-*문서 버전: 3.0*  
-*작성일: 2025-12-31*
+*문서 버전: 4.0*
+*최종 수정: 2026-01-21*
