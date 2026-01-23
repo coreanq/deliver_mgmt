@@ -106,6 +106,21 @@ webhook.post('/test', async (c) => {
       message: 'This is a test webhook from Delivery Management System',
       timestamp: new Date().toISOString(),
       test: true,
+      sample_delivery: {
+        id: 'test_delivery_id',
+        recipient_name: '홍길동',
+        recipient_phone: '010-1234-5678',
+        recipient_address: '서울시 강남구 테헤란로 123',
+        product_name: '테스트 상품',
+        quantity: 1,
+        status: 'completed',
+        delivery_date: new Date().toISOString().split('T')[0],
+        staff_name: '김배송',
+        memo: '문 앞에 놓아주세요',
+        custom_fields: {
+          'custom_field_1': '추가 정보'
+        }
+      }
     };
 
     const response = await fetch(targetUrl, {
