@@ -672,9 +672,8 @@ export default function DeliveryDetailScreen() {
               <Text style={[typography.overline, { color: colors.textMuted, textAlign: 'center', marginBottom: 12 }]}>
                 배송 완료
               </Text>
-              <View style={styles.twoButtonContainer}>
               <AnimatedPressable
-                style={[styles.halfButtonWrapper, fabAnimatedStyle]}
+                style={[styles.actionButtonWrapper, fabAnimatedStyle]}
                 onPress={handleCompleteWithPhoto}
                 onPressIn={() => { fabScale.value = withSpring(0.95, springs.snappy); }}
                 onPressOut={() => { fabScale.value = withSpring(1, springs.snappy); }}
@@ -691,44 +690,13 @@ export default function DeliveryDetailScreen() {
                   ) : (
                     <>
                       <Text style={styles.actionIcon}>📷</Text>
-                      <Text style={[typography.button, { color: '#FFFFFF', fontSize: 15 }]}>
-                        사진+SMS
+                      <Text style={[typography.button, { color: '#FFFFFF', fontSize: 17 }]}>
+                        배송 완료 (사진 촬영)
                       </Text>
                     </>
                   )}
                 </LinearGradient>
               </AnimatedPressable>
-              <AnimatedPressable
-                style={[styles.halfButtonWrapper, fabAnimatedStyle]}
-                onPress={handleCompleteSmsOnly}
-                onPressIn={() => { fabScale.value = withSpring(0.95, springs.snappy); }}
-                onPressOut={() => { fabScale.value = withSpring(1, springs.snappy); }}
-                disabled={updating || isLoading}
-              >
-                <View
-                  style={[
-                    styles.actionButton,
-                    {
-                      borderRadius: radius.xl,
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                      borderWidth: 1,
-                      borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                    },
-                  ]}
-                >
-                  {updating || isLoading ? (
-                    <Loading size="sm" />
-                  ) : (
-                    <>
-                      <Text style={styles.actionIcon}>💬</Text>
-                      <Text style={[typography.button, { color: colors.text, fontSize: 15 }]}>
-                        SMS만
-                      </Text>
-                    </>
-                  )}
-                </View>
-              </AnimatedPressable>
-              </View>
             </View>
           ) : (
             // 배송 출발: 기존 1개 버튼

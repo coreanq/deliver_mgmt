@@ -184,40 +184,54 @@ export default function CompleteDeliveryScreen() {
 
     setUploading(true);
 
-    // 사진 업로드와 SMS 메시지 준비를 병렬로 처리
-    const [success, isSmsAvailable, message] = await Promise.all([
-      completeDelivery(token, params.orderId, photo),
-      SMS.isAvailableAsync(),
-      buildSmsMessage(),
-    ]);
+    // 1. 서버에 배송 완료 처리 (사진 업로드)
+    const success = await completeDelivery(token, params.orderId, photo);
+    setUploading(false);
 
     if (success) {
-      if (isSmsAvailable) {
-        try {
-          const smsOptions: SMS.SMSOptions = photoUri
-            ? {
-                attachments: {
-                  uri: photoUri,
-                  mimeType: 'image/jpeg',
-                  filename: 'delivery_photo.jpg',
-                },
+      // 2. 완료 성공 시 SMS 전송 여부 확인
+      Alert.alert(
+        '배송 완료',
+        '배송이 완료되었습니다.\n고객님께 문자를 전송하시겠습니까?',
+        [
+          {
+            text: '아니오',
+            style: 'cancel',
+            onPress: () => router.back(),
+          },
+          {
+            text: '네 (문자 전송)',
+            onPress: async () => {
+              // 3. SMS 전송 프로세스
+              const isSmsAvailable = await SMS.isAvailableAsync();
+              if (isSmsAvailable) {
+                const message = await buildSmsMessage();
+                try {
+                  const smsOptions: SMS.SMSOptions = photoUri
+                    ? {
+                        attachments: {
+                          uri: photoUri,
+                          mimeType: 'image/jpeg',
+                          filename: 'delivery_photo.jpg',
+                        },
+                      }
+                    : {};
+
+                  await SMS.sendSMSAsync([delivery.recipientPhone], message, smsOptions);
+                } catch (error) {
+                  remoteLog.error('SMS open error', error);
+                }
+              } else {
+                Alert.alert('알림', 'SMS 기능을 사용할 수 없습니다.');
               }
-            : {};
-
-          await SMS.sendSMSAsync([delivery.recipientPhone], message, smsOptions);
-        } catch (error) {
-          remoteLog.error('SMS open error', error);
-        }
-      }
-
-      Alert.alert('완료', '배송이 완료되었습니다.', [
-        { text: '확인', onPress: () => router.back() },
-      ]);
+              router.back();
+            },
+          },
+        ]
+      );
     } else {
       Alert.alert('오류', '배송 완료 처리에 실패했습니다.');
     }
-
-    setUploading(false);
   };
 
   const captureAnimatedStyle = useAnimatedStyle(() => ({
@@ -478,7 +492,7 @@ export default function CompleteDeliveryScreen() {
               >
                 <Text style={styles.completeIcon}>✓</Text>
                 <Text style={[typography.button, { color: '#FFFFFF' }]}>
-                  완료 + SMS
+                  배송 완료
                 </Text>
               </LinearGradient>
             </AnimatedPressable>
