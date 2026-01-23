@@ -90,3 +90,17 @@ CREATE TABLE IF NOT EXISTS custom_field_definitions (
 
 -- 커스텀 필드 정의 인덱스
 CREATE INDEX IF NOT EXISTS idx_custom_field_definitions_admin_id ON custom_field_definitions(admin_id);
+
+-- 웹훅 설정 테이블
+CREATE TABLE IF NOT EXISTS webhook_settings (
+  id TEXT PRIMARY KEY,
+  admin_id TEXT UNIQUE NOT NULL,
+  url TEXT NOT NULL,
+  enabled INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+);
+
+-- 웹훅 설정 인덱스
+CREATE INDEX IF NOT EXISTS idx_webhook_settings_admin_id ON webhook_settings(admin_id);

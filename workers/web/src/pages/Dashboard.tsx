@@ -166,6 +166,13 @@ export default function Dashboard() {
     existingCount: 0,
   });
 
+  // 웹훅 모달 상태
+  const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookEnabled, setWebhookEnabled] = useState(true);
+  const [isSavingWebhook, setIsSavingWebhook] = useState(false);
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+
   useEffect(() => {
     fetchDeliveries();
   }, [selectedDate]);
@@ -696,6 +703,71 @@ export default function Dashboard() {
     e.target.value = '';
   }, [processFile]);
 
+  const openWebhookModal = async () => {
+    setShowWebhookModal(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/webhook`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (result.success) {
+        setWebhookUrl(result.data.url || '');
+        setWebhookEnabled(result.data.enabled === 1);
+      }
+    } catch (error) {
+      console.error('Failed to fetch webhook settings:', error);
+    }
+  };
+
+  const saveWebhook = async () => {
+    setIsSavingWebhook(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ url: webhookUrl, enabled: webhookEnabled }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setSuccessMessage('웹훅 설정이 저장되었습니다.');
+        setShowWebhookModal(false);
+      } else {
+        alert('저장에 실패했습니다.');
+      }
+    } catch (error) {
+      alert('오류가 발생했습니다.');
+    } finally {
+      setIsSavingWebhook(false);
+    }
+  };
+
+  const testWebhook = async () => {
+    setIsTestingWebhook(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/webhook/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ url: webhookUrl }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('테스트 웹훅이 전송되었습니다.');
+      } else {
+        alert(`전송 실패: ${result.error}`);
+      }
+    } catch (error) {
+      alert('오류가 발생했습니다.');
+    } finally {
+      setIsTestingWebhook(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -960,6 +1032,12 @@ export default function Dashboard() {
                 초기화
               </button>
             )}
+            <button onClick={openWebhookModal} className="flex items-center gap-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ml-auto sm:ml-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              웹훅 설정
+            </button>
           </div>
           {activeFilterCount > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
@@ -1530,6 +1608,70 @@ export default function Dashboard() {
         <p className="text-xs text-gray-400 dark:text-gray-500">Web v{__WEB_VERSION__} ({__WEB_BUILD_DATE__})</p>
         {serverBuildDate && <p className="text-xs text-gray-400 dark:text-gray-600">Server {serverBuildDate}</p>}
       </div>
+      {/* Webhook Modal */}
+      {showWebhookModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-scale-up">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">웹훅 설정</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Webhook URL
+                  </label>
+                  <input
+                    type="text"
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    placeholder="https://hook.us1.make.com/..."
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    배송 상태 변경 시 이 주소로 데이터를 전송합니다.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="webhookEnabled"
+                    checked={webhookEnabled}
+                    onChange={(e) => setWebhookEnabled(e.target.checked)}
+                    className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                  />
+                  <label htmlFor="webhookEnabled" className="text-sm text-gray-700 dark:text-gray-300">
+                    웹훅 사용
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowWebhookModal(false)}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={testWebhook}
+                  disabled={isTestingWebhook || !webhookUrl}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {isTestingWebhook ? '전송 중...' : '테스트 전송'}
+                </button>
+                <button
+                  onClick={saveWebhook}
+                  disabled={isSavingWebhook}
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {isSavingWebhook ? '저장 중...' : '저장'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

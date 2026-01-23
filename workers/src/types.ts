@@ -116,6 +116,16 @@ export interface CustomFieldDefinition {
   updated_at: string;
 }
 
+// 웹훅 설정
+export interface WebhookSettings {
+  id: string;
+  admin_id: string;
+  url: string;
+  enabled: number; // 0 | 1
+  created_at: string;
+  updated_at: string;
+}
+
 
 
 

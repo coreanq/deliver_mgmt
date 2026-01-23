@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
-import type { Env, Delivery, JWTPayload, CustomFieldDefinition } from '../types';
+import type { Env, Delivery, JWTPayload, CustomFieldDefinition, DeliveryStatus } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId, getTodayKST, getISOString, transformKeys, transformArray } from '../lib/utils';
+import { triggerWebhook } from '../lib/webhook';
 
 // 배송 데이터 변환 (custom_fields JSON 파싱 포함)
 function transformDelivery(delivery: Delivery): Record<string, unknown> {
@@ -216,9 +217,14 @@ delivery.put('/:id/status', async (c) => {
       .bind(status, updatedAt, deliveryId)
       .run();
 
+    const updatedDelivery = { ...existing, status: status as DeliveryStatus, updated_at: updatedAt };
+    
+    // 웹훅 트리거 (비동기)
+    triggerWebhook(c.env, adminId!, 'status_changed', transformDelivery(updatedDelivery));
+
     return c.json({
       success: true,
-      data: transformKeys({ ...existing, status, updated_at: updatedAt }),
+      data: transformKeys(updatedDelivery),
     });
   } catch (error) {
     console.error('Status update error:', error);
@@ -328,15 +334,20 @@ delivery.post('/:id/complete', async (c) => {
       .bind('completed', completedAt, photoUrl, completedAt, deliveryId)
       .run();
 
-    return c.json({
-      success: true,
-      data: transformKeys({
+    const updatedDelivery = {
         ...existing,
-        status: 'completed',
+        status: 'completed' as const,
         completed_at: completedAt,
         photo_url: photoUrl,
         updated_at: completedAt,
-      }),
+    };
+
+    // 웹훅 트리거 (비동기)
+    triggerWebhook(c.env, payload.adminId!, 'delivery_completed', transformDelivery(updatedDelivery));
+
+    return c.json({
+      success: true,
+      data: transformKeys(updatedDelivery),
     });
   } catch (error) {
     console.error('Complete delivery error:', error);
