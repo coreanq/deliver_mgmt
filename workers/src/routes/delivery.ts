@@ -219,8 +219,12 @@ delivery.put('/:id/status', async (c) => {
 
     const updatedDelivery = { ...existing, status: status as DeliveryStatus, updated_at: updatedAt };
     
-    // 웹훅 트리거 (비동기)
-    triggerWebhook(c.env, adminId!, 'status_changed', transformDelivery(updatedDelivery));
+    // 웹훅 트리거 (비동기, 실패해도 응답에는 영향 없음)
+    try {
+      await triggerWebhook(c.env, adminId!, 'status_changed', transformDelivery(updatedDelivery));
+    } catch (error) {
+      console.error('[Status Update] Webhook trigger failed but continuing:', error);
+    }
 
     return c.json({
       success: true,
@@ -342,8 +346,12 @@ delivery.post('/:id/complete', async (c) => {
         updated_at: completedAt,
     };
 
-    // 웹훅 트리거 (비동기)
-    triggerWebhook(c.env, payload.adminId!, 'delivery_completed', transformDelivery(updatedDelivery));
+    // 웹훅 트리거 (비동기, 실패해도 응답에는 영향 없음)
+    try {
+      await triggerWebhook(c.env, payload.adminId!, 'delivery_completed', transformDelivery(updatedDelivery));
+    } catch (error) {
+      console.error('[Complete] Webhook trigger failed but continuing:', error);
+    }
 
     return c.json({
       success: true,

@@ -19,8 +19,6 @@ export async function triggerWebhook(
     }
 
     // 웹훅 전송
-    // Make.com 등 외부 서비스로 전송
-    // 실패해도 메인 로직에 영향을 주지 않도록 에러는 로그만 남김
     const response = await fetch(settings.url, {
       method: 'POST',
       headers: {
