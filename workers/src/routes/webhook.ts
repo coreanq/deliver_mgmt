@@ -102,25 +102,29 @@ webhook.post('/test', async (c) => {
       return c.json({ success: false, error: 'No webhook URL configured' }, 400);
     }
 
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
+
+    // 실제 웹훅과 동일한 구조 (camelCase, data 직접 구조)
     const testPayload = {
-      message: 'This is a test webhook from Delivery Management System',
-      timestamp: new Date().toISOString(),
-      test: true,
-      sample_delivery: {
-        id: 'test_delivery_id',
-        recipient_name: '홍길동',
-        recipient_phone: '010-1234-5678',
-        recipient_address: '서울시 강남구 테헤란로 123',
-        product_name: '테스트 상품',
-        quantity: 1,
-        status: 'completed',
-        delivery_date: new Date().toISOString().split('T')[0],
-        staff_name: '김배송',
-        memo: '문 앞에 놓아주세요',
-        custom_fields: {
-          'custom_field_1': '추가 정보'
-        }
-      }
+      id: 'test_delivery_id',
+      adminId: adminId,
+      recipientName: '홍길동',
+      recipientPhone: '010-1234-5678',
+      recipientAddress: '서울시 강남구 테헤란로 123',
+      productName: '테스트 상품',
+      quantity: 1,
+      status: 'completed',
+      deliveryDate: today,
+      staffName: '김배송',
+      memo: '문 앞에 놓아주세요',
+      completedAt: now,
+      photoUrl: null,
+      customFields: {
+        'custom_field_1': '추가 정보'
+      },
+      createdAt: now,
+      updatedAt: now,
     };
 
     const response = await fetch(targetUrl, {
