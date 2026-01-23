@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -60,7 +60,7 @@ function getStatusButtonConfig(nextStatus: DeliveryStatus | null) {
 }
 
 // Floating orb background
-function FloatingOrb({ color, size, initialX, initialY, delay }: {
+const FloatingOrb = memo(function FloatingOrb({ color, size, initialX, initialY, delay }: {
   color: string;
   size: number;
   initialX: number;
@@ -106,7 +106,7 @@ function FloatingOrb({ color, size, initialX, initialY, delay }: {
       ]}
     />
   );
-}
+});
 
 export default function DeliveryDetailScreen() {
   const router = useRouter();
@@ -115,8 +115,11 @@ export default function DeliveryDetailScreen() {
   const insets = useSafeAreaInsets();
 
   const { token } = useAuthStore();
-  const { deliveries, selectedDelivery, selectDelivery, updateDeliveryStatus, isLoading } =
-    useDeliveryStore();
+  const deliveries = useDeliveryStore(s => s.deliveries);
+  const selectedDelivery = useDeliveryStore(s => s.selectedDelivery);
+  const selectDelivery = useDeliveryStore(s => s.selectDelivery);
+  const updateDeliveryStatus = useDeliveryStore(s => s.updateDeliveryStatus);
+  const isLoading = useDeliveryStore(s => s.isLoading);
 
   const [updating, setUpdating] = useState(false);
   const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
@@ -130,11 +133,12 @@ export default function DeliveryDetailScreen() {
   const fabScale = useSharedValue(1);
 
   useEffect(() => {
+    if (selectedDelivery?.id === params.orderId) return;
     const delivery = deliveries.find((d) => d.id === params.orderId);
     if (delivery) {
       selectDelivery(delivery);
     }
-  }, [params.orderId, deliveries, selectDelivery]);
+  }, [params.orderId, deliveries, selectDelivery, selectedDelivery]);
 
   // 커스텀 필드 정의 조회
   useEffect(() => {
@@ -393,6 +397,7 @@ export default function DeliveryDetailScreen() {
 
   const nextStatus = getNextStatus(selectedDelivery.status);
   const buttonConfig = getStatusButtonConfig(nextStatus);
+  const hasChanges = hasCustomFieldChanges();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -553,7 +558,7 @@ export default function DeliveryDetailScreen() {
                     <Text style={[typography.overline, { color: colors.textMuted }]}>
                       {field.fieldName}
                     </Text>
-                    {isEditable && hasCustomFieldChanges() && (
+                    {isEditable && hasChanges && (
                       <Pressable
                         style={[
                           styles.saveButton,

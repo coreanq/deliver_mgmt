@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -34,7 +34,7 @@ import type { Delivery } from '../../src/types';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Floating orb background
-function FloatingOrb({ color, size, initialX, initialY, delay }: {
+const FloatingOrb = memo(function FloatingOrb({ color, size, initialX, initialY, delay }: {
   color: string;
   size: number;
   initialX: number;
@@ -80,7 +80,7 @@ function FloatingOrb({ color, size, initialX, initialY, delay }: {
       ]}
     />
   );
-}
+});
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -140,11 +140,11 @@ function StatCard({ value, label, color, delay, isSelected, onPress }: {
 }
 
 // Delivery item component
-function DeliveryItem({ delivery, index, onPress }: {
+const DeliveryItem = memo(({ delivery, index, onPress }: {
   delivery: Delivery;
   index: number;
-  onPress: () => void;
-}) {
+  onPress: (delivery: Delivery) => void;
+}) => {
   const { colors, radius, typography, isDark, springs } = useTheme();
   const scale = useSharedValue(1);
 
@@ -158,7 +158,7 @@ function DeliveryItem({ delivery, index, onPress }: {
       style={animatedStyle}
     >
       <Pressable
-        onPress={onPress}
+        onPress={() => onPress(delivery)}
         onPressIn={() => { scale.value = withSpring(0.98, springs.snappy); }}
         onPressOut={() => { scale.value = withSpring(1, springs.snappy); }}
       >
@@ -223,7 +223,7 @@ function DeliveryItem({ delivery, index, onPress }: {
       </Pressable>
     </Animated.View>
   );
-}
+});
 
 export default function StaffDeliveryListScreen() {
   const router = useRouter();
@@ -233,7 +233,10 @@ export default function StaffDeliveryListScreen() {
   const insets = useSafeAreaInsets();
 
   const { staff, token, logout } = useAuthStore();
-  const { deliveries, isLoading, error, fetchStaffDeliveries } = useDeliveryStore();
+  const deliveries = useDeliveryStore(s => s.deliveries);
+  const isLoading = useDeliveryStore(s => s.isLoading);
+  const error = useDeliveryStore(s => s.error);
+  const fetchStaffDeliveries = useDeliveryStore(s => s.fetchStaffDeliveries);
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
@@ -278,12 +281,12 @@ export default function StaffDeliveryListScreen() {
     );
   };
 
-  const handleDeliveryPress = (delivery: Delivery) => {
+  const handleDeliveryPress = useCallback((delivery: Delivery) => {
     router.push({
       pathname: '/(staff)/[orderId]',
       params: { orderId: delivery.id },
     });
-  };
+  }, [router]);
 
   const logoutAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: logoutScale.value }],
@@ -451,7 +454,7 @@ export default function StaffDeliveryListScreen() {
               key={delivery.id}
               delivery={delivery}
               index={index}
-              onPress={() => handleDeliveryPress(delivery)}
+              onPress={handleDeliveryPress}
             />
           ))
         )}

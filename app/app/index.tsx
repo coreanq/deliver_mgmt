@@ -17,7 +17,7 @@ import Animated, {
   interpolate,
   Easing,
 } from 'react-native-reanimated';
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import { useAuthStore } from '../src/stores/auth';
 import { VersionInfo } from '../src/components';
 import { useTheme } from '../src/theme';
@@ -26,7 +26,7 @@ import { WEB_URL } from '../src/services/api';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Floating orb background decoration
-function FloatingOrb({ color, size, initialX, initialY, delay }: {
+const FloatingOrb = memo(function FloatingOrb({ color, size, initialX, initialY, delay }: {
   color: string;
   size: number;
   initialX: number;
@@ -72,7 +72,7 @@ function FloatingOrb({ color, size, initialX, initialY, delay }: {
       ]}
     />
   );
-}
+});
 
 // Modern role card with glass effect
 interface RoleCardProps {
