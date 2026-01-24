@@ -83,6 +83,7 @@ app.get('/auth/verify', (c) => {
   }
 });
 
+
 // 404 핸들러
 app.notFound((c) => {
   return c.json({ success: false, error: 'Not found' }, 404);

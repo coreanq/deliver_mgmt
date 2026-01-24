@@ -18,7 +18,7 @@ export default function Login() {
   // 이미 로그인된 경우 대시보드로 이동
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
 
@@ -28,7 +28,7 @@ export default function Login() {
       if (e.key === 'auth-storage' && e.newValue) {
         const data = JSON.parse(e.newValue);
         if (data.state?.isAuthenticated) {
-          window.location.href = '/';
+          window.location.href = '/dashboard';
         }
       }
     };
@@ -100,7 +100,7 @@ export default function Login() {
       if (result.success && result.data) {
         login(result.data.admin, result.data.token);
         // 로그인 완료 후 대시보드로 이동
-        navigate('/', { replace: true });
+        navigate('/dashboard', { replace: true });
       } else {
         setError(result.error || '링크가 만료되었거나 유효하지 않습니다.');
       }
@@ -134,7 +134,7 @@ export default function Login() {
         // 테스트 이메일이면 바로 JWT 반환됨 → 로그인
         if (result.data?.token) {
           login(result.data.admin, result.data.token);
-          navigate('/');
+          navigate('/dashboard');
         } else {
           // 일반 이메일이면 Magic Link 발송됨
           setIsSent(true);

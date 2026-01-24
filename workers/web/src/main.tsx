@@ -4,11 +4,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 
 // Pages
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import SmsTemplate from './pages/SmsTemplate';
 import CustomFieldSettings from './pages/CustomFieldSettings';
 
+// Components
+import Layout from './components/Layout';
 
 // Auth Guard
 import { useAuthStore } from './stores/auth';
@@ -34,36 +37,41 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/auth/verify" element={<Login />} />
+      <Layout>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/auth/verify" element={<Login />} />
 
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/sms-template"
-          element={
-            <ProtectedRoute>
-              <SmsTemplate />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/custom-fields"
-          element={
-            <ProtectedRoute>
-              <CustomFieldSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Protected Routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sms-template"
+            element={
+              <ProtectedRoute>
+                <SmsTemplate />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/custom-fields"
+            element={
+              <ProtectedRoute>
+                <CustomFieldSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
     </BrowserRouter>
   );
 }
