@@ -3,7 +3,6 @@ import type { Env, SmsTemplate, Subscription } from '../types';
 import { verifyToken } from '../lib/jwt';
 import { generateId } from '../lib/utils';
 import { getPlanConfig } from '../lib/plans';
-import { callAI } from '../services/ai';
 
 const smsTemplate = new Hono<{ Bindings: Env }>();
 
@@ -32,25 +31,6 @@ async function getAdminFromToken(c: { req: { header: (name: string) => string | 
   }
 
   return payload;
-}
-
-async function isPaidUser(env: Env, adminId: string): Promise<boolean> {
-  const sub = await env.DB.prepare('SELECT type FROM subscriptions WHERE admin_id = ?')
-    .bind(adminId)
-    .first<Pick<Subscription, 'type'>>();
-
-  if (sub?.type !== 'free' && sub?.type !== undefined) return true;
-
-  const admin = await env.DB.prepare('SELECT email FROM admins WHERE id = ?')
-    .bind(adminId)
-    .first<{ email: string }>();
-
-  if (admin && env.TEST_EMAILS) {
-    const testEmails = env.TEST_EMAILS.split(',').map(e => e.trim().toLowerCase());
-    return testEmails.includes(admin.email.toLowerCase());
-  }
-
-  return false;
 }
 
 smsTemplate.get('/', async (c) => {
@@ -101,24 +81,9 @@ smsTemplate.get('/default', async (c) => {
       .bind(adminId)
       .first<SmsTemplate>();
 
-    if (!template) {
-      return c.json({
-        success: true,
-        data: { template: null },
-      });
-    }
-
-    const userIsPaid = await isPaidUser(c.env, adminId);
-
     return c.json({
       success: true,
-      data: {
-        template: {
-          ...template,
-          use_ai: userIsPaid ? template.use_ai : 0,
-        },
-        isPro: userIsPaid,
-      },
+      data: { template },
     });
   } catch (error) {
     console.error('SMS template default error:', error);
@@ -151,27 +116,23 @@ smsTemplate.post('/', async (c) => {
       }, 400);
     }
 
-    const { name, content, useAi } = await c.req.json<{
+    const { name, content } = await c.req.json<{
       name: string;
       content: string;
-      useAi?: boolean;
     }>();
 
     if (!name || !content) {
       return c.json({ success: false, error: 'Name and content are required' }, 400);
     }
 
-    const userIsPaid = await isPaidUser(c.env, admin.sub);
-    const finalUseAi = userIsPaid && useAi ? 1 : 0;
-
     const id = generateId();
     const now = new Date().toISOString();
 
     await c.env.DB.prepare(
-      `INSERT INTO sms_templates (id, admin_id, name, content, use_ai, is_default, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
+      `INSERT INTO sms_templates (id, admin_id, name, content, is_default, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, ?, ?)`
     )
-      .bind(id, admin.sub, name, content, finalUseAi, now, now)
+      .bind(id, admin.sub, name, content, now, now)
       .run();
 
     return c.json({
@@ -203,14 +164,11 @@ smsTemplate.put('/:id', async (c) => {
       return c.json({ success: false, error: 'Template not found' }, 404);
     }
 
-    const { name, content, useAi, isDefault } = await c.req.json<{
+    const { name, content, isDefault } = await c.req.json<{
       name?: string;
       content?: string;
-      useAi?: boolean;
       isDefault?: boolean;
     }>();
-
-    const userIsPaid = await isPaidUser(c.env, admin.sub);
 
     if (isDefault) {
       await c.env.DB.prepare(
@@ -230,10 +188,6 @@ smsTemplate.put('/:id', async (c) => {
     if (content !== undefined) {
       updates.push('content = ?');
       values.push(content);
-    }
-    if (useAi !== undefined) {
-      updates.push('use_ai = ?');
-      values.push(userIsPaid && useAi ? 1 : 0);
     }
     if (isDefault !== undefined) {
       updates.push('is_default = ?');
@@ -279,86 +233,6 @@ smsTemplate.delete('/:id', async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('SMS template delete error:', error);
-    return c.json({ success: false, error: 'Internal server error' }, 500);
-  }
-});
-
-smsTemplate.post('/generate', async (c) => {
-  const authHeader = c.req.header('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return c.json({ success: false, error: 'Unauthorized' }, 401);
-  }
-
-  const token = authHeader.slice(7);
-  const payload = await verifyToken(token, c.env.JWT_SECRET);
-
-  if (!payload) {
-    return c.json({ success: false, error: 'Unauthorized' }, 401);
-  }
-
-  const adminId = payload.role === 'admin' ? payload.sub : payload.adminId;
-  if (!adminId) {
-    return c.json({ success: false, error: 'Admin ID not found' }, 400);
-  }
-
-  const userIsPaid = await isPaidUser(c.env, adminId);
-  if (!userIsPaid) {
-    return c.json({ success: false, error: 'Paid subscription required' }, 403);
-  }
-
-  try {
-    const { templateContent, variables } = await c.req.json<{
-      templateContent: string;
-      variables: Record<string, string>;
-    }>();
-
-    if (!templateContent || !variables) {
-      return c.json({ success: false, error: 'Template content and variables are required' }, 400);
-    }
-
-    const systemPrompt = `당신은 배송 완료 SMS 메시지를 작성하는 전문가입니다.
-주어진 가이드라인과 배송 정보를 바탕으로 친근하고 감동적인 SMS 메시지를 작성해주세요.
-
-규칙:
-- 메시지는 80자 이내로 짧고 간결하게
-- 이모지는 1-2개만 적절히 사용
-- 매번 다른 표현을 사용하여 신선함 유지
-- 수신자의 이름과 상품명은 반드시 포함
-- 배송 완료 알림임을 명확히
-
-JSON 형식으로 응답: {"message": "생성된 메시지"}`;
-
-    const userMessage = `가이드라인: ${templateContent}
-
-배송 정보:
-- 수령인: ${variables.recipientName || '고객'}
-- 상품명: ${variables.productName || '상품'}
-- 수량: ${variables.quantity || '1'}
-- 배송담당자: ${variables.staffName || '담당자'}`;
-
-    const result = await callAI(c.env, systemPrompt, userMessage, { maxTokens: 200 });
-
-    try {
-      const parsed = JSON.parse(result.text);
-      return c.json({
-        success: true,
-        data: { message: parsed.message },
-      });
-    } catch {
-      const messageMatch = result.text.match(/"message"\s*:\s*"([^"]+)"/);
-      if (messageMatch) {
-        return c.json({
-          success: true,
-          data: { message: messageMatch[1] },
-        });
-      }
-      return c.json({
-        success: true,
-        data: { message: result.text.trim() },
-      });
-    }
-  } catch (error) {
-    console.error('SMS generate error:', error);
     return c.json({ success: false, error: 'Internal server error' }, 500);
   }
 });

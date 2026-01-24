@@ -8,7 +8,6 @@ interface Template {
   id: string;
   name: string;
   content: string;
-  use_ai: number;
   is_default: number;
   created_at: string;
 }
@@ -38,25 +37,21 @@ export default function SmsTemplate() {
 
   const [template, setTemplate] = useState<Template | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPro, setIsPro] = useState(false);
 
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
-  const [useAi, setUseAi] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
     fetchTemplate();
-    fetchSubscription();
   }, []);
 
   useEffect(() => {
     if (template) {
       setName(template.name);
       setContent(template.content);
-      setUseAi(template.use_ai === 1);
     }
   }, [template]);
 
@@ -73,20 +68,6 @@ export default function SmsTemplate() {
       console.error('Failed to fetch template:', err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchSubscription = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/subscription/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsPro(data.data.isPro);
-      }
-    } catch (err) {
-      console.error('Failed to fetch subscription:', err);
     }
   };
 
@@ -141,7 +122,6 @@ export default function SmsTemplate() {
         body: JSON.stringify({
           name: name.trim(),
           content: content.trim(),
-          useAi: isPro && useAi,
         }),
       });
 
@@ -173,7 +153,6 @@ export default function SmsTemplate() {
         setTemplate(null);
         setName('');
         setContent('');
-        setUseAi(false);
         setSuccess('템플릿이 삭제되었습니다.');
       }
     } catch (err) {
@@ -294,42 +273,6 @@ export default function SmsTemplate() {
                 className="input-field resize-none"
               />
             </div>
-
-            <div className="flex items-center gap-2">
-              <label className={`flex items-center gap-2 ${isPro ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
-                <input
-                  type="checkbox"
-                  checked={useAi}
-                  onChange={(e) => isPro && setUseAi(e.target.checked)}
-                  disabled={!isPro}
-                  className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">AI 생성 모드</span>
-              </label>
-              {!isPro && (
-                <span className="px-1.5 py-0.5 bg-amber-400 text-amber-900 text-[10px] font-bold rounded">
-                  유료
-                </span>
-              )}
-            </div>
-
-            {useAi && isPro && (
-              <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl dark:from-purple-900/20 dark:to-indigo-900/20 dark:border-purple-800">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-purple-900 dark:text-purple-200 text-sm">AI 생성 모드</h4>
-                    <p className="text-xs text-purple-700 dark:text-purple-300 mt-0.5">
-                      위 내용을 가이드라인으로 사용하여 AI가 매번 다르고 인상적인 문구를 생성합니다.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {content && (
               <div>

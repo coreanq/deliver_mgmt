@@ -271,7 +271,7 @@ export default function DeliveryDetailScreen() {
         return fallbackMessage;
       }
 
-      const { template, isPro } = result.data;
+      const { template } = result.data;
       const variables: Record<string, string> = {
         recipientName: selectedDelivery.recipientName,
         recipientPhone: selectedDelivery.recipientPhone,
@@ -282,13 +282,6 @@ export default function DeliveryDetailScreen() {
         deliveryDate: selectedDelivery.deliveryDate,
         memo: selectedDelivery.memo || '',
       };
-
-      if (template.use_ai && isPro) {
-        const aiResult = await smsTemplateApi.generate(token, template.content, variables);
-        if (aiResult.success && aiResult.data?.message) {
-          return aiResult.data.message;
-        }
-      }
 
       let message = template.content;
       message = message.replace(/\$\{수령인\}/g, variables.recipientName);

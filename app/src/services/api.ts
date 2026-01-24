@@ -160,19 +160,10 @@ export const smsTemplateApi = {
         id: string;
         name: string;
         content: string;
-        use_ai: number;
         is_default: number;
       } | null;
-      isPro: boolean;
     }>('/api/sms-template/default', {
       headers: withAuth(token),
-    }),
-
-  generate: (token: string, templateContent: string, variables: Record<string, string>) =>
-    request<{ message: string }>('/api/sms-template/generate', {
-      method: 'POST',
-      headers: withAuth(token),
-      body: JSON.stringify({ templateContent, variables }),
     }),
 };
 
