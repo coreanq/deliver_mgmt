@@ -3,6 +3,15 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 import QRCode from 'qrcode';
 import * as XLSX from 'xlsx';
+import {
+  QRModal,
+  ExcelModal,
+  PhotoModal,
+  MappingModal,
+  MappingLoadingOverlay,
+  ConfirmOverwriteModal,
+  WebhookModal,
+} from '../components/dashboard';
 
 interface Delivery {
   id: string;
@@ -772,42 +781,42 @@ export default function Dashboard() {
     <div>
       {/* Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex flex-wrap items-center gap-3">
             {/* 사용량 표시 */}
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-xl">
+            <div className="flex items-center gap-2.5 px-4 h-[42px] bg-gray-100 dark:bg-gray-700 rounded-xl">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-gray-500 dark:text-gray-400">등록</span>
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                <span className="text-sm text-gray-500 dark:text-gray-400">등록</span>
+                <span className="text-base font-bold text-gray-900 dark:text-white">
                   {dailyLimit === -1 ? <>{todayUsage} / ∞</> : <>{todayUsage} / {dailyLimit}</>}
                 </span>
               </div>
               {dailyLimit !== -1 && (
-                <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                <div className="w-20 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${todayUsage / dailyLimit >= 0.9 ? 'bg-red-500' : todayUsage / dailyLimit >= 0.7 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                     style={{ width: `${Math.min(100, (todayUsage / dailyLimit) * 100)}%` }}
                   />
                 </div>
               )}
-              <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase">{planType}</span>
+              <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase">{planType}</span>
             </div>
 
-            <Link to="/sms-template" className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-xl font-semibold shadow-lg shadow-rose-500/25 transition-all">
+            <Link to="/sms-template" className="flex items-center gap-2 px-4 h-[42px] bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-xl font-semibold shadow-lg shadow-rose-500/25 transition-all">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             SMS 템플릿
           </Link>
 
-          <Link to="/custom-fields" className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all">
+          <Link to="/custom-fields" className="flex items-center gap-2 px-4 h-[42px] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
             </svg>
             사용자 정의 컬럼
           </Link>
 
-          <button onClick={() => setShowExcelModal(true)} className="relative flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg shadow-emerald-500/25 transition-all">
+          <button onClick={() => setShowExcelModal(true)} className="relative flex items-center gap-2 px-4 h-[42px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg shadow-emerald-500/25 transition-all">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -815,7 +824,7 @@ export default function Dashboard() {
             {!isPro && <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 bg-amber-400 text-amber-900 text-[10px] font-bold rounded-md">유료</span>}
           </button>
 
-          <a href="/sample.xlsx" download className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white rounded-xl font-semibold shadow-lg shadow-gray-500/25 transition-all">
+          <a href="/sample.xlsx" download className="flex items-center gap-2 px-4 h-[42px] bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white rounded-xl font-semibold shadow-lg shadow-gray-500/25 transition-all">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -1270,325 +1279,68 @@ export default function Dashboard() {
 
       {/* 매핑 모달 */}
       {showMappingModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            {/* 모달 헤더 */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">컬럼 매핑</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {formatDate(selectedDate)}에 {uploadedRows.length}건의 데이터를 등록합니다
-                </p>
-              </div>
-              <button onClick={closeMappingModal} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* 모달 본문 */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {mappingError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-                  {mappingError}
-                </div>
-              )}
-
-              {aiError.show && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl dark:bg-amber-900/20 dark:border-amber-800">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div className="flex-1">
-                      <p className="text-amber-800 dark:text-amber-200 font-medium">AI 매핑 추천 실패</p>
-                      <p className="text-amber-600 dark:text-amber-400 text-sm mt-1">직접 컬럼을 매핑해주세요.</p>
-                      <button onClick={handleRetryAiMapping} className="mt-2 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-700 dark:text-amber-200 rounded-lg text-sm font-medium transition-colors">
-                        다시 시도
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 기본 필드 매핑 */}
-              <div className="grid gap-3">
-                {STANDARD_FIELDS.map((field) => (
-                  <div key={field.key} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                    <div className="w-32 flex-shrink-0">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </span>
-                    </div>
-                    <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                    <select
-                      value={mapping[field.key] || ''}
-                      onChange={(e) => setMapping((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="flex-1 input-field py-2"
-                    >
-                      <option value="">선택 안 함</option>
-                      {uploadedHeaders.map((header) => <option key={header} value={header}>{header}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              {/* 사용자 정의 컬럼 매핑 */}
-              {customFieldDefs.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                    </svg>
-                    사용자 정의 컬럼 (선택사항)
-                  </h3>
-                  <div className="grid gap-3">
-                    {customFieldDefs.map((field) => (
-                      <div key={field.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border-l-4 border-cyan-400">
-                        <div className="w-32 flex-shrink-0">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{field.fieldName}</span>
-                          {!!field.isEditableByStaff && (
-                            <span className="ml-2 text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400 rounded">편집</span>
-                          )}
-                        </div>
-                        <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                        <select
-                          value={customFieldMapping[field.id] || ''}
-                          onChange={(e) => setCustomFieldMapping((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                          className="flex-1 input-field py-2"
-                        >
-                          <option value="">선택 안 함</option>
-                          {uploadedHeaders.map((header) => <option key={header} value={header}>{header}</option>)}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 미리보기 */}
-              {uploadedRows.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">데이터 미리보기 (처음 3행)</h3>
-                  <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 dark:bg-gray-900/50">
-                        <tr>
-                          {uploadedHeaders.map((header) => (
-                            <th key={header} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{header}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {uploadedRows.slice(0, 3).map((row, idx) => (
-                          <tr key={idx}>
-                            {uploadedHeaders.map((header) => (
-                              <td key={header} className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">{row[header]}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 모달 푸터 */}
-            <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-              <button onClick={closeMappingModal} className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium">
-                취소
-              </button>
-              <button onClick={() => handleSave(false)} disabled={isSaving || isLoadingSuggestion} className="btn-primary">
-                {isSaving ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    저장하기
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <MappingModal
+          selectedDate={selectedDate}
+          formatDate={formatDate}
+          uploadedHeaders={uploadedHeaders}
+          uploadedRows={uploadedRows}
+          mapping={mapping}
+          setMapping={setMapping}
+          customFieldMapping={customFieldMapping}
+          setCustomFieldMapping={setCustomFieldMapping}
+          customFieldDefs={customFieldDefs}
+          standardFields={STANDARD_FIELDS}
+          mappingError={mappingError}
+          aiError={aiError}
+          isLoadingSuggestion={isLoadingSuggestion}
+          isSaving={isSaving}
+          onClose={closeMappingModal}
+          onSave={handleSave}
+          onRetryAiMapping={handleRetryAiMapping}
+        />
       )}
 
       {/* AI 분석 중 로딩 오버레이 */}
-      {isLoadingSuggestion && showMappingModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center">
-            <div className="relative mx-auto w-16 h-16 mb-6">
-              <div className="absolute inset-0 bg-primary-100 dark:bg-primary-900/50 rounded-xl" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <svg className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                </svg>
-              </div>
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary-500 rounded-full animate-ping" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">AI가 분석 중입니다</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">엑셀 헤더를 분석하여 최적의 매핑을 추천합니다...</p>
-            <div className="flex justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-3 border-primary-200 border-t-primary-600" />
-            </div>
-          </div>
-        </div>
-      )}
+      {isLoadingSuggestion && showMappingModal && <MappingLoadingOverlay />}
 
       {/* 덮어쓰기 확인 모달 */}
       {confirmOverwrite.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">기존 데이터 덮어쓰기</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{selectedDate}</p>
-              </div>
-            </div>
-
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              해당 날짜에 <span className="font-bold text-amber-600 dark:text-amber-400">{confirmOverwrite.existingCount}건</span>의 기존 배송 데이터가 있습니다.
-              <br /><br />
-              기존 데이터를 <span className="font-bold text-red-500">삭제</span>하고 <span className="font-bold text-emerald-600">{uploadedRows.length}건</span>을 새로 등록하시겠습니까?
-            </p>
-
-            <div className="flex gap-3">
-              <button onClick={handleCancelOverwrite} className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors">
-                취소
-              </button>
-              <button onClick={handleConfirmOverwrite} disabled={isSaving} className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2">
-                {isSaving ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    덮어쓰기
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmOverwriteModal
+          selectedDate={selectedDate}
+          existingCount={confirmOverwrite.existingCount}
+          newCount={uploadedRows.length}
+          isSaving={isSaving}
+          onCancel={handleCancelOverwrite}
+          onConfirm={handleConfirmOverwrite}
+        />
       )}
 
       {/* QR Modal */}
       {showQRModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowQRModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">배송담당자 QR</h3>
-              <button onClick={() => setShowQRModal(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex justify-center mb-6">{qrImageUrl && <img src={qrImageUrl} alt="QR Code" className="w-64 h-64 rounded-lg" />}</div>
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                <svg className="w-4 h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{formatDate(selectedDate)}</span>
-              </div>
-            </div>
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400">배송담당자가 이 QR을 스캔하면<br />이름 입력 후 배송 목록을 확인할 수 있습니다</p>
-          </div>
-        </div>
+        <QRModal
+          qrImageUrl={qrImageUrl}
+          selectedDate={selectedDate}
+          formatDate={formatDate}
+          onClose={() => setShowQRModal(false)}
+        />
       )}
 
       {/* Excel Download Modal */}
       {showExcelModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowExcelModal(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">엑셀 저장</h3>
-                {!isPro && <span className="px-2 py-0.5 bg-amber-400 text-amber-900 text-xs font-bold rounded-md">유료</span>}
-              </div>
-              <button onClick={() => setShowExcelModal(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-2xl flex items-center justify-center">
-                <svg className="w-10 h-10 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-            </div>
-            <div className="text-center mb-6">
-              <p className="text-gray-700 dark:text-gray-300 font-medium mb-2">
-                {isPro ? `${filteredDeliveries.length}건의 배송 데이터를 저장합니다` : '현재 배송 데이터를 엑셀로 저장합니다'}
-              </p>
-              {!isPro && <p className="text-sm text-gray-500 dark:text-gray-400">이 기능은 <span className="text-amber-600 dark:text-amber-400 font-semibold">유료 구독자</span> 전용입니다</p>}
-            </div>
-            <div className="space-y-3">
-              {isPro ? (
-                <button onClick={downloadExcel} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg shadow-emerald-500/25 transition-all">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  엑셀 다운로드
-                </button>
-              ) : (
-                <>
-                  <button disabled className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-xl font-semibold cursor-not-allowed">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    엑셀 다운로드
-                  </button>
-                  <button onClick={() => setShowExcelModal(false)} className="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold shadow-lg shadow-amber-500/25 transition-all">
-                    유료 구독하기
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <ExcelModal
+          isPro={isPro}
+          filteredCount={filteredDeliveries.length}
+          onDownload={downloadExcel}
+          onClose={() => setShowExcelModal(false)}
+        />
       )}
 
       {/* 사진 확대 모달 */}
       {photoModalUrl && (
-        <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-          onClick={() => setPhotoModalUrl(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setPhotoModalUrl(null)}
-              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white transition-colors"
-            >
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <img
-              src={photoModalUrl}
-              alt="배송 완료 사진"
-              className="w-full h-full object-contain rounded-lg"
-            />
-          </div>
-        </div>
+        <PhotoModal
+          photoUrl={photoModalUrl}
+          onClose={() => setPhotoModalUrl(null)}
+        />
       )}
 
       {/* 버전 정보 */}
@@ -1598,120 +1350,17 @@ export default function Dashboard() {
       </div>
       {/* Webhook Modal */}
       {showWebhookModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scale-up">
-            {/* Header with Make branding */}
-            <div className="bg-[#6D00CC] p-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="white">
-                    <path d="M13.38 3.498c-.27 0-.511.19-.566.465L9.85 18.986a.578.578 0 0 0 .453.678l4.095.826a.58.58 0 0 0 .682-.455l2.963-15.021a.578.578 0 0 0-.453-.678l-4.096-.826a.589.589 0 0 0-.113-.012zm-5.876.098a.576.576 0 0 0-.516.318L.062 17.697a.575.575 0 0 0 .256.774l3.733 1.877a.578.578 0 0 0 .775-.258l6.926-13.781a.577.577 0 0 0-.256-.776L7.762 3.658a.571.571 0 0 0-.258-.062zm11.74.115a.576.576 0 0 0-.576.576v15.426c0 .318.258.578.576.578h4.178a.58.58 0 0 0 .578-.578V4.287a.578.578 0 0 0-.578-.576Z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Make 웹훅 연동</h3>
-                  <p className="text-sm text-white/70">자동화 워크플로우 설정</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {/* Info Banner */}
-              <div className="mb-5 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-                <div className="flex gap-3">
-                  <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">배송 상태 변경 시 자동 전송</p>
-                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-                      준비 → 배송중 → 완료 상태 변경 시마다 웹훅이 발송됩니다.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Make Template Link */}
-              <div className="mb-5 p-4 bg-[#6D00CC]/5 dark:bg-[#6D00CC]/10 border border-[#6D00CC]/20 dark:border-[#6D00CC]/30 rounded-xl">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-[#6D00CC]/10 dark:bg-[#6D00CC]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#6D00CC">
-                      <path d="M13.38 3.498c-.27 0-.511.19-.566.465L9.85 18.986a.578.578 0 0 0 .453.678l4.095.826a.58.58 0 0 0 .682-.455l2.963-15.021a.578.578 0 0 0-.453-.678l-4.096-.826a.589.589 0 0 0-.113-.012zm-5.876.098a.576.576 0 0 0-.516.318L.062 17.697a.575.575 0 0 0 .256.774l3.733 1.877a.578.578 0 0 0 .775-.258l6.926-13.781a.577.577 0 0 0-.256-.776L7.762 3.658a.571.571 0 0 0-.258-.062zm11.74.115a.576.576 0 0 0-.576.576v15.426c0 .318.258.578.576.578h4.178a.58.58 0 0 0 .578-.578V4.287a.578.578 0 0 0-.578-.576Z"/>
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-[#6D00CC] dark:text-[#a855f7]">Make 공유 템플릿 사용</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 mb-2">
-                      아래 템플릿을 복사하여 Make에서 빠르게 시작하세요.
-                    </p>
-                    <a
-                      href="https://us2.make.com/public/shared-scenario/fhq3YZY0wak/create-word-press-posts-from-new-articles"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[#6D00CC] dark:text-[#a855f7] hover:underline"
-                    >
-                      공유 템플릿 열기 →
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Webhook URL
-                  </label>
-                  <input
-                    type="text"
-                    value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
-                    placeholder="https://hook.us1.make.com/..."
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#6D00CC] focus:border-transparent dark:bg-gray-700 dark:text-white font-mono text-sm"
-                  />
-                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    Make 시나리오에서 Webhook 모듈의 URL을 복사하여 붙여넣으세요.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="webhookEnabled"
-                    checked={webhookEnabled}
-                    onChange={(e) => setWebhookEnabled(e.target.checked)}
-                    className="w-4 h-4 text-[#6D00CC] rounded border-gray-300 focus:ring-[#6D00CC]"
-                  />
-                  <label htmlFor="webhookEnabled" className="text-sm text-gray-700 dark:text-gray-300">
-                    웹훅 활성화
-                  </label>
-                </div>
-              </div>
-
-              <div className="mt-6 flex items-center justify-end gap-3">
-                <button
-                  onClick={() => setShowWebhookModal(false)}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={testWebhook}
-                  disabled={isTestingWebhook || !webhookUrl}
-                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                  {isTestingWebhook ? '전송 중...' : '테스트 전송'}
-                </button>
-                <button
-                  onClick={saveWebhook}
-                  disabled={isSavingWebhook}
-                  className="px-4 py-2 bg-[#6D00CC] hover:bg-[#5a00ab] text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                  {isSavingWebhook ? '저장 중...' : '저장'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <WebhookModal
+          webhookUrl={webhookUrl}
+          setWebhookUrl={setWebhookUrl}
+          webhookEnabled={webhookEnabled}
+          setWebhookEnabled={setWebhookEnabled}
+          isTestingWebhook={isTestingWebhook}
+          isSavingWebhook={isSavingWebhook}
+          onClose={() => setShowWebhookModal(false)}
+          onTest={testWebhook}
+          onSave={saveWebhook}
+        />
       )}
     </div>
   );

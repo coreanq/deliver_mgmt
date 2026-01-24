@@ -206,7 +206,7 @@ export default function Landing() {
                 {
                   icon: '📱',
                   title: 'QR 스캔 배달 확인',
-                  desc: '배달 기사님이 QR 코드만 찍으면 자동으로 배달 리스트 확인 가능.',
+                  desc: '배달 기사님이 QR 코드만 찍으면 자동으로 배달 리스트 확인 가능합니다.',
                   color: 'bg-green-100 text-green-700',
                 },
                 {
