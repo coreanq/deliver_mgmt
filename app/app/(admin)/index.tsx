@@ -577,10 +577,7 @@ export default function AdminDashboardScreen() {
               배송 데이터가 없습니다
             </Text>
             <Pressable
-              onPress={async () => {
-                await Clipboard.setStringAsync(WEB_URL);
-                Alert.alert('링크 복사됨', 'PC 브라우저에서 접속하세요');
-              }}
+              onPress={() => Linking.openURL(WEB_URL)}
             >
               <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8, textDecorationLine: 'underline' }]}>
                 엑셀 업로드는 PC의 브라우저에서 진행하세요

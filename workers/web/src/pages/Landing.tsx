@@ -28,6 +28,16 @@ export default function Landing() {
       </header>
 
       <main className="pt-20">
+        {/* PC 안내 배너 */}
+        <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white">
+          <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-center gap-3">
+            <span className="text-xl">💻</span>
+            <p className="font-medium text-center">
+              <span className="font-bold">엑셀 업로드 및 배송 데이터 관리</span>는 PC 브라우저에서 이용해 주세요
+            </p>
+          </div>
+        </div>
+
         {/* Hero Section */}
         <section className="px-6 py-12">
           <div className="max-w-5xl mx-auto">
@@ -44,10 +54,10 @@ export default function Landing() {
                 {/* Text */}
                 <div className="order-1 md:order-2 space-y-6">
                   <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
-                    배달 관리,<br />이제 스마트하게
+                    배송 관리,<br />이제 스마트하게
                   </h1>
                   <p className="text-gray-600 text-lg leading-relaxed">
-                    수기 장부와 복잡한 엑셀에서 벗어나 간편한 앱 하나로 배달 업무를 완벽하게 관리하세요.
+                    수기 장부와 복잡한 엑셀에서 벗어나 간편한 앱 하나로 배송 업무를 완벽하게 관리하세요.
                   </p>
                   <Link
                     to="/login"
@@ -74,7 +84,7 @@ export default function Landing() {
               </div>
 
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12">
-                매일 반복되는 배달 관리의 어려움
+                매일 반복되는 배송 관리의 어려움
               </h2>
 
               <div className="grid md:grid-cols-2 gap-8 items-start">
@@ -82,7 +92,7 @@ export default function Landing() {
                 <div>
                   <img
                     src="/images/problem-papers.png"
-                    alt="배달 관리 어려움"
+                    alt="배송 관리 어려움"
                     className="w-full rounded-2xl"
                   />
                 </div>
@@ -95,8 +105,8 @@ export default function Landing() {
                   <ul className="space-y-4">
                     {[
                       '종이 주문서를 일일이 확인하고 체크',
-                      '배달 기사님께 전화로 일일이 연락',
-                      '배달 현황 파악이 어려워 고객 문의 대응 지연',
+                      '배송 기사님께 전화로 일일이 연락',
+                      '배송 현황 파악이 어려워 고객 문의 대응 지연',
                     ].map((item, idx) => (
                       <li key={idx} className="flex items-start gap-3 text-gray-600">
                         <span className="flex-shrink-0 w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-sm">
@@ -107,7 +117,7 @@ export default function Landing() {
                     ))}
                   </ul>
                   <p className="text-gray-500 italic pt-4 border-t border-gray-100">
-                    하루 종일 배달 관리에 시간을 뺏기고 계시진 않나요?
+                    하루 종일 배송 관리에 시간을 뺏기고 계시진 않나요?
                   </p>
                 </div>
               </div>
@@ -126,19 +136,19 @@ export default function Landing() {
                 {
                   icon: '⏱️',
                   title: '시간 낭비',
-                  desc: '주문 확인, 배달 기사 연락, 고객 응대에 하루 2-3시간 소요',
+                  desc: '주문 확인, 배송 기사 연락, 고객 응대에 하루 2-3시간 소요',
                   color: 'bg-amber-50 border-amber-100',
                 },
                 {
                   icon: '⚠️',
                   title: '실수 발생',
-                  desc: '수기 기록으로 인한 누락, 중복 주문, 배달지 착오 위험',
+                  desc: '수기 기록으로 인한 누락, 중복 주문, 배송지 착오 위험',
                   color: 'bg-red-50 border-red-100',
                 },
                 {
                   icon: '❓',
                   title: '불투명한 현황',
-                  desc: '실시간 배달 상태를 알 수 없어 고객 문의 시 답변 곤란',
+                  desc: '실시간 배송 상태를 알 수 없어 고객 문의 시 답변 곤란',
                   color: 'bg-gray-50 border-gray-100',
                 },
               ].map((item) => (
@@ -180,7 +190,7 @@ export default function Landing() {
                 </h2>
 
                 <p className="text-lg text-violet-100 max-w-2xl leading-relaxed">
-                  기존 엑셀 파일을 그대로 활용하면서, 클릭 몇 번으로 모든 배달 업무를 자동화할 수 있습니다.
+                  기존 엑셀 파일을 그대로 활용하면서, 클릭 몇 번으로 모든 배송 업무를 자동화할 수 있습니다.
                   복잡한 설정 없이 바로 시작 가능합니다.
                 </p>
               </div>
@@ -205,13 +215,13 @@ export default function Landing() {
                 },
                 {
                   icon: '📱',
-                  title: 'QR 스캔 배달 확인',
-                  desc: '배달 기사님이 QR 코드만 찍으면 자동으로 배달 리스트 확인 가능합니다.',
+                  title: 'QR 스캔 배송 확인',
+                  desc: '배송 기사님이 QR 코드만 찍으면 자동으로 배송 리스트 확인 가능합니다.',
                   color: 'bg-green-100 text-green-700',
                 },
                 {
                   icon: '⚡',
-                  title: '실시간 배달 현황',
+                  title: '실시간 배송 현황',
                   desc: '어느 주문이 어디까지 갔는지 실시간으로 추적 가능합니다.',
                   color: 'bg-violet-100 text-violet-700',
                 },
@@ -265,8 +275,8 @@ export default function Landing() {
                   </p>
                   <ul className="space-y-4">
                     {[
-                      '실시간 현황판 - 진행 중, 배달 완료, 지연 건수 한눈에',
-                      '배달 기사별 업무량과 진행 상태 확인',
+                      '실시간 현황판 - 진행 중, 배송 완료, 지연 건수 한눈에',
+                      '배송 기사별 업무량과 진행 상태 확인',
                     ].map((item, idx) => (
                       <li key={idx} className="flex items-start gap-3 text-gray-600">
                         <span className="flex-shrink-0 w-6 h-6 bg-violet-100 text-violet-500 rounded-full flex items-center justify-center text-sm">
@@ -299,7 +309,7 @@ export default function Landing() {
                 {
                   value: '70%',
                   label: '업무 시간 단축',
-                  desc: '배달 관리에 소요되는 시간을 하루 2시간 이상 절감',
+                  desc: '배송 관리에 소요되는 시간을 하루 2시간 이상 절감',
                   color: 'from-blue-500 to-blue-600',
                 },
                 {
@@ -311,7 +321,7 @@ export default function Landing() {
                 {
                   value: '100%',
                   label: '실시간 가시성',
-                  desc: '모든 배달 현황을 언제 어디서나 즉시 확인 가능',
+                  desc: '모든 배송 현황을 언제 어디서나 즉시 확인 가능',
                   color: 'from-violet-500 to-violet-600',
                 },
               ].map((stat) => (
@@ -339,8 +349,8 @@ export default function Landing() {
                 {[
                   { step: '01', title: '앱 다운로드', desc: '앱스토어 또는 구글 플레이에서 무료 설치' },
                   { step: '02', title: '엑셀 업로드', desc: '기존 주문서 파일을 드래그 앤 드롭으로 등록' },
-                  { step: '03', title: '배달 기사 초대', desc: '간편한 QR 코드로 배달 기사님 배송 리스트 확인 가능' },
-                  { step: '04', title: '즉시 사용', desc: '복잡한 설정 없이 바로 배달 관리 시작' },
+                  { step: '03', title: '배송 기사 초대', desc: '간편한 QR 코드로 배송 기사님 배송 리스트 확인 가능' },
+                  { step: '04', title: '즉시 사용', desc: '복잡한 설정 없이 바로 배송 관리 시작' },
                 ].map((item) => (
                   <div key={item.step} className="text-center">
                     <div className="w-14 h-14 mx-auto bg-violet-100 text-violet-600 rounded-2xl flex items-center justify-center font-bold text-xl mb-4">

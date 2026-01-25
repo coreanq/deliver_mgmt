@@ -1,8 +1,7 @@
-import { View, Text, StyleSheet, Pressable, Image, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Linking } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Clipboard from 'expo-clipboard';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -366,10 +365,7 @@ export default function RoleSelectionScreen() {
                 borderRadius: radius.full,
               },
             ]}
-            onPress={async () => {
-              await Clipboard.setStringAsync(WEB_URL);
-              Alert.alert('링크 복사됨', 'PC 브라우저에서 접속하세요');
-            }}
+            onPress={() => Linking.openURL(WEB_URL)}
           >
             <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center' }]}>
               엑셀 업로드는 PC의 브라우저에서 진행하세요
