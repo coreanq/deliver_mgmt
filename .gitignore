@@ -69,4 +69,7 @@ api_key.json
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Agent
+.agent/
