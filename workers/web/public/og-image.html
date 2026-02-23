@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200">
+<title>배매니저 OG Image</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .canvas {
+    position: relative;
+    width: 1200px;
+    height: 630px;
+    background: #f8fafc;
+    overflow: hidden;
+  }
+
+  /* Soft gradient accents */
+  .bg-accent {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+  }
+  .bg-accent--1 {
+    width: 600px; height: 600px;
+    background: #dbeafe;
+    top: -200px; right: -100px;
+    opacity: 0.7;
+  }
+  .bg-accent--2 {
+    width: 500px; height: 500px;
+    background: #e0e7ff;
+    bottom: -200px; left: -100px;
+    opacity: 0.5;
+  }
+  .bg-accent--3 {
+    width: 300px; height: 300px;
+    background: #bfdbfe;
+    top: 200px; left: 400px;
+    opacity: 0.3;
+  }
+
+  /* Subtle dot pattern */
+  .dot-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, #cbd5e1 0.8px, transparent 0.8px);
+    background-size: 24px 24px;
+    opacity: 0.4;
+  }
+
+  /* Left content area */
+  .content {
+    position: absolute;
+    top: 0; left: 0;
+    width: 640px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 0 0 72px;
+    z-index: 10;
+  }
+
+  /* App icon */
+  .app-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    overflow: hidden;
+    margin-bottom: 28px;
+    box-shadow:
+      0 8px 24px rgba(59, 130, 246, 0.2),
+      0 2px 8px rgba(0,0,0,0.06);
+  }
+  .app-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .title {
+    font-size: 58px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.15;
+    letter-spacing: -2px;
+    margin-bottom: 14px;
+  }
+  .title span {
+    color: #2563eb;
+  }
+
+  .subtitle {
+    font-size: 22px;
+    font-weight: 400;
+    color: #64748b;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    letter-spacing: -0.3px;
+  }
+
+  .tags {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .tag-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Right side — phone mockup */
+  .phone-area {
+    position: absolute;
+    top: 50%;
+    right: 50px;
+    transform: translateY(-50%);
+    z-index: 10;
+  }
+
+  .phone {
+    width: 290px;
+    height: 560px;
+    background: #ffffff;
+    border-radius: 40px;
+    border: 5px solid #1e293b;
+    box-shadow:
+      0 40px 80px rgba(15, 23, 42, 0.18),
+      0 16px 32px rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Phone status bar */
+  .phone-status {
+    height: 48px;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 6px;
+    position: relative;
+  }
+  .phone-notch {
+    width: 100px;
+    height: 26px;
+    background: #0f172a;
+    border-radius: 0 0 14px 14px;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* Phone header */
+  .phone-header {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    padding: 6px 20px 18px;
+    color: white;
+  }
+  .phone-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .phone-header-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .phone-header-icon img {
+    width: 100%;
+    height: 100%;
+  }
+  .phone-header-title {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .phone-header-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* Stats row */
+  .phone-stats {
+    display: flex;
+    gap: 6px;
+    padding: 12px 14px;
+    background: #f1f5f9;
+  }
+  .stat-chip {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .stat-num {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 9px;
+    color: #94a3b8;
+    margin-top: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* Delivery cards */
+  .phone-cards {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .card {
+    background: white;
+    border-radius: 14px;
+    padding: 13px 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    border: 1px solid #f1f5f9;
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .card-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .card-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+  .badge--delivering {
+    background: #dbeafe;
+    color: #2563eb;
+  }
+  .badge--done {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+  .badge--waiting {
+    background: #fef3c7;
+    color: #d97706;
+  }
+
+  .card-addr {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 5px;
+  }
+  .card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-time {
+    font-size: 10px;
+    color: #cbd5e1;
+    font-weight: 500;
+  }
+  .card-items {
+    font-size: 10px;
+    color: #3b82f6;
+    font-weight: 700;
+  }
+
+  /* Floating accent cards */
+  .float-card {
+    position: absolute;
+    background: white;
+    border-radius: 16px;
+    padding: 14px 20px;
+    box-shadow:
+      0 16px 48px rgba(15, 23, 42, 0.1),
+      0 4px 12px rgba(15, 23, 42, 0.05);
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid #f1f5f9;
+  }
+  .float-card--top {
+    top: 55px;
+    right: 316px;
+  }
+  .float-card--bottom {
+    bottom: 72px;
+    right: 306px;
+  }
+  .float-icon {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  .float-text-main {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .float-text-sub {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  /* Domain badge */
+  .domain-badge {
+    position: absolute;
+    bottom: 28px;
+    left: 72px;
+    z-index: 10;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    letter-spacing: 0.3px;
+  }
+
+  /* Blue accent line at top */
+  .top-accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2563eb, #3b82f6, #60a5fa);
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="top-accent"></div>
+
+  <!-- Background effects -->
+  <div class="bg-accent bg-accent--1"></div>
+  <div class="bg-accent bg-accent--2"></div>
+  <div class="bg-accent bg-accent--3"></div>
+  <div class="dot-pattern"></div>
+
+  <!-- Left content -->
+  <div class="content">
+    <div class="app-icon">
+      <img src="app-icon.png" alt="배매니저">
+    </div>
+
+    <div class="title">배송 관리,<br>이제 <span>스마트</span>하게</div>
+    <div class="subtitle">엑셀 업로드부터 실시간 추적까지, 앱 하나로 완벽하게</div>
+
+    <div class="tags">
+      <span class="tag">
+        <span class="tag-dot" style="background:#2563eb"></span>
+        엑셀 업로드
+      </span>
+      <span class="tag">
+        <span class="tag-dot" style="background:#16a34a"></span>
+        QR 스캔 배송
+      </span>
+      <span class="tag">
+        <span class="tag-dot" style="background:#f59e0b"></span>
+        실시간 현황
+      </span>
+    </div>
+  </div>
+
+  <!-- Floating accent cards -->
+  <div class="float-card float-card--top">
+    <div class="float-icon" style="background:#dbeafe">📊</div>
+    <div>
+      <div class="float-text-main">오늘 배송 47건</div>
+      <div class="float-text-sub">완료율 89%</div>
+    </div>
+  </div>
+
+  <div class="float-card float-card--bottom">
+    <div class="float-icon" style="background:#dcfce7">✅</div>
+    <div>
+      <div class="float-text-main">배송 완료</div>
+      <div class="float-text-sub">강남구 역삼동 12-3</div>
+    </div>
+  </div>
+
+  <!-- Phone mockup -->
+  <div class="phone-area">
+    <div class="phone">
+      <div class="phone-status">
+        <div class="phone-notch"></div>
+      </div>
+
+      <div class="phone-header">
+        <div class="phone-header-row">
+          <div class="phone-header-title">오늘의 배송</div>
+        </div>
+        <div class="phone-header-sub">2026년 2월 23일 월요일</div>
+      </div>
+
+      <div class="phone-stats">
+        <div class="stat-chip">
+          <div class="stat-num" style="color:#2563eb">12</div>
+          <div class="stat-label">배송중</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-num" style="color:#16a34a">31</div>
+          <div class="stat-label">완료</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-num" style="color:#d97706">4</div>
+          <div class="stat-label">대기</div>
+        </div>
+      </div>
+
+      <div class="phone-cards">
+        <div class="card">
+          <div class="card-top">
+            <span class="card-name">김민수</span>
+            <span class="card-badge badge--delivering">배송중</span>
+          </div>
+          <div class="card-addr">서울시 강남구 역삼동 823-4</div>
+          <div class="card-bottom">
+            <span class="card-time">14:30 출발</span>
+            <span class="card-items">상품 3건</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="card-name">이지영</span>
+            <span class="card-badge badge--done">완료</span>
+          </div>
+          <div class="card-addr">서울시 서초구 방배동 112-7</div>
+          <div class="card-bottom">
+            <span class="card-time">13:45 완료</span>
+            <span class="card-items">상품 1건</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="card-name">박현우</span>
+            <span class="card-badge badge--waiting">대기</span>
+          </div>
+          <div class="card-addr">서울시 송파구 잠실동 56-2</div>
+          <div class="card-bottom">
+            <span class="card-time">15:00 예정</span>
+            <span class="card-items">상품 2건</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Domain watermark -->
+  <div class="domain-badge">delivermgmt.try-dabble.com</div>
+</div>
+</body>
+</html>

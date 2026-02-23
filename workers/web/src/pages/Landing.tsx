@@ -1,13 +1,19 @@
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 
 export default function Landing() {
   return (
     <div className="min-h-screen bg-[#f8f9fc]">
+      <Helmet>
+        <title>배매니저 - 스마트 배송 관리 솔루션</title>
+        <meta name="description" content="수기 장부와 복잡한 엑셀에서 벗어나 간편한 앱 하나로 배송 업무를 완벽하게 관리하세요. 엑셀 업로드, QR 스캔 배송 확인, 실시간 배송 현황 추적." />
+        <link rel="canonical" href="https://delivermgmt.try-dabble.com/" />
+      </Helmet>
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between" aria-label="메인 내비게이션">
           <div className="flex items-center gap-3">
-            <img src="/app-icon.png" alt="배매니저" className="w-9 h-9 rounded-xl shadow-sm" />
+            <img src="/app-icon.png" alt="배매니저 로고" width={36} height={36} className="w-9 h-9 rounded-xl shadow-sm" />
             <span className="font-bold text-lg text-gray-900">배매니저</span>
           </div>
           <div className="flex items-center gap-5">
@@ -24,7 +30,7 @@ export default function Landing() {
               로그인
             </Link>
           </div>
-        </div>
+        </nav>
       </header>
 
       <main className="pt-20">
@@ -47,7 +53,10 @@ export default function Landing() {
                 <div className="order-2 md:order-1">
                   <img
                     src="/images/hero-main.png"
-                    alt="배매니저 앱 사용 모습"
+                    alt="배매니저 앱으로 배송 현황을 실시간 확인하는 모습"
+                    width={600}
+                    height={400}
+                    loading="eager"
                     className="w-full rounded-2xl"
                   />
                 </div>
@@ -92,7 +101,10 @@ export default function Landing() {
                 <div>
                   <img
                     src="/images/problem-papers.png"
-                    alt="배송 관리 어려움"
+                    alt="종이 주문서와 엑셀로 배송 관리하는 기존 방식의 어려움"
+                    width={600}
+                    height={400}
+                    loading="lazy"
                     className="w-full rounded-2xl"
                   />
                 </div>
@@ -263,7 +275,10 @@ export default function Landing() {
                 <div>
                   <img
                     src="/images/dashboard.png"
-                    alt="관리자 대시보드"
+                    alt="배매니저 관리자 대시보드 - 실시간 배송 현황, 기사별 업무량 확인"
+                    width={600}
+                    height={400}
+                    loading="lazy"
                     className="w-full rounded-2xl border border-gray-200"
                   />
                 </div>
@@ -427,7 +442,7 @@ export default function Landing() {
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-100 text-center text-sm text-gray-400">
-            © 2025 배매니저. All rights reserved.
+            © {new Date().getFullYear()} 배매니저. All rights reserved.
           </div>
         </div>
       </footer>

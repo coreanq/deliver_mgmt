@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useAuthStore } from '../stores/auth';
 import QRCode from 'qrcode';
 import * as XLSX from 'xlsx';
@@ -779,6 +780,10 @@ export default function Dashboard() {
 
   return (
     <div>
+      <Helmet>
+        <title>대시보드 - 배매니저</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       {/* Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
