@@ -13,7 +13,7 @@ export default {
     name: '배매니저',
     slug: 'deliver-mgmt',
     owner: 'trydabble',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'deliver-mgmt',

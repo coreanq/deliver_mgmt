@@ -13,7 +13,14 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { File as ExpoFile } from 'expo-file-system';
-import * as DocumentPicker from 'expo-document-picker';
+
+// DocumentPicker 네이티브 모듈 안전 로드 (OTA 시 네이티브 빌드 미포함 대응)
+let DocumentPicker: typeof import('expo-document-picker') | null = null;
+try {
+  DocumentPicker = require('expo-document-picker');
+} catch {
+  DocumentPicker = null;
+}
 import * as XLSX from 'xlsx';
 import Animated, {
   FadeInDown,
@@ -357,6 +364,15 @@ export default function ExcelUploadScreen() {
 
   // Document Picker로 엑셀 파일 선택
   const pickExcelFile = useCallback(async () => {
+    if (!DocumentPicker) {
+      Alert.alert(
+        '업데이트 필요',
+        '엑셀 업로드 기능을 사용하려면 앱을 최신 버전으로 업데이트해주세요.',
+        [{ text: '확인', onPress: () => router.back() }]
+      );
+      return;
+    }
+
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: [
