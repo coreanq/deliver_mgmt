@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import AppDownloadBanner from '../components/AppDownloadBanner';
 
 export default function Landing() {
   return (
@@ -9,8 +10,14 @@ export default function Landing() {
         <meta name="description" content="수기 장부와 복잡한 엑셀에서 벗어나 간편한 앱 하나로 배송 업무를 완벽하게 관리하세요. 엑셀 업로드, QR 스캔 배송 확인, 실시간 배송 현황 추적." />
         <link rel="canonical" href="https://delivermgmt.try-dabble.com/" />
       </Helmet>
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
+
+      {/* Fixed Header Container - 배너 + 헤더 */}
+      <div className="fixed top-0 left-0 right-0 z-50">
+        {/* App Download Banner */}
+        <AppDownloadBanner />
+
+        {/* Header */}
+        <header className="bg-white/90 backdrop-blur-md border-b border-gray-100">
         <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between" aria-label="메인 내비게이션">
           <div className="flex items-center gap-3">
             <img src="/app-icon.png" alt="배매니저 로고" width={36} height={36} className="w-9 h-9 rounded-xl shadow-sm" />
@@ -31,9 +38,10 @@ export default function Landing() {
             </Link>
           </div>
         </nav>
-      </header>
+        </header>
+      </div>
 
-      <main className="pt-20">
+      <main className="pt-28 sm:pt-32">
         {/* PC 안내 배너 */}
         <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white">
           <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-center gap-3">
