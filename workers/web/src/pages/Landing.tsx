@@ -7,7 +7,7 @@ export default function Landing() {
     <div className="min-h-screen bg-[#f8f9fc]">
       <Helmet>
         <title>배매니저 - 스마트 배송 관리 솔루션</title>
-        <meta name="description" content="수기 장부와 복잡한 엑셀에서 벗어나 간편한 앱 하나로 배송 업무를 완벽하게 관리하세요. 엑셀 업로드, QR 스캔 배송 확인, 실시간 배송 현황 추적." />
+        <meta name="description" content="배송 관리 앱 배매니저. 엑셀 업로드, QR 스캔, 실시간 배송 추적. 하루 100건 무료." />
         <link rel="canonical" href="https://delivermgmt.try-dabble.com/" />
       </Helmet>
 
@@ -42,12 +42,12 @@ export default function Landing() {
       </div>
 
       <main className="pt-28 sm:pt-32">
-        {/* PC 안내 배너 */}
-        <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white">
+        {/* PC 안내 배너 - 모바일에서만 표시 */}
+        <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white sm:hidden">
           <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-center gap-3">
             <span className="text-xl">💻</span>
-            <p className="font-medium text-center">
-              <span className="font-bold">엑셀 업로드 및 배송 데이터 관리</span>는 PC 브라우저에서 이용해 주세요
+            <p className="font-medium text-center text-sm">
+              <span className="font-bold">엑셀 업로드</span>는 PC에서도 가능합니다
             </p>
           </div>
         </div>
@@ -357,6 +357,95 @@ export default function Landing() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section className="px-6 py-12" id="pricing">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-10">
+              <div className="inline-block px-3 py-1 bg-green-100 rounded-full text-sm font-medium text-green-600 mb-4">
+                요금 안내
+              </div>
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                부담 없이 시작하세요
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+              {/* 무료 플랜 */}
+              <div className="bg-white rounded-2xl shadow-sm border-2 border-violet-200 p-8 relative">
+                <div className="absolute -top-3 left-6">
+                  <span className="bg-violet-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    추천
+                  </span>
+                </div>
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">무료 체험</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-bold text-violet-600">₩0</span>
+                    <span className="text-gray-500">/일</span>
+                  </div>
+                </div>
+                <ul className="space-y-3 mb-8">
+                  {[
+                    '하루 100건까지 무료',
+                    '엑셀 업로드 무제한',
+                    'QR 코드 생성',
+                    '실시간 배송 현황',
+                    '신용카드 등록 불필요',
+                  ].map((item, idx) => (
+                    <li key={idx} className="flex items-center gap-2 text-gray-600 text-sm">
+                      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to="/login"
+                  className="block w-full text-center py-3 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-all"
+                >
+                  무료로 시작하기
+                </Link>
+              </div>
+
+              {/* 프로 플랜 */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">프로</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-bold text-gray-900">문의</span>
+                  </div>
+                </div>
+                <ul className="space-y-3 mb-8">
+                  {[
+                    '무제한 배송 건수',
+                    '우선 고객 지원',
+                    '맞춤 기능 개발',
+                    '전용 온보딩 지원',
+                  ].map((item, idx) => (
+                    <li key={idx} className="flex items-center gap-2 text-gray-600 text-sm">
+                      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href="mailto:support@try-dabble.com?subject=배매니저 프로 플랜 문의"
+                  className="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                >
+                  문의하기
+                </a>
+              </div>
+            </div>
+
+            <p className="text-center text-gray-500 text-sm mt-8">
+              * 100건 이상 사용 시 프로 플랜으로 전환하시면 무제한으로 이용 가능합니다
+            </p>
           </div>
         </section>
 
