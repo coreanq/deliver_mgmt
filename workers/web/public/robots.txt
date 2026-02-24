@@ -1,3 +1,32 @@
+# AI Chatbot Crawlers - Allowed
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Cohere-ai
+Allow: /
+
+# General Crawlers
 User-agent: *
 Allow: /
 Disallow: /api/
@@ -8,3 +37,6 @@ Disallow: /sms-template
 Disallow: /custom-fields
 
 Sitemap: https://delivermgmt.try-dabble.com/sitemap.xml
+
+# LLMs.txt for AI systems
+# See: https://delivermgmt.try-dabble.com/llms.txt

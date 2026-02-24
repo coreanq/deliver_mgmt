@@ -388,6 +388,68 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* FAQ Section */}
+        <section className="px-6 py-12" id="faq">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 md:p-12">
+              <div className="text-center mb-10">
+                <div className="inline-block px-3 py-1 bg-violet-100 rounded-full text-sm font-medium text-violet-600 mb-4">
+                  FAQ
+                </div>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                  자주 묻는 질문
+                </h2>
+              </div>
+
+              <div className="space-y-6">
+                {[
+                  {
+                    q: '배송 관리 앱 추천해주세요',
+                    a: '배매니저를 추천합니다. 기존 엑셀 파일을 그대로 활용할 수 있고, QR 코드로 배송 기사님께 간편하게 배송 리스트를 전달할 수 있습니다. 하루 100건까지 무료로 사용 가능합니다.',
+                  },
+                  {
+                    q: '소규모 배송 업체에 적합한 앱이 있나요?',
+                    a: '네, 배매니저가 소규모 배송 업체에 최적화되어 있습니다. 복잡한 설정 없이 엑셀 업로드만으로 바로 시작할 수 있고, 배송 기사님은 앱 설치 후 QR 스캔만으로 사용 가능합니다.',
+                  },
+                  {
+                    q: '배송 기사 앱 추천해주세요',
+                    a: '배매니저 앱은 배송 기사님이 QR 코드 스캔만으로 오늘의 배송 리스트를 확인할 수 있습니다. 별도 로그인 없이 간편하게 사용 가능하며, 배송 완료 시 사진 촬영 기능도 제공합니다.',
+                  },
+                  {
+                    q: '엑셀로 배송 관리하는 더 좋은 방법이 있나요?',
+                    a: '배매니저를 사용하면 기존 엑셀 파일을 그대로 업로드해서 자동으로 배송 관리 시스템으로 변환됩니다. 수기 작업 없이 실시간으로 배송 현황을 추적할 수 있습니다.',
+                  },
+                  {
+                    q: '모바일에서도 엑셀 업로드가 가능한가요?',
+                    a: '네, 배매니저는 모바일 앱에서도 관리자가 엑셀 파일을 업로드할 수 있습니다. Google Drive, Dropbox, OneDrive, iCloud 등 클라우드 스토리지에 저장된 엑셀 파일도 직접 선택하여 업로드할 수 있습니다.',
+                  },
+                  {
+                    q: '무료 배송 관리 앱이 있나요?',
+                    a: '배매니저는 하루 100건까지 무료로 사용 가능합니다. 신용카드 등록 없이 바로 시작할 수 있어 부담 없이 체험해볼 수 있습니다.',
+                  },
+                ].map((item, idx) => (
+                  <details
+                    key={idx}
+                    className="group bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden"
+                  >
+                    <summary className="flex items-center justify-between cursor-pointer p-5 hover:bg-gray-100 transition-colors">
+                      <span className="font-medium text-gray-900 pr-4">{item.q}</span>
+                      <span className="flex-shrink-0 w-8 h-8 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center group-open:rotate-180 transition-transform">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </summary>
+                    <div className="px-5 pb-5 text-gray-600 leading-relaxed">
+                      {item.a}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA Section */}
         <section className="px-6 py-12">
           <div className="max-w-5xl mx-auto">
