@@ -374,7 +374,7 @@ export default function Landing() {
 
             <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
               {/* 무료 플랜 */}
-              <div className="bg-white rounded-2xl shadow-sm border-2 border-violet-200 p-8 relative">
+              <div className="bg-white rounded-2xl shadow-sm border-2 border-violet-200 p-8 relative flex flex-col">
                 <div className="absolute -top-3 left-6">
                   <span className="bg-violet-600 text-white text-xs font-bold px-3 py-1 rounded-full">
                     추천
@@ -387,7 +387,7 @@ export default function Landing() {
                     <span className="text-gray-500">/일</span>
                   </div>
                 </div>
-                <ul className="space-y-3 mb-8">
+                <ul className="space-y-3 flex-1">
                   {[
                     '하루 100건까지 무료',
                     '엑셀 업로드 무제한',
@@ -405,21 +405,21 @@ export default function Landing() {
                 </ul>
                 <Link
                   to="/login"
-                  className="block w-full text-center py-3 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-all"
+                  className="block w-full text-center py-3 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-all mt-8"
                 >
                   무료로 시작하기
                 </Link>
               </div>
 
               {/* 프로 플랜 */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col">
                 <div className="mb-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-2">프로</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-bold text-gray-900">문의</span>
                   </div>
                 </div>
-                <ul className="space-y-3 mb-8">
+                <ul className="space-y-3 flex-1">
                   {[
                     '무제한 배송 건수',
                     '우선 고객 지원',
@@ -436,7 +436,7 @@ export default function Landing() {
                 </ul>
                 <a
                   href="mailto:support@try-dabble.com?subject=배매니저 프로 플랜 문의"
-                  className="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+                  className="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all mt-8"
                 >
                   문의하기
                 </a>
