@@ -42,16 +42,6 @@ export default function Landing() {
       </div>
 
       <main className="pt-28 sm:pt-32">
-        {/* PC 안내 배너 - 모바일에서만 표시 */}
-        <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white sm:hidden">
-          <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-center gap-3">
-            <span className="text-xl">💻</span>
-            <p className="font-medium text-center text-sm">
-              <span className="font-bold">엑셀 업로드</span>는 PC에서도 가능합니다
-            </p>
-          </div>
-        </div>
-
         {/* Hero Section */}
         <section className="px-6 py-12">
           <div className="max-w-5xl mx-auto">
