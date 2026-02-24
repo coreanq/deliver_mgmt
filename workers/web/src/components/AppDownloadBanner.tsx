@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 const APP_STORE_URL = 'https://apps.apple.com/app/id6757303714';
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.trydabble.delivermgmt';
 const STORAGE_KEY = 'app_download_banner_dismissed';
+const DISMISS_DURATION_MS = 24 * 60 * 60 * 1000; // 24시간 (1일)
 
 interface DeviceInfo {
   isMobile: boolean;
@@ -231,8 +232,17 @@ export default function AppDownloadBanner() {
   const { isMobile, isIOS, isAndroid } = useDeviceInfo();
 
   useEffect(() => {
-    const dismissed = localStorage.getItem(STORAGE_KEY);
-    if (!dismissed) {
+    const dismissedAt = localStorage.getItem(STORAGE_KEY);
+
+    // 저장된 시간이 없거나 24시간이 지났으면 배너 표시
+    const shouldShow = !dismissedAt ||
+      (Date.now() - parseInt(dismissedAt, 10)) > DISMISS_DURATION_MS;
+
+    if (shouldShow) {
+      // 만료된 경우 기존 값 제거
+      if (dismissedAt) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
       const timer = setTimeout(() => setIsVisible(true), 500);
       return () => clearTimeout(timer);
     }
@@ -240,7 +250,8 @@ export default function AppDownloadBanner() {
 
   const handleDismiss = () => {
     setIsVisible(false);
-    localStorage.setItem(STORAGE_KEY, 'true');
+    // 현재 timestamp 저장 (24시간 후 다시 표시)
+    localStorage.setItem(STORAGE_KEY, Date.now().toString());
   };
 
   // 스토어 버튼 클릭 핸들러
