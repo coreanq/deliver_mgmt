@@ -108,3 +108,27 @@ export interface QRScanData {
 export interface CompleteDeliveryRequest {
   photoBase64: string;
 }
+
+// 엑셀 업로드 관련 타입
+export interface SharedFileInfo {
+  path: string;
+  fileName: string;
+  size: number;
+  mimeType: string;
+}
+
+export interface FieldMapping {
+  recipientName: string;
+  recipientPhone: string;
+  recipientAddress: string;
+  productName: string;
+  staffName: string;
+  memo?: string;
+  customFields?: Record<string, string>;
+}
+
+export interface MappingSuggestion {
+  sourceColumn: string;
+  targetField: string;
+  confidence: number;
+}

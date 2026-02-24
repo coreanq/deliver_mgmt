@@ -7,6 +7,8 @@ import type {
   DeliveryListResponse,
   Delivery,
   CustomFieldDefinition,
+  FieldMapping,
+  MappingSuggestion,
 } from '../types';
 
 export const WEB_URL = 'https://delivermgmt.try-dabble.com';
@@ -172,6 +174,44 @@ export const customFieldApi = {
     request<{ fields: CustomFieldDefinition[] }>('/api/custom-field/staff', {
       headers: withAuth(token),
     }),
+};
+
+export const uploadApi = {
+  parse: (token: string, headers: string[], rows: Record<string, string>[]) =>
+    request<{ headers: string[]; rows: Record<string, string>[]; totalRows: number }>(
+      '/api/upload/parse',
+      {
+        method: 'POST',
+        headers: withAuth(token),
+        body: JSON.stringify({ headers, rows }),
+      }
+    ),
+
+  suggestMapping: (token: string, headers: string[], sampleRows: Record<string, string>[]) =>
+    request<{ suggestions: MappingSuggestion[]; fromCache: boolean; cacheHit: boolean }>(
+      '/api/upload/mapping/suggest',
+      {
+        method: 'POST',
+        headers: withAuth(token),
+        body: JSON.stringify({ headers, sampleRows }),
+      }
+    ),
+
+  save: (
+    token: string,
+    rows: Record<string, string>[],
+    mapping: FieldMapping,
+    deliveryDate: string,
+    overwrite?: boolean
+  ) =>
+    request<{ insertedCount: number; totalRows: number; deliveryDate: string }>(
+      '/api/upload/save',
+      {
+        method: 'POST',
+        headers: withAuth(token),
+        body: JSON.stringify({ rows, mapping, deliveryDate, overwrite }),
+      }
+    ),
 };
 
 export const logApi = {

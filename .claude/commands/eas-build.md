@@ -1,6 +1,7 @@
-# EAS production Build
+# EAS Build
 
-local production 빌드를 실행합니다.
+사용자 입력을 받아 
+local, preview, production 빌드를 실행합니다.
 ios, android, all  선택 가능, all 인경우 병렬로 실행
 
 ## Android 빌드 사전 조건

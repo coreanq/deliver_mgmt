@@ -451,6 +451,18 @@ export default function AdminDashboardScreen() {
                   borderRadius: radius.lg,
                 },
               ]}
+              onPress={() => router.push('/(admin)/excel-upload')}
+            >
+              <Text style={styles.settingsIcon}>📊</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.settingsBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                  borderRadius: radius.lg,
+                },
+              ]}
               onPress={() => setShowSettings(true)}
             >
               <Text style={styles.settingsIcon}>⚙️</Text>
@@ -577,13 +589,22 @@ export default function AdminDashboardScreen() {
               배송 데이터가 없습니다
             </Text>
             <Pressable
-              onPress={() => Linking.openURL(WEB_URL)}
+              style={[
+                styles.emptyUploadBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.08)',
+                  borderColor: colors.primary,
+                  borderRadius: radius.xl,
+                },
+              ]}
+              onPress={() => router.push('/(admin)/excel-upload')}
             >
-              <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8, textDecorationLine: 'underline' }]}>
-                엑셀 업로드는 PC의 브라우저에서 진행하세요
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted, marginTop: 4, textAlign: 'center' }]}>
-                {WEB_URL}
+              <Text style={{ fontSize: 24 }}>📊</Text>
+              <Text style={[typography.button, { color: colors.primary }]}>엑셀 업로드</Text>
+            </Pressable>
+            <Pressable onPress={() => Linking.openURL(WEB_URL)}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginTop: 12 }]}>
+                PC 웹에서도 업로드 가능 ({WEB_URL})
               </Text>
             </Pressable>
           </Animated.View>
@@ -619,7 +640,7 @@ export default function AdminDashboardScreen() {
         )}
       </ScrollView>
 
-      {/* FAB */}
+      {/* QR 생성 FAB */}
       <Animated.View
         entering={FadeInUp.delay(400).duration(500)}
         style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}
@@ -865,9 +886,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+    marginTop: 20,
+    borderWidth: 1.5,
+  },
   fabContainer: {
     position: 'absolute',
     right: 20,
+    gap: 10,
+    alignItems: 'flex-end',
   },
   fab: {
     flexDirection: 'row',

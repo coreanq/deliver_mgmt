@@ -18,6 +18,7 @@ export default function AdminLayout() {
       <Stack.Screen name="login" options={{ animation: 'fade' }} />
       <Stack.Screen name="index" options={{ animation: 'fade' }} />
       <Stack.Screen name="qr-generate" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="excel-upload" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }
