@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useAuthStore } from '../stores/auth';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8787';
@@ -151,6 +152,11 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 px-4">
+      <Helmet>
+        <title>로그인 - 배매니저</title>
+        <meta name="description" content="배매니저 관리자 로그인. 이메일 매직링크로 간편하게 로그인하세요." />
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

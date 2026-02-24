@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /sms-template
+Disallow: /custom-fields
+
+Sitemap: https://delivermgmt.try-dabble.com/sitemap.xml
