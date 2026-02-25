@@ -1,135 +1,25 @@
-## 기본 
+## 기본 컨벤션
+- TypeScript strict, ESM, 함수형 스타일
+- 타입: `src/types/index.ts`
+- Frontend: `app/`, Backend: `workers/`
+- Expo SDK54, Reanimated 4.x (New Architecture)
+- Cloudflare Workers (wrangler 4+), AI Gateway BYOK (`cf-aig-auth`)
+- Domain: try-dabble.com
 
-- TypeScript strict 모드
-- ESM 모듈 사용
-- 타입은 `src/types/index.ts`에 정의
-- 함수형 프로그래밍 스타일 선호
-- 에러는 throw로 처리, 상위에서 catch
-- react Expo SDK54 버전에 우선 기준으로 package 구성
-- react-native 사용 시  Reanimated 4.x (New Architecture) + CSS animations 사용
-- Frontend는 app 폴더, Backend는 workers 폴더로 구성      
+## 코드 수정 룰
+- OCP: 기존 코드 수정 최소화, 확장으로 해결
+- ISP: 작은 인터페이스 선호
+- 수정한 코드의 주석도 함께 변경
+- 같은 기능 UI는 공용 컴포넌트 사용
+- 로그: 앱에서 POST로 원격 로깅 (wrangler tail용)
 
-# magic link 구현시 reeend api 사용 (RESEND_API_KEY) 사용 
-  - 테스트용 이메일 링크를 넣으면 바로 접속 될수 있도록 한다 2개 dev@test.com dev@example.com(worker 환경변수로)
-  - 매직링크는 cloudflare KV 사용(15분 TTL)
-  - 매직링크 재전송은 1분 제한 
-
-# 로그 출력
-  - worker 의 wrangler tail 을 사용하기 위해 앱에서는 Post 를 사ㅈ
-
-# EAS 사용시 
-- remote version incremental 
-- 버전 관리는 한곳에서 하도록 함 
-- simulator build 사용 안함 
-- eas.json 아래 추가 
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "channel": "development"
-    },
-    "preview": {
-      "distribution": "internal",
-      "autoIncrement": true,
-      "channel": "preview"
-    },
-    "production": {
-      "autoIncrement": true,
-      "channel": "production"
-    },
-    "submit": {
-      "production": {
-        "ios": {
-          "ascAppId": ""
-        }
-      }
-    }
-  }
-- OTA 를 위해서 반드시  expo-updates가 포함.
-
-# cloudflare
-- backend cloudflare worker 사용
-- AI api 호출 시 cloudflare ai gateway Universal Endpoint + BYOK 방식으로 수정 (cf-aig-auth 헤더 사용)
-- wrangler 4 이상 사용
-
-# 폴더 구조 
-  ├── app/                      # Frontend (Expo SDK 54)
-  │   ├── package.json
-  │   ├── app.json
-  │   ├── eas.json
-  │   ├── babel.config.js
-  │   ├── tsconfig.json
-  │   ├── app/                  # Expo Router 라우트
-  │   │   ├── _layout.tsx
-  │   ├── src/                  # 재사용 코드
-  │   └── assets/
-  │
-  └── workers/                  # Backend (Cloudflare Workers)
-      ├── package.json
-      ├── wrangler.toml
-      └── src/
-
-## 버전 관리
-
-> 상세 가이드: [docs/app-version-guide.md](./docs/app-version-guide.md)
-> - Worker 빌드 날짜 (wrangler.toml)
-> - 앱 빌드 날짜 (app.config.js)
-> - VersionInfo 컴포넌트 패턴
-
-# doamin
-- try-dabble.com
-
-# 계정 삭제 기능 (Account Deletion)
- - 계정 생성을 지원하는 앱은 앱 내에서 계정 삭제(탈퇴) 기능을 반드시 제공해야 합니다.
-
-# 개인정보 처리방침 및 이용약관 
-  - https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2 연결 
-
-# 고객 지원 
-  - https://periwinkle-foam-a5a.notion.site/2e10f396f35480c3a5a8c6e4bb1c27fc 연결 
-
-# 이미지 변경
-jpg -> png 변경시 ImageMgick 사용 
-
-
-## 코드 추가/수정 시 룰
-
-- 개방-폐쇄 원칙 (OCP: Open/Closed Principle)
-목표: 소프트웨어 엔티티(클래스, 모듈, 함수 등)는 확장에 대해서는 개방되어야 하지만, 수정에 대해서는 폐쇄되어야 합니다. 즉, 새로운 기능을 추가할 때 기존 코드를 수정하지 않아야 합니다.
-- 인터페이스 분리 원칙 (ISP: Interface Segregation Principle)
-목표: 클라이언트는 자신이 사용하지 않는 메서드에 의존해서는 안 됩니다. 즉, 하나의 거대한 인터페이스보다는 여러 개의 작은 인터페이스가 낫습니다.
-- 코드 수정 발생 시 코드 수정한 부분의 주석을 알맞게 변경한다.
-- 같은 기능을 하는 Ui 의 경우 공용 component 를 사용한다. 
-
-
-## 📊 진척도 추적 (필수 확인)
-
-> **Claude는 새 대화 시작 시 반드시 아래 문서를 확인하세요.**
-
-- **[진척도 체크리스트](./docs/progress-checklist.md)** - 현재 개발 진행 상태
-- 워크플로우: `/check-progress` 명령으로 상세 진척도 리포트 생성
-
-### 작업 시 규칙
-- 새 기능 구현 완료 시 체크리스트 업데이트 (`[ ]` → `[x]`)
-- 진행 중인 작업은 `[/]`로 표시
-- 진척률 테이블 갱신
-- Test 나 mockup 구조로 된 구현 경우 실제 구현을 해야된다고 리스트업
-
-### ⚠️ PRD 수정 시 필수 동기화
-> **prd.md가 수정되면 반드시 progress-checklist.md도 동기화해야 합니다.**
-
-1. PRD에 **새 기능 추가** → 체크리스트에 해당 항목 추가
-2. PRD에서 **기능 삭제** → 체크리스트에서 해당 항목 제거
-3. PRD **기능 변경** → 체크리스트 항목 내용 수정
-4. 동기화 후 진척률 테이블 재계산
-
----
+## 진척도 추적
+- 새 대화 시작 시 [진척도 체크리스트](./docs/progress-checklist.md) 확인
+- 기능 완료 시 체크리스트 업데이트 (`[ ]` → `[x]`), 진행중 `[/]`
+- PRD 수정 시 체크리스트 동기화 필수
+- Test/mockup 구현은 실제 구현 필요로 리스트업
 
 ## 참고 문서
-
-- [PRD](./docs/prd.md) - 전체 제품 요구사항
-- [진척도 체크리스트](./docs/progress-checklist.md) - 개발 진행 상태
-- [UI 스펙](./docs/ui-spec.md) - 화면 설계 및 컴포넌트
-- [버전 관리 가이드](./docs/app-version-guide.md) - Worker/앱 빌드 버전 관리
-- [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
-- [Claude API Docs](https://docs.anthropic.com/claude/reference/)
+- [PRD](./docs/prd.md)
+- [UI 스펙](./docs/ui-spec.md)
+- [셋업 레퍼런스](./docs/setup-reference.md) — EAS, Magic Link, 폴더 구조, 버전 관리, URL 등

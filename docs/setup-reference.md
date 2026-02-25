@@ -1,21 +1,85 @@
-# 버전 관리 가이드
+# 셋업 레퍼런스
+
+> 초기 셋업 및 구현 완료 스펙 참고용. 항시 참고할 룰은 [CLAUDE.md](../CLAUDE.md) 참조.
+
+---
+
+## Magic Link 구현
+
+- Resend API 사용 (RESEND_API_KEY)
+- 테스트용 이메일: `dev@test.com`, `dev@example.com` (worker 환경변수) — 링크 클릭 없이 바로 접속
+- 매직링크 저장: Cloudflare KV (15분 TTL)
+- 매직링크 재전송 제한: 1분
+
+## EAS 설정
+
+- Remote version incremental
+- 버전 관리는 한곳에서 관리
+- Simulator build 사용 안함
+- OTA를 위해 반드시 `expo-updates` 포함
+
+```json
+"build": {
+  "development": {
+    "developmentClient": true,
+    "distribution": "internal",
+    "channel": "development"
+  },
+  "preview": {
+    "distribution": "internal",
+    "autoIncrement": true,
+    "channel": "preview"
+  },
+  "production": {
+    "autoIncrement": true,
+    "channel": "production"
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": ""
+      }
+    }
+  }
+}
+```
+
+## 폴더 구조
+
+```
+├── app/                      # Frontend (Expo SDK 54)
+│   ├── package.json
+│   ├── app.json
+│   ├── eas.json
+│   ├── babel.config.js
+│   ├── tsconfig.json
+│   ├── app/                  # Expo Router 라우트
+│   │   ├── _layout.tsx
+│   ├── src/                  # 재사용 코드
+│   └── assets/
+│
+└── workers/                  # Backend (Cloudflare Workers)
+    ├── package.json
+    ├── wrangler.toml
+    └── src/
+```
+
+## 버전 관리 가이드
 
 앱과 서버의 빌드 버전을 관리하고 표시하는 방법
 
-## 버전 표시 형식
+### 버전 표시 형식
 
 ```
 App v1.0.0 (26/01/01 01:00)  ← Expo OTA 업데이트 시점 반영
 Server 26/01/01 00:38         ← Worker 배포 시점
 ```
 
----
-
-## 1. Worker 빌드 날짜 (wrangler.toml)
+### Worker 빌드 날짜 (wrangler.toml)
 
 Worker 배포 시 빌드 날짜를 자동으로 기록
 
-### wrangler.toml 설정
+**wrangler.toml 설정:**
 
 ```toml
 # 빌드 시 BUILD_DATE 자동 업데이트 + 웹 빌드 (macOS/Linux 호환)
@@ -28,7 +92,7 @@ BUILD_DATE = "25/01/01 00:00"  # placeholder (sed가 교체함)
 
 > **참고**: macOS(BSD sed)는 `-i ''`, Linux(GNU sed)는 `-i`를 사용하므로 `uname`으로 OS 판별
 
-### Worker에서 BUILD_DATE 반환
+**Worker에서 BUILD_DATE 반환:**
 
 ```typescript
 // /api/health 엔드포인트
@@ -40,13 +104,9 @@ app.get('/api/health', (c) => {
 });
 ```
 
----
-
-## 2. 앱 빌드 날짜 (app.config.js)
+### 앱 빌드 날짜 (app.config.js)
 
 동적 설정을 위해 `app.json` 대신 `app.config.js` 사용
-
-### app.config.js 기본 구조
 
 ```javascript
 const getBuildDate = () => {
@@ -81,9 +141,7 @@ export default {
 };
 ```
 
----
-
-## 3. 앱에서 버전 정보 읽기
+### 앱에서 버전 정보 읽기
 
 ```typescript
 import Constants from 'expo-constants';
@@ -109,9 +167,7 @@ const getUpdateDate = () => {
 };
 ```
 
----
-
-## 4. 서버 빌드 날짜 가져오기
+### 서버 빌드 날짜 가져오기
 
 ```typescript
 // /api/health 엔드포인트에서 서버 빌드 날짜 조회
@@ -122,19 +178,38 @@ const fetchServerBuildDate = async () => {
 };
 ```
 
----
-
-## 5. VersionInfo 공용 컴포넌트 패턴
+### VersionInfo 공용 컴포넌트 패턴
 
 `src/components/VersionInfo.tsx`에 재사용 가능한 컴포넌트 생성:
 - 앱 버전 + OTA 업데이트 날짜 표시
 - 서버 빌드 날짜 표시 (API 호출)
 - 모든 화면 하단에 동일하게 사용
 
----
-
-## 주의사항
+### 주의사항
 
 - `expo-constants`, `expo-updates` 패키지 필수 설치
 - OTA 업데이트는 `runtimeVersion`이 동일한 빌드에만 적용
 - 스플래시, 아이콘 등 네이티브 변경은 새 빌드 필요 (OTA 불가)
+
+---
+
+## URL / 링크
+
+| 항목 | URL |
+|------|-----|
+| 개인정보 처리방침 | https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2 |
+| 고객 지원 | https://periwinkle-foam-a5a.notion.site/2e10f396f35480c3a5a8c6e4bb1c27fc |
+
+## 계정 삭제 기능 (Account Deletion)
+
+- 계정 생성을 지원하는 앱은 앱 내에서 계정 삭제(탈퇴) 기능을 반드시 제공해야 합니다.
+
+## 이미지 변환
+
+- jpg → png 변환 시 ImageMagick 사용
+
+## Cloudflare 상세
+
+- Backend: Cloudflare Workers
+- AI API 호출: Cloudflare AI Gateway Universal Endpoint + BYOK 방식 (`cf-aig-auth` 헤더 사용)
+- wrangler 4 이상 사용
