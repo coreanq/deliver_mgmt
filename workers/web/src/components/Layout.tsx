@@ -80,12 +80,20 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
             <a
-              href="https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2"
+              href="https://try-dabble.com/privacy"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
             >
               개인정보 처리방침
+            </a>
+            <a
+              href="https://try-dabble.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+            >
+              이용약관
             </a>
             <a
               href="https://periwinkle-foam-a5a.notion.site/2e10f396f35480c3a5a8c6e4bb1c27fc"

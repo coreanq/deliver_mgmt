@@ -571,12 +571,21 @@ export default function Landing() {
               </a>
               <span className="text-gray-300">|</span>
               <a
-                href="https://periwinkle-foam-a5a.notion.site/2e10f396f354808b85f6dcce7412a3c2"
+                href="https://try-dabble.com/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-violet-600 transition-colors"
               >
                 개인정보 처리방침
+              </a>
+              <span className="text-gray-300">|</span>
+              <a
+                href="https://try-dabble.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-violet-600 transition-colors"
+              >
+                이용약관
               </a>
               <span className="text-gray-300">|</span>
               <a
